@@ -9,4 +9,6 @@
   ### TODO
   1. heart beat
   2. identification
+  3. serialization: JSON/XML, protobuf, flatBuffers
+  4. database: redis + postgresql
 ---
