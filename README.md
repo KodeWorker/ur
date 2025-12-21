@@ -3,6 +3,7 @@
 ## Dependencies
 1. raylib
 2. enet
+3. flatbuffers
 
 ## Instructions
 

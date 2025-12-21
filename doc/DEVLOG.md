@@ -1,3 +1,16 @@
+## LOG-2025-12-22
+  ###
+  - Author: kodeworker
+  - Date: 2025-12-20
+  ### DONE
+  1. flatbuffers study
+  2. flatbuffers integration with CMake
+  ### TODO
+  1. flatbuffers demo
+  2. heart beat
+  3. identification
+  4. database: redis + postgresql
+---
 ## LOG-2025-12-20
   ###
   - Author: kodeworker

@@ -22,11 +22,14 @@ if(UNIX AND NOT APPLE)
     set(CMAKE_INSTALL_RPATH "$ORIGIN")
 endif()
 
+# ----------------------------------------------------------------              
+# 1. Dependencies
+# ----------------------------------------------------------------
 include(FetchContent)
 
-# ----------------------------------------------------------------              
-# 1. ENET (Game Networking)
-# ----------------------------------------------------------------
+    # ------------------------------------------------------------
+    # 1. ENET (Networking - Static)
+    # ------------------------------------------------------------
 FetchContent_Declare(
   enet
   GIT_REPOSITORY https://github.com/lsalzman/enet.git
@@ -34,9 +37,9 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(enet)
 
-# ----------------------------------------------------------------
-# 2. RAYLIB (Graphics - Shared/Dynamic)
-# ----------------------------------------------------------------
+    # ------------------------------------------------------------
+    # 2. RAYLIB (Graphics - Shared/Dynamic)
+    # ------------------------------------------------------------
 FetchContent_Declare(
   raylib
   GIT_REPOSITORY https://github.com/raysan5/raylib.git
@@ -46,20 +49,59 @@ set(LIBTYPE SHARED CACHE STRING "" FORCE)
 set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(raylib)
 
+    # ------------------------------------------------------------
+    # 3. FlatBuffers (Data Serialization)
+    # ------------------------------------------------------------
+FetchContent_Declare(
+  flatbuffers
+  GIT_REPOSITORY https://github.com/google/flatbuffers.git
+  GIT_TAG        v25.12.19
+)
+set(FLATBUFFERS_BUILD_TESTS OFF CACHE INTERNAL "")
+set(FLATBUFFERS_INSTALL OFF CACHE INTERNAL "")
+FetchContent_MakeAvailable(flatbuffers)
+
+# ----------------------------------------------------------------
+# 2. Generate FlatBuffers Code
+# ----------------------------------------------------------------
+
+file(GLOB_RECURSE FLAT_BUFFERS ${CMAKE_SOURCE_DIR}/src/fbs/*.fbs)
+set(GENERATED_FBS_HEADERS "")
+
+foreach(BUFFER ${FLAT_BUFFERS})
+    get_filename_component(FILENAME_WE ${BUFFER} NAME_WE)
+    message(STATUS "Configuring FlatBuffer: ${FILENAME_WE}")
+    add_custom_command(
+        OUTPUT "${CMAKE_SOURCE_DIR}/src/fbs/${FILENAME_WE}_generated.h"
+        COMMAND 
+            flatc --cpp -o 
+            "${CMAKE_SOURCE_DIR}/src/fbs" ${BUFFER}
+        DEPENDS flatc ${BUFFER}
+        COMMENT "Generating FlatBuffers ${FILENAME_WE}..."
+        VERBATIM
+    )
+    list(APPEND GENERATED_FBS_HEADERS "${CMAKE_SOURCE_DIR}/src/fbs/${FILENAME_WE}_generated.h")
+endforeach()
+
 # ----------------------------------------------------------------
 # 3. DEFINE TARGETS
 # ----------------------------------------------------------------
 
-# CLIENT: Graphics + Networking
-add_executable(game_client src/client/main.cpp)
-target_link_libraries(game_client PRIVATE raylib enet)
-target_include_directories(game_client PRIVATE ${enet_SOURCE_DIR}/include)
+add_custom_target(generate_fbs DEPENDS ${GENERATED_FBS_HEADERS})
 
+# CLIENT: Graphics + Networking
+add_executable(game_client src/client/main.cpp ${GENERATED_FBS_HEADERS})
+add_dependencies(game_client generate_fbs)
+target_link_libraries(game_client PRIVATE raylib enet flatbuffers)
+target_include_directories(game_client PRIVATE ${enet_SOURCE_DIR}/include)
+target_include_directories(game_client PRIVATE ${CMAKE_SOURCE_DIR}/src/fbs)
 
 # SERVER: Networking only
-add_executable(game_server src/server/main.cpp)
-target_link_libraries(game_server PRIVATE enet)
+add_executable(game_server src/server/main.cpp ${GENERATED_FBS_HEADERS})
+add_dependencies(game_server generate_fbs)
+target_link_libraries(game_server PRIVATE enet flatbuffers)
 target_include_directories(game_server PRIVATE ${enet_SOURCE_DIR}/include)
+target_include_directories(game_server PRIVATE ${CMAKE_SOURCE_DIR}/src/fbs)
 
 # ----------------------------------------------------------------
 # 4. OS-SPECIFIC LINKING & DLL COPYING

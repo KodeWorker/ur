@@ -2,6 +2,10 @@
 #include <raylib.h>
 #include <iostream>
 #include <string>
+#include <flatbuffers/flatbuffers.h>
+#include "player_generated.h"
+
+using namespace Ur::Player;
 
 // Define the different screens/states of our game
 typedef enum GameScreen { MENU, CONNECT, GAME, OPTIONS } GameScreen;

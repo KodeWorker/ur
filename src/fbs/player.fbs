@@ -1,0 +1,16 @@
+namespace Ur.Player;
+
+table Pos2D {
+  x:float;
+  y:float;
+}
+
+table Player {
+  id:uint;
+  name:string;
+  hp:short;
+  mp:short;
+  pos:Pos2D;
+}
+
+root_type Player;

@@ -1,6 +1,10 @@
 #include <enet/enet.h>
 #include <iostream>
 #include <string>
+#include <flatbuffers/flatbuffers.h>
+#include "player_generated.h"
+
+using namespace Ur::Player;
 
 int main() {
     if (enet_initialize() != 0) {
