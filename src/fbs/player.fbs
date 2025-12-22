@@ -1,4 +1,4 @@
-namespace Ur.Player;
+namespace ur.fbs;
 
 table Pos2D {
   x:float;

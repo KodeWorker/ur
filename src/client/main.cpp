@@ -5,7 +5,7 @@
 #include <flatbuffers/flatbuffers.h>
 #include "player_generated.h"
 
-using namespace Ur::Player;
+using namespace ur::fbs;
 
 // Define the different screens/states of our game
 typedef enum GameScreen { MENU, CONNECT, GAME, OPTIONS } GameScreen;
