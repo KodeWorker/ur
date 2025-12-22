@@ -53,7 +53,6 @@ int main() {
     ENetPeer* peer = nullptr;
     
     bool isConnected = false;
-    std::string log = "";
 
     // --- Main Loop ---
     while (!WindowShouldClose() && !shouldQuit) {
@@ -153,17 +152,14 @@ int main() {
             while (enet_host_service(client, &event, 0) > 0) {
                 switch (event.type) {
                     case ENET_EVENT_TYPE_CONNECT:
-                        log = "Connected to Server!";
                         isConnected = true;
                         TraceLog(LOG_INFO, "Successfully connected to server");
                         break;
                     case ENET_EVENT_TYPE_RECEIVE:
-                        log = "Received data from server";
                         TraceLog(LOG_INFO, "Received %d bytes from server", event.packet->dataLength);
                         enet_packet_destroy(event.packet);
                         break;
                     case ENET_EVENT_TYPE_DISCONNECT:
-                        log = "Disconnected.";
                         isConnected = false;
                         peer = nullptr;
                         currentScreen = MENU;
@@ -178,7 +174,6 @@ int main() {
                     std::string msg = "Hello Server!";
                     ENetPacket* packet = enet_packet_create(msg.c_str(), msg.length() + 1, ENET_PACKET_FLAG_RELIABLE);
                     enet_peer_send(peer, 0, packet);
-                    log = "Packet Sent!";
                     TraceLog(LOG_INFO, "Sent packet: %s", msg.c_str());
                 }
             } else if (IsKeyPressed(KEY_ESCAPE)) {
