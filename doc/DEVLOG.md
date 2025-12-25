@@ -3,12 +3,13 @@
   - Author: kodeworker
   - Date: 2025-12-25
   ### DONE
-  1. server handshake
+  1. server handshake/identification
+  2. client fbs implementation
   ### TODO
-  1. flatbuffers demo
+  1. player info transfer
   2. heart beat
-  3. identification
-  4. database: redis + postgresql
+  3. database: redis + postgresql
+  4. code refector
 ---
 ## LOG-2025-12-22
   ###

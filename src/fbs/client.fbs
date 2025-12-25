@@ -1,0 +1,18 @@
+namespace ur.fbs;
+
+enum Status: byte {
+DISCONNECTED = 0,
+CONNECTED,
+AUTHENTICATED_SUCCESS,
+AUTHENTICATED_FAIL
+}
+
+
+table Client{
+    id:uint;
+    username:string;
+    password:string;
+    status:Status=DISCONNECTED;
+}
+
+root_type Client;

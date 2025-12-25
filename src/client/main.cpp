@@ -3,6 +3,7 @@
 #include <raylib.h>
 #include <enet/enet.h>
 #include <flatbuffers/flatbuffers.h>
+#include "client_generated.h"
 #include "player_generated.h"
 
 using namespace ur::fbs;
@@ -14,6 +15,20 @@ void SendMessage(ENetPeer* peer, const std::string& message) {
     ENetPacket* packet = enet_packet_create(message.c_str(), message.length() + 1, ENET_PACKET_FLAG_RELIABLE);
     enet_peer_send(peer, 0, packet);
     TraceLog(LOG_INFO, "Sent packet: %s", message.c_str());
+}
+
+void SendClient(ENetPeer* peer, const std::string& username, const std::string& password) {
+    flatbuffers::FlatBufferBuilder builder;
+
+    auto usernameOffset = builder.CreateString(username);
+    auto passwordOffset = builder.CreateString(password);
+
+    auto client = CreateClient(builder, 0, usernameOffset, passwordOffset); // id = 0 for new client
+    builder.Finish(client);
+
+    ENetPacket* packet = enet_packet_create(builder.GetBufferPointer(), builder.GetSize(), ENET_PACKET_FLAG_RELIABLE);
+    enet_peer_send(peer, 0, packet);
+    TraceLog(LOG_INFO, "Sent Client FlatBuffer packet for user: %s", username.c_str());
 }
 
 int main() {
@@ -132,7 +147,7 @@ int main() {
                     // Timeout for connection attempt
                     if (enet_host_service(client, &event, 5000) > 0 && 
                         event.type == ENET_EVENT_TYPE_CONNECT) {
-                            SendMessage(peer, "LOGIN " + std::string(usernameInput) + " " + std::string(passwordInput));
+                            SendClient(peer, usernameInput, passwordInput);
                             currentScreen = GAME;
                             isConnected = true;
                     } else {
@@ -159,10 +174,30 @@ int main() {
                         isConnected = true;
                         TraceLog(LOG_INFO, "Successfully connected to server");
                         break;
-                    case ENET_EVENT_TYPE_RECEIVE:
-                        TraceLog(LOG_INFO, "Received %d bytes from server", event.packet->dataLength);
+                    case ENET_EVENT_TYPE_RECEIVE: {
+                        auto client = GetClient(event.packet->data);                        
+                        // Verify the flatbuffer
+                        flatbuffers::Verifier verifier(event.packet->data, event.packet->dataLength);
+                        if (!client->Verify(verifier)) {
+                            std::cerr << "Invalid flatbuffer received" << std::endl;
+                        }
+                        else{
+                            if(client->status() == Status::Status_AUTHENTICATED_SUCCESS) {
+                                TraceLog(LOG_INFO, "Authenticated by server as user: %s with ID: %d", 
+                                        client->username()->c_str(), client->id());
+                            } else if(client->status() == Status::Status_AUTHENTICATED_FAIL) {
+                                enet_peer_disconnect(peer, 0);
+                                isConnected = false;
+                                peer = nullptr;
+                                currentScreen = CONNECT;
+                                TraceLog(LOG_WARNING, "Authentication failed for user: %s", client->username()->c_str());
+                            } else {
+                                TraceLog(LOG_INFO, "Received message from server for user: %s", client->username()->c_str());
+                            }
+                        }
                         enet_packet_destroy(event.packet);
                         break;
+                    }
                     case ENET_EVENT_TYPE_DISCONNECT:
                         isConnected = false;
                         peer = nullptr;
