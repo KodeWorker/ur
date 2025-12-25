@@ -22,7 +22,7 @@ if(UNIX AND NOT APPLE)
     set(CMAKE_INSTALL_RPATH "$ORIGIN")
 endif()
 
-# ----------------------------------------------------------------              
+# ----------------------------------------------------------------
 # 1. Dependencies
 # ----------------------------------------------------------------
 include(FetchContent)
@@ -73,8 +73,8 @@ foreach(BUFFER ${FLAT_BUFFERS})
     message(STATUS "Configuring FlatBuffer: ${FILENAME_WE}")
     add_custom_command(
         OUTPUT "${CMAKE_SOURCE_DIR}/src/fbs/${FILENAME_WE}_generated.h"
-        COMMAND 
-            flatc --cpp -o 
+        COMMAND
+            flatc --cpp -o
             "${CMAKE_SOURCE_DIR}/src/fbs" ${BUFFER}
         DEPENDS flatc ${BUFFER}
         COMMENT "Generating FlatBuffers ${FILENAME_WE}..."
@@ -110,14 +110,14 @@ if(WIN32)
     # Windows networking/system requirements
     target_link_libraries(game_client PRIVATE ws2_32 winmm gdi32 opengl32 shell32)
     target_link_libraries(game_server PRIVATE ws2_32 winmm)
-    
+
     # Automatically copy raylib.dll to the exe folder
     add_custom_command(TARGET game_client POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
         $<TARGET_FILE:raylib>
         $<TARGET_FILE_DIR:game_client>
     )
-    # Note: ENet usually compiles as a static object into your project 
+    # Note: ENet usually compiles as a static object into your project
     # even in dynamic mode because it's so small, but you can force it if needed.
 else()
     # Linux requirements
