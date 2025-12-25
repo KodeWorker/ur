@@ -1,7 +1,7 @@
-#include <enet/enet.h>
-#include <raylib.h>
 #include <iostream>
 #include <string>
+#include <raylib.h>
+#include <enet/enet.h>
 #include <flatbuffers/flatbuffers.h>
 #include "player_generated.h"
 
@@ -9,6 +9,12 @@ using namespace ur::fbs;
 
 // Define the different screens/states of our game
 typedef enum GameScreen { MENU, CONNECT, GAME, OPTIONS } GameScreen;
+
+void SendMessage(ENetPeer* peer, const std::string& message) {
+    ENetPacket* packet = enet_packet_create(message.c_str(), message.length() + 1, ENET_PACKET_FLAG_RELIABLE);
+    enet_peer_send(peer, 0, packet);
+    TraceLog(LOG_INFO, "Sent packet: %s", message.c_str());
+}
 
 int main() {
     // --- Raylib Setup ---    
@@ -126,9 +132,7 @@ int main() {
                     // Timeout for connection attempt
                     if (enet_host_service(client, &event, 5000) > 0 && 
                         event.type == ENET_EVENT_TYPE_CONNECT) {
-                            std::string msg = "LOGIN " + std::string(usernameInput) + " " + std::string(passwordInput);
-                            ENetPacket* packet = enet_packet_create(msg.c_str(), msg.length() + 1, ENET_PACKET_FLAG_RELIABLE);
-                            enet_peer_send(peer, 0, packet);
+                            SendMessage(peer, "LOGIN " + std::string(usernameInput) + " " + std::string(passwordInput));
                             currentScreen = GAME;
                             isConnected = true;
                     } else {
@@ -171,10 +175,7 @@ int main() {
             // 2. Input
             if (IsKeyPressed(KEY_SPACE)) {
                 if (isConnected && peer != nullptr) {
-                    std::string msg = "Hello Server!";
-                    ENetPacket* packet = enet_packet_create(msg.c_str(), msg.length() + 1, ENET_PACKET_FLAG_RELIABLE);
-                    enet_peer_send(peer, 0, packet);
-                    TraceLog(LOG_INFO, "Sent packet: %s", msg.c_str());
+                    SendMessage(peer, "Hello Server!");
                 }
             } else if (IsKeyPressed(KEY_ESCAPE)) {
                 if (isConnected && peer != nullptr) {

@@ -1,6 +1,18 @@
 ## LOG-2025-12-22
   ###
   - Author: kodeworker
+  - Date: 2025-12-25
+  ### DONE
+  1. server handshake
+  ### TODO
+  1. flatbuffers demo
+  2. heart beat
+  3. identification
+  4. database: redis + postgresql
+---
+## LOG-2025-12-22
+  ###
+  - Author: kodeworker
   - Date: 2025-12-20
   ### DONE
   1. flatbuffers study
