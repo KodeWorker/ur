@@ -5,6 +5,7 @@
   ### DONE
   1. server handshake/identification
   2. client fbs implementation
+  3. enable pre-commit
   ### TODO
   1. player info transfer
   2. heart beat
