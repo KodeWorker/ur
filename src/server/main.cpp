@@ -108,8 +108,7 @@ int main() {
                                                     builder.GetSize(),
                                                     ENET_PACKET_FLAG_RELIABLE);
             enet_peer_send(event.peer, 0, packet);
-            // force disconnect after sending failure
-            enet_peer_disconnect(event.peer, 0);
+            event.peer->data = (void *)PeerState::DISCONNECTED;
             std::cout << "Client failed to authenticate." << std::endl;
           }
         } else if ((PeerState)(uintptr_t)event.peer->data ==
@@ -125,12 +124,12 @@ int main() {
         std::cout << "Client disconnected." << std::endl;
         {
           std::unique_lock lock(peersMutex);
+          enet_peer_disconnect(event.peer, 0);
           auto it = connectedPeers.find(event.peer);
           if (it != connectedPeers.end()) {
             connectedPeers.erase(it);
           }
         }
-        event.peer->data = (void *)PeerState::DISCONNECTED;
         break;
       }
     }

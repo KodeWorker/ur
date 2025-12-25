@@ -6,11 +6,11 @@
   1. server handshake/identification
   2. client fbs implementation
   3. enable pre-commit
+  4. heart beat
   ### TODO
   1. player info transfer
-  2. heart beat
+  2. code refector
   3. database: redis + postgresql
-  4. code refector
 ---
 ## LOG-2025-12-22
   ###

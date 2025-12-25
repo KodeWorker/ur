@@ -9,7 +9,7 @@
 using namespace ur::fbs;
 
 // Define the different screens/states of our game
-typedef enum GameScreen { MENU, CONNECT, GAME, OPTIONS } GameScreen;
+typedef enum GameScreen { MENU, CONNECT, GAME, OPTIONS, WARNING } GameScreen;
 
 void SendMessage(ENetPeer *peer, const std::string &message) {
   ENetPacket *packet = enet_packet_create(message.c_str(), message.length() + 1,
@@ -62,6 +62,9 @@ int main() {
   int activeField = -1; // -1: none, 0: host, 1: username, 2: password
   const int port = 9487;
 
+  // Warning message
+  std::string warningMessage = "";
+
   Rectangle hostBox = {screenWidth / 2 - 150, 120, 300, 40};
   Rectangle usernameBox = {screenWidth / 2 - 150, 180, 300, 40};
   Rectangle passwordBox = {screenWidth / 2 - 150, 240, 300, 40};
@@ -78,8 +81,6 @@ int main() {
   ENetAddress address;
   ENetEvent event;
   ENetPeer *peer = nullptr;
-
-  bool isConnected = false;
 
   // --- Main Loop ---
   while (!WindowShouldClose() && !shouldQuit) {
@@ -162,11 +163,14 @@ int main() {
           if (enet_host_service(client, &event, 5000) > 0 &&
               event.type == ENET_EVENT_TYPE_CONNECT) {
             SendClient(peer, usernameInput, passwordInput);
+            enet_peer_ping_interval(peer, 5000); // heartbeat every 5 seconds
             currentScreen = GAME;
-            isConnected = true;
           } else {
             // Either 5 seconds passed or we got a DISCONNECT event
             enet_peer_reset(peer);
+            peer = nullptr;
+            warningMessage = "Connection failed - timeout";
+            currentScreen = WARNING;
             TraceLog(LOG_WARNING, "Connection failed to %s:%d", hostInput,
                      port);
           }
@@ -186,40 +190,41 @@ int main() {
       while (enet_host_service(client, &event, 0) > 0) {
         switch (event.type) {
         case ENET_EVENT_TYPE_CONNECT:
-          isConnected = true;
           TraceLog(LOG_INFO, "Successfully connected to server");
           break;
         case ENET_EVENT_TYPE_RECEIVE: {
-          auto client = GetClient(event.packet->data);
+          auto fbsClient = GetClient(event.packet->data);
           // Verify the flatbuffer
           flatbuffers::Verifier verifier(event.packet->data,
                                          event.packet->dataLength);
-          if (!client->Verify(verifier)) {
+          if (!fbsClient->Verify(verifier)) {
             std::cerr << "Invalid flatbuffer received" << std::endl;
           } else {
-            if (client->status() == Status::Status_AUTHENTICATED_SUCCESS) {
+            if (fbsClient->status() == Status::Status_AUTHENTICATED_SUCCESS) {
               TraceLog(LOG_INFO,
                        "Authenticated by server as user: %s with ID: %d",
-                       client->username()->c_str(), client->id());
-            } else if (client->status() == Status::Status_AUTHENTICATED_FAIL) {
-              enet_peer_disconnect(peer, 0);
-              isConnected = false;
+                       fbsClient->username()->c_str(), fbsClient->id());
+            } else if (fbsClient->status() ==
+                       Status::Status_AUTHENTICATED_FAIL) {
+              enet_peer_disconnect(event.peer, 0);
+              enet_peer_reset(peer);
               peer = nullptr;
-              currentScreen = CONNECT;
+              warningMessage = "Authentication failed";
+              currentScreen = WARNING;
               TraceLog(LOG_WARNING, "Authentication failed for user: %s",
-                       client->username()->c_str());
+                       fbsClient->username()->c_str());
             } else {
               TraceLog(LOG_INFO, "Received message from server for user: %s",
-                       client->username()->c_str());
+                       fbsClient->username()->c_str());
             }
           }
           enet_packet_destroy(event.packet);
           break;
         }
         case ENET_EVENT_TYPE_DISCONNECT:
-          isConnected = false;
           peer = nullptr;
-          currentScreen = MENU;
+          warningMessage = "Disconnected from server";
+          currentScreen = WARNING;
           TraceLog(LOG_WARNING, "Disconnected from server");
           break;
         }
@@ -227,24 +232,24 @@ int main() {
 
       // 2. Input
       if (IsKeyPressed(KEY_SPACE)) {
-        if (isConnected && peer != nullptr) {
+        if (peer != nullptr) {
           SendMessage(peer, "Hello Server!");
         }
       } else if (IsKeyPressed(KEY_ESCAPE)) {
-        if (isConnected && peer != nullptr) {
+        if (peer != nullptr) {
           enet_peer_disconnect(peer, 0);
           enet_peer_reset(peer);
           peer = nullptr;
           TraceLog(LOG_INFO, "Disconnecting from server...");
         }
-        isConnected = false;
         currentScreen = MENU;
       }
 
     } else {
       // Logic to return to menu from other screens
-      if (IsKeyPressed(KEY_ESCAPE))
+      if (IsKeyPressed(KEY_ESCAPE)) {
         currentScreen = MENU;
+      }
     }
 
     // Rendering
@@ -326,12 +331,16 @@ int main() {
                                     ? LIGHTGRAY
                                     : GRAY);
       DrawText("BACK", btnBack.x + 70, btnBack.y + 15, 20, BLACK);
+    } else if (currentScreen == WARNING) {
+      DrawText("WARNING", 20, 20, 40, DARKBLUE);
+      DrawText(warningMessage.c_str(), 20, 80, 20, RED);
+      DrawText("Press ESC to return to Menu", 20, 140, 20, DARKGRAY);
     }
     EndDrawing();
   }
 
   // Cleanup
-  if (isConnected && peer != nullptr) {
+  if (peer != nullptr) {
     enet_peer_disconnect(peer, 0);
   }
   if (client != nullptr) {

@@ -7,7 +7,6 @@ AUTHENTICATED_SUCCESS,
 AUTHENTICATED_FAIL
 }
 
-
 table Client{
     id:uint;
     username:string;
