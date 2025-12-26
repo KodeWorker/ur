@@ -29,8 +29,7 @@ void Game::Logic(const Vector2 &mousePoint, ENetElements &enetElements,
                    fbsClient->username()->c_str(), fbsClient->id());
         } else if (fbsClient->status() ==
                    ur::fbs::Status::Status_AUTHENTICATED_FAIL) {
-          enet_peer_disconnect(enetElements.peer, 0);
-          enet_peer_reset(enetElements.peer);
+          enet_peer_disconnect_now(enetElements.peer, 0);
           enetElements.peer = nullptr;
           enetElements.warningMessage = "Authentication failed";
           currentScreen = WARNING;
@@ -62,8 +61,7 @@ void Game::Logic(const Vector2 &mousePoint, ENetElements &enetElements,
     }
   } else if (IsKeyPressed(KEY_ESCAPE)) {
     if (enetElements.peer != nullptr) {
-      enet_peer_disconnect(enetElements.peer, 0);
-      enet_peer_reset(enetElements.peer);
+      enet_peer_disconnect_now(enetElements.peer, 0);
       enetElements.peer = nullptr;
       TraceLog(LOG_INFO, "Disconnecting from server...");
     }

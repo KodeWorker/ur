@@ -123,17 +123,18 @@ int main() {
         enet_packet_destroy(event.packet);
         break;
 
-      case ENET_EVENT_TYPE_DISCONNECT:
-        std::cout << "Client disconnected." << std::endl;
-        {
-          std::unique_lock lock(peersMutex);
-          enet_peer_disconnect(event.peer, 0);
-          auto it = connectedPeers.find(event.peer);
-          if (it != connectedPeers.end()) {
-            connectedPeers.erase(it);
-          }
+      case ENET_EVENT_TYPE_DISCONNECT: {
+        std::unique_lock lock(peersMutex);
+        auto it = connectedPeers.find(event.peer);
+        if (it != connectedPeers.end()) {
+          std::cout << "Client id [" << it->second << "] disconnected."
+                    << std::endl;
+          connectedPeers.erase(it);
+        } else {
+          std::cout << "Client disconnected." << std::endl;
         }
-        break;
+        event.peer->data = nullptr;
+      } break;
       }
     }
   }

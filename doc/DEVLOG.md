@@ -9,8 +9,8 @@
   4. heart beat
   5. code refactor pt1 - client function encapsulation
   ### TODO
-  1. player info transfer
-  2. code refactor
+  1. code refactor pt2 - server function encapsulation
+  2. player info transfer
   3. database: redis + postgresql
 ---
 ## LOG-2025-12-22
