@@ -7,9 +7,10 @@
   2. client fbs implementation
   3. enable pre-commit
   4. heart beat
+  5. code refactor pt1 - client function encapsulation
   ### TODO
   1. player info transfer
-  2. code refector
+  2. code refactor
   3. database: redis + postgresql
 ---
 ## LOG-2025-12-22
