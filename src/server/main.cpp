@@ -41,6 +41,7 @@ int main() {
   std::cout << "Server started on port " << address.port << std::endl;
   std::unordered_map<ENetPeer *, uint32_t> connectedPeers;
   std::shared_mutex peersMutex;
+  uint32_t connectedClients = 0; // Start client IDs from 0
 
   ENetEvent event;
   while (true) {
@@ -51,7 +52,9 @@ int main() {
         char hostIP[16];
         enet_address_get_host_ip(&event.peer->address, hostIP, sizeof(hostIP));
         std::cout << "A new client connected from " << hostIP << ":"
-                  << event.peer->address.port << std::endl;
+                  << std::to_string(
+                         ENET_NET_TO_HOST_16(event.peer->address.port))
+                  << std::endl;
         event.peer->data = (void *)PeerState::CONNECTED;
         break;
       }
@@ -77,7 +80,7 @@ int main() {
             uint32_t clientId;
             {
               std::unique_lock lock(peersMutex);
-              clientId = connectedPeers.size() + 1; // 0 reserved for server
+              clientId = ++connectedClients; // 0 reserved for server
               connectedPeers[event.peer] = clientId;
             }
 
@@ -114,8 +117,8 @@ int main() {
         } else if ((PeerState)(uintptr_t)event.peer->data ==
                    PeerState::AUTHENTICATED) {
           std::string receivedMessage((char *)event.packet->data);
-          std::cout << "Authenticated client says: " << receivedMessage
-                    << std::endl;
+          std::cout << "Authenticated client id [" << connectedPeers[event.peer]
+                    << "] says: " << receivedMessage << std::endl;
         }
         enet_packet_destroy(event.packet);
         break;
