@@ -206,7 +206,7 @@ int main() {
                        fbsClient->username()->c_str(), fbsClient->id());
             } else if (fbsClient->status() ==
                        Status::Status_AUTHENTICATED_FAIL) {
-              enet_peer_disconnect(event.peer, 0);
+              enet_peer_disconnect(peer, 0);
               enet_peer_reset(peer);
               peer = nullptr;
               warningMessage = "Authentication failed";
