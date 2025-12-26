@@ -90,18 +90,20 @@ endforeach()
 add_custom_target(generate_fbs DEPENDS ${GENERATED_FBS_HEADERS})
 
 # CLIENT: Graphics + Networking
-add_executable(game_client src/client/main.cpp ${GENERATED_FBS_HEADERS})
+file(GLOB_RECURSE CLIENT_SRC src/client/*.cpp )
+add_executable(game_client ${CLIENT_SRC} ${GENERATED_FBS_HEADERS})
 add_dependencies(game_client generate_fbs)
 target_link_libraries(game_client PRIVATE raylib enet flatbuffers)
 target_include_directories(game_client PRIVATE ${enet_SOURCE_DIR}/include)
-target_include_directories(game_client PRIVATE ${CMAKE_SOURCE_DIR}/src/fbs)
+target_include_directories(game_client PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
 # SERVER: Networking only
-add_executable(game_server src/server/main.cpp ${GENERATED_FBS_HEADERS})
+file(GLOB_RECURSE SERVER_SRC src/server/*.cpp )
+add_executable(game_server ${SERVER_SRC} ${GENERATED_FBS_HEADERS})
 add_dependencies(game_server generate_fbs)
 target_link_libraries(game_server PRIVATE enet flatbuffers)
 target_include_directories(game_server PRIVATE ${enet_SOURCE_DIR}/include)
-target_include_directories(game_server PRIVATE ${CMAKE_SOURCE_DIR}/src/fbs)
+target_include_directories(game_server PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
 # ----------------------------------------------------------------
 # 4. OS-SPECIFIC LINKING & DLL COPYING

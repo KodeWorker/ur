@@ -1,5 +1,5 @@
-#include "client_generated.h"
-#include "player_generated.h"
+#include "fbs/client_generated.h"
+#include "fbs/player_generated.h"
 #include <enet/enet.h>
 #include <flatbuffers/flatbuffers.h>
 #include <iostream>
