@@ -45,8 +45,8 @@ int main() {
 
   ENetEvent event;
   while (true) {
-    // Wait up to 1000ms for an event
-    while (enet_host_service(server, &event, 1000) > 0) {
+    // Wait up to 10ms for an event
+    while (enet_host_service(server, &event, 10) > 0) {
       switch (event.type) {
       case ENET_EVENT_TYPE_CONNECT: {
         char hostIP[16];
