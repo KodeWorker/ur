@@ -8,7 +8,18 @@
 #include <string>
 #include <unordered_map>
 
+enum PeerState { CONNECTED, AUTHENTICATED, DISCONNECTED };
+
 using namespace ur::fbs;
+
+void ClientConnected(ENetEvent &event) {
+  char hostIP[16];
+  enet_address_get_host_ip(&event.peer->address, hostIP, sizeof(hostIP));
+  std::cout << "Client connected from " << hostIP << ":"
+            << std::to_string(ENET_NET_TO_HOST_16(event.peer->address.port))
+            << std::endl;
+  event.peer->data = (void *)PeerState::CONNECTED;
+}
 
 bool AuthenticateClient(const std::string &username,
                         const std::string &password) {
@@ -16,9 +27,74 @@ bool AuthenticateClient(const std::string &username,
   return (username == "user" && password == "pass");
 }
 
-int main() {
+void GameLogin(ENetEvent &event,
+               std::unordered_map<ENetPeer *, uint32_t> &connectedPeers,
+               std::shared_mutex &peersMutex, uint32_t &connectedClients) {
+  // Parse flatbuffer Client object from enet packet
+  auto client = GetClient(event.packet->data);
 
-  enum PeerState { CONNECTED, AUTHENTICATED, DISCONNECTED };
+  // Verify the flatbuffer
+  flatbuffers::Verifier verifier(event.packet->data, event.packet->dataLength);
+  if (!client->Verify(verifier)) {
+    std::cerr << "Invalid flatbuffer received" << std::endl;
+    event.peer->data = (void *)PeerState::DISCONNECTED;
+    enet_packet_destroy(event.packet);
+    return;
+  }
+
+  // Simple authentication check
+  if (AuthenticateClient(client->username()->str(),
+                         client->password()->str())) {
+    event.peer->data = (void *)PeerState::AUTHENTICATED;
+    uint32_t clientId;
+    {
+      std::unique_lock lock(peersMutex);
+      clientId = ++connectedClients; // 0 reserved for server
+      connectedPeers[event.peer] = clientId;
+    }
+
+    // Create a new flatbuffer response with updated fields
+    flatbuffers::FlatBufferBuilder builder;
+    auto response = CreateClientDirect(
+        builder, clientId, client->username()->c_str(),
+        client->password()->c_str(), Status::Status_AUTHENTICATED_SUCCESS);
+    builder.Finish(response);
+
+    ENetPacket *packet =
+        enet_packet_create(builder.GetBufferPointer(), builder.GetSize(),
+                           ENET_PACKET_FLAG_RELIABLE);
+    enet_peer_send(event.peer, 0, packet);
+    enet_packet_destroy(event.packet);
+    std::cout << "Client authenticated." << std::endl;
+  } else {
+    event.peer->data = (void *)PeerState::DISCONNECTED;
+
+    // Create a new flatbuffer response with failure status
+    flatbuffers::FlatBufferBuilder builder;
+    auto response = CreateClientDirect(builder, 0, client->username()->c_str(),
+                                       client->password()->c_str(),
+                                       Status::Status_AUTHENTICATED_FAIL);
+    builder.Finish(response);
+
+    ENetPacket *packet =
+        enet_packet_create(builder.GetBufferPointer(), builder.GetSize(),
+                           ENET_PACKET_FLAG_RELIABLE);
+    enet_peer_send(event.peer, 0, packet);
+    enet_packet_destroy(event.packet);
+    event.peer->data = (void *)PeerState::DISCONNECTED;
+    std::cout << "Client failed to authenticate." << std::endl;
+  }
+}
+
+void GameLoop(ENetEvent &event,
+              std::unordered_map<ENetPeer *, uint32_t> &connectedPeers) {
+  // Placeholder for game loop logic
+  std::string receivedMessage((char *)event.packet->data);
+  std::cout << "Authenticated client id [" << connectedPeers[event.peer]
+            << "] says: " << receivedMessage << std::endl;
+}
+
+int main() {
 
   if (enet_initialize() != 0) {
     std::cerr << "An error occurred while initializing ENet." << std::endl;
@@ -48,81 +124,18 @@ int main() {
     // Wait up to 10ms for an event
     while (enet_host_service(server, &event, 10) > 0) {
       switch (event.type) {
-      case ENET_EVENT_TYPE_CONNECT: {
-        char hostIP[16];
-        enet_address_get_host_ip(&event.peer->address, hostIP, sizeof(hostIP));
-        std::cout << "A new client connected from " << hostIP << ":"
-                  << std::to_string(
-                         ENET_NET_TO_HOST_16(event.peer->address.port))
-                  << std::endl;
-        event.peer->data = (void *)PeerState::CONNECTED;
+      case ENET_EVENT_TYPE_CONNECT:
+        ClientConnected(event);
         break;
-      }
-
       case ENET_EVENT_TYPE_RECEIVE:
         if ((PeerState)(uintptr_t)event.peer->data == PeerState::CONNECTED) {
-          // Parse flatbuffer Client object from enet packet
-          auto client = GetClient(event.packet->data);
-
-          // Verify the flatbuffer
-          flatbuffers::Verifier verifier(event.packet->data,
-                                         event.packet->dataLength);
-          if (!client->Verify(verifier)) {
-            std::cerr << "Invalid flatbuffer received" << std::endl;
-            enet_packet_destroy(event.packet);
-            break;
-          }
-
-          // Simple authentication check
-          if (AuthenticateClient(client->username()->str(),
-                                 client->password()->str())) {
-            event.peer->data = (void *)PeerState::AUTHENTICATED;
-            uint32_t clientId;
-            {
-              std::unique_lock lock(peersMutex);
-              clientId = ++connectedClients; // 0 reserved for server
-              connectedPeers[event.peer] = clientId;
-            }
-
-            // Create a new flatbuffer response with updated fields
-            flatbuffers::FlatBufferBuilder builder;
-            auto response = CreateClientDirect(
-                builder, clientId, client->username()->c_str(),
-                client->password()->c_str(),
-                Status::Status_AUTHENTICATED_SUCCESS);
-            builder.Finish(response);
-
-            ENetPacket *packet = enet_packet_create(builder.GetBufferPointer(),
-                                                    builder.GetSize(),
-                                                    ENET_PACKET_FLAG_RELIABLE);
-            enet_peer_send(event.peer, 0, packet);
-            std::cout << "Client authenticated." << std::endl;
-          } else {
-            event.peer->data = (void *)PeerState::DISCONNECTED;
-
-            // Create a new flatbuffer response with failure status
-            flatbuffers::FlatBufferBuilder builder;
-            auto response = CreateClientDirect(
-                builder, 0, client->username()->c_str(),
-                client->password()->c_str(), Status::Status_AUTHENTICATED_FAIL);
-            builder.Finish(response);
-
-            ENetPacket *packet = enet_packet_create(builder.GetBufferPointer(),
-                                                    builder.GetSize(),
-                                                    ENET_PACKET_FLAG_RELIABLE);
-            enet_peer_send(event.peer, 0, packet);
-            event.peer->data = (void *)PeerState::DISCONNECTED;
-            std::cout << "Client failed to authenticate." << std::endl;
-          }
+          GameLogin(event, connectedPeers, peersMutex, connectedClients);
         } else if ((PeerState)(uintptr_t)event.peer->data ==
                    PeerState::AUTHENTICATED) {
-          std::string receivedMessage((char *)event.packet->data);
-          std::cout << "Authenticated client id [" << connectedPeers[event.peer]
-                    << "] says: " << receivedMessage << std::endl;
+          GameLoop(event, connectedPeers);
         }
         enet_packet_destroy(event.packet);
         break;
-
       case ENET_EVENT_TYPE_DISCONNECT: {
         std::unique_lock lock(peersMutex);
         auto it = connectedPeers.find(event.peer);
