@@ -1,3 +1,14 @@
+## LOG-2026-01-03
+  ###
+  - Author: kodeworker
+  - Date: 2026-01-03
+  ### DONE
+  1. code refactor pt2 - server function encapsulation
+  ### TODO
+  1. code refactor pt2 - server function encapsulation (cont.))
+  2. player info transfer
+  3. database: redis + postgresql
+---
 ## LOG-2025-12-25
   ###
   - Author: kodeworker
