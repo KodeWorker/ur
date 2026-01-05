@@ -13,6 +13,7 @@ void Menu::Logic(const Vector2 &mousePoint, GameScreen &currentScreen) {
   // Check Offline Button
   if (CheckCollisionPointRec(mousePoint, btnOffline)) {
     if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+      // TODO: Change to OFFLINE screen
       currentScreen = GAME;
   }
   // Check Online Button
