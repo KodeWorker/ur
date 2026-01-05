@@ -54,23 +54,15 @@ void Game::Logic(const Vector2 &mousePoint, ENetElements &enetElements,
   }
 
   // 2. Input
-  if (IsKeyPressed(KEY_SPACE)) {
-    if (enetElements.peer != nullptr) {
-      SendMessage(enetElements.peer, "Hello Server!");
-      TraceLog(LOG_INFO, "Sent message: %s", "Hello Server!");
-    }
-  } else if (IsKeyPressed(KEY_ESCAPE)) {
-    if (enetElements.peer != nullptr) {
-      enet_peer_disconnect_now(enetElements.peer, 0);
-      enetElements.peer = nullptr;
-      TraceLog(LOG_INFO, "Disconnecting from server...");
-    }
-    currentScreen = MENU;
+  ENetPacket *packet = Logic(mousePoint, currentScreen);
+  if (packet != nullptr && enetElements.peer != nullptr) {
+    enet_peer_send(enetElements.peer, 0, packet);
+    TraceLog(LOG_INFO, "Sent packet to server");
   }
 }
 
 ENetPacket *Game::Logic(const Vector2 &mousePoint, GameScreen &currentScreen) {
-  // 2. Input
+  // TODO: Implement game logic input handling
   if (IsKeyPressed(KEY_SPACE)) {
     std::string message = "Hello Server!";
     ENetPacket *packet = enet_packet_create(

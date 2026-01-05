@@ -20,11 +20,4 @@ struct ScreenSettings {
   ScreenSettings(int w, int h, const char *t) : width(w), height(h), title(t) {}
 };
 
-// Define the different screens/states of our game
-inline void SendMessage(ENetPeer *peer, const std::string &message) {
-  ENetPacket *packet = enet_packet_create(message.c_str(), message.length() + 1,
-                                          ENET_PACKET_FLAG_RELIABLE);
-  enet_peer_send(peer, 0, packet);
-}
-
 #endif // SRC_BASE_HPP_
