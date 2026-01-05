@@ -7,7 +7,8 @@
   2. offline screen
   ### TODO
   1. player info transfer
-  2. database: redis + postgresql
+  2. TODOs: option, game display, game loop
+  3. database: redis + postgresql (offline option?)
 ---
 ## LOG-2026-01-05
   ###
