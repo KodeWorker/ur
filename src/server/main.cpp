@@ -64,7 +64,6 @@ void GameLogin(ENetEvent &event,
         enet_packet_create(builder.GetBufferPointer(), builder.GetSize(),
                            ENET_PACKET_FLAG_RELIABLE);
     enet_peer_send(event.peer, 0, packet);
-    enet_packet_destroy(event.packet);
     std::cout << "Client authenticated." << std::endl;
   } else {
     event.peer->data = (void *)PeerState::DISCONNECTED;
@@ -80,7 +79,6 @@ void GameLogin(ENetEvent &event,
         enet_packet_create(builder.GetBufferPointer(), builder.GetSize(),
                            ENET_PACKET_FLAG_RELIABLE);
     enet_peer_send(event.peer, 0, packet);
-    enet_packet_destroy(event.packet);
     event.peer->data = (void *)PeerState::DISCONNECTED;
     std::cout << "Client failed to authenticate." << std::endl;
   }
