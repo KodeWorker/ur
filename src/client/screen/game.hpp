@@ -1,6 +1,7 @@
 #ifndef SRC_SCREEN_GAME_HPP_
 #define SRC_SCREEN_GAME_HPP_
 #include "client/base.hpp"
+#include "common/base.hpp"
 #include <raylib.h>
 
 namespace ur::screen {

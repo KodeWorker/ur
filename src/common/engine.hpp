@@ -1,5 +1,5 @@
-#ifndef SRC_SERVER_ENGINE_HPP
-#define SRC_SERVER_ENGINE_HPP
+#ifndef SRC_COMMON_ENGINE_HPP
+#define SRC_COMMON_ENGINE_HPP
 
 #include <enet/enet.h>
 #include <iostream>
@@ -15,4 +15,4 @@ void GameLoop(ENetPacket *packet, uint32_t clientId) {
 
 } // namespace ur::engine
 
-#endif // SRC_SERVER_ENGINE_HPP
+#endif // SRC_COMMON_ENGINE_HPP

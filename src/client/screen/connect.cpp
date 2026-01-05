@@ -62,10 +62,9 @@ void Connect::Logic(const Vector2 &mousePoint, ENetElements &enetElements,
       enetElements.address.port = port;
       // Connect to server
       enetElements.peer =
-          enet_host_connect(enetElements.client, &enetElements.address, 2, 0);
+          enet_host_connect(enetElements.host, &enetElements.address, 2, 0);
       // Timeout for connection attempt
-      if (enet_host_service(enetElements.client, &enetElements.event, 5000) >
-              0 &&
+      if (enet_host_service(enetElements.host, &enetElements.event, 5000) > 0 &&
           enetElements.event.type == ENET_EVENT_TYPE_CONNECT) {
         ur::fbs::SendClient(enetElements.peer, usernameInput, passwordInput);
         TraceLog(LOG_INFO, "Sent Client FlatBuffer packet for user: %s",

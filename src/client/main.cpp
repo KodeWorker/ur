@@ -1,14 +1,14 @@
 // #include "fbs/client_generated.h" //TODO: Is this needed?
 // #include "fbs/player_generated.h" //TODO: Is this needed?
 // #include <flatbuffers/flatbuffers.h> //TODO: Is this needed?
-
 #include "client/base.hpp"
 #include "client/screen/connect.hpp"
 #include "client/screen/game.hpp"
 #include "client/screen/menu.hpp"
 #include "client/screen/option.hpp"
 #include "client/screen/warning.hpp"
-#include "server/engine.hpp"
+#include "common/base.hpp"
+#include "common/engine.hpp"
 #include <enet/enet.h>
 #include <iostream>
 #include <raylib.h>
@@ -32,11 +32,13 @@ int main() {
   ur::screen::Warning warning;
 
   // --- ENet Setup ---
-  if (enet_initialize() != 0)
+  if (enet_initialize() != 0) {
+    std::cerr << "An error occurred while initializing ENet." << std::endl;
     return 1;
+  }
   atexit(enet_deinitialize);
   ENetElements enetElements;
-  enetElements.client = enet_host_create(NULL, 1, 2, 0, 0);
+  enetElements.host = enet_host_create(NULL, 1, 2, 0, 0);
 
   // --- Main Loop ---
   while (!WindowShouldClose() && !menu.shouldQuit) {
@@ -81,8 +83,8 @@ int main() {
   if (enetElements.peer != nullptr) {
     enet_peer_disconnect(enetElements.peer, 0);
   }
-  if (enetElements.client != nullptr) {
-    enet_host_destroy(enetElements.client);
+  if (enetElements.host != nullptr) {
+    enet_host_destroy(enetElements.host);
   }
 
   CloseWindow();

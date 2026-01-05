@@ -1,5 +1,6 @@
+#include "common/base.hpp"
+#include "common/engine.hpp"
 #include "server/connect.hpp"
-#include "server/engine.hpp"
 #include <enet/enet.h>
 #include <iostream>
 #include <string>
@@ -11,26 +12,25 @@ int main() {
     return 1;
   }
   atexit(enet_deinitialize);
-
-  ENetAddress address;
-  address.host = ENET_HOST_ANY;
-  address.port = 9487;
-
   // Create a server host
-  ENetHost *server = enet_host_create(&address, 32, 2, 0, 0);
-  if (server == nullptr) {
+  ENetElements enetElements;
+  enetElements.address.host = ENET_HOST_ANY;
+  enetElements.address.port = 9487;
+  enetElements.host = enet_host_create(&enetElements.address, 32, 2, 0, 0);
+  if (enetElements.host == nullptr) {
     std::cerr << "An error occurred while trying to create an ENet server host."
               << std::endl;
     return 1;
   }
-  std::cout << "Server started on port " << address.port << std::endl;
+  std::cout << "Server started on port " << enetElements.address.port
+            << std::endl;
 
   ur::network::ConnectHandler connectHandler;
 
   ENetEvent event;
   while (true) {
     // Wait up to 10ms for an event
-    while (enet_host_service(server, &event, 10) > 0) {
+    while (enet_host_service(enetElements.host, &event, 10) > 0) {
       switch (event.type) {
       case ENET_EVENT_TYPE_CONNECT:
         connectHandler.ClientConnected(event);
@@ -53,6 +53,6 @@ int main() {
     }
   }
 
-  enet_host_destroy(server);
+  enet_host_destroy(enetElements.host);
   return 0;
 }

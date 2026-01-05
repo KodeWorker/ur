@@ -1,6 +1,7 @@
 #ifndef SRC_SCREEN_CONNECT_HPP_
 #define SRC_SCREEN_CONNECT_HPP_
 #include "client/base.hpp"
+#include "common/base.hpp"
 #include <raylib.h>
 #include <string>
 

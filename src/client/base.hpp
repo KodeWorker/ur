@@ -20,17 +20,6 @@ struct ScreenSettings {
   ScreenSettings(int w, int h, const char *t) : width(w), height(h), title(t) {}
 };
 
-class ENetElements {
-public:
-  ENetHost *client = nullptr;
-  ENetAddress address;
-  ENetEvent event;
-  ENetPeer *peer = nullptr;
-  std::string warningMessage = "";
-
-  ENetElements() {};
-};
-
 // Define the different screens/states of our game
 inline void SendMessage(ENetPeer *peer, const std::string &message) {
   ENetPacket *packet = enet_packet_create(message.c_str(), message.length() + 1,

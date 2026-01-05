@@ -10,7 +10,7 @@ Game::Game() {}
 void Game::Logic(const Vector2 &mousePoint, ENetElements &enetElements,
                  GameScreen &currentScreen) {
   // 1. Networking (Non-blocking poll)
-  while (enet_host_service(enetElements.client, &enetElements.event, 0) > 0) {
+  while (enet_host_service(enetElements.host, &enetElements.event, 0) > 0) {
     switch (enetElements.event.type) {
     case ENET_EVENT_TYPE_CONNECT:
       TraceLog(LOG_INFO, "Successfully connected to server");
