@@ -3,7 +3,14 @@
 #include <enet/enet.h>
 #include <string>
 
-typedef enum GameScreen { MENU, CONNECT, GAME, OPTIONS, WARNING } GameScreen;
+typedef enum GameScreen {
+  MENU,
+  CONNECT,
+  GAME,
+  OFFLINE,
+  OPTIONS,
+  WARNING
+} GameScreen;
 
 struct ScreenSettings {
   int width;
@@ -15,10 +22,10 @@ struct ScreenSettings {
 
 class ENetElements {
 public:
-  ENetHost *client = enet_host_create(NULL, 1, 2, 0, 0);
+  ENetHost *client = nullptr;
   ENetAddress address;
   ENetEvent event;
-  ENetPeer *peer;
+  ENetPeer *peer = nullptr;
   std::string warningMessage = "";
 
   ENetElements() {};

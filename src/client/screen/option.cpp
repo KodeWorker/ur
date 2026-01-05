@@ -12,6 +12,7 @@ void Option::Logic(GameScreen &currentScreen) {
 }
 
 void Option::Display() {
+  // TODO: Implement options display
   DrawText("OPTIONS SCREEN", 20, 20, 40, DARKBLUE);
   DrawText("Press ESC to return to Menu", 20, 80, 20, DARKGRAY);
 }

@@ -1,3 +1,14 @@
+## LOG-2026-01-06
+  ###
+  - Author: kodeworker
+  - Date: 2026-01-06
+  ### DONE
+  1. code refactor pt3 - server game loop logic separation (cont.)
+  2. offline screen
+  ### TODO
+  1. player info transfer
+  2. database: redis + postgresql
+---
 ## LOG-2026-01-05
   ###
   - Author: kodeworker

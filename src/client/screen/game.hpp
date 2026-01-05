@@ -10,6 +10,7 @@ public:
   Game();
   void Logic(const Vector2 &mousePoint, ENetElements &enetElements,
              GameScreen &currentScreen);
+  ENetPacket *Logic(const Vector2 &mousePoint, GameScreen &currentScreen);
   void Display();
 };
 

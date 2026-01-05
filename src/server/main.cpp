@@ -1,15 +1,8 @@
 #include "server/connect.hpp"
+#include "server/engine.hpp"
 #include <enet/enet.h>
 #include <iostream>
 #include <string>
-
-void GameLoop(ENetEvent &event,
-              std::unordered_map<ENetPeer *, uint32_t> &connectedPeers) {
-  // Placeholder for game loop logic
-  std::string receivedMessage((char *)event.packet->data);
-  std::cout << "Authenticated client id [" << connectedPeers[event.peer]
-            << "] says: " << receivedMessage << std::endl;
-}
 
 int main() {
 
@@ -48,7 +41,8 @@ int main() {
           connectHandler.GameLogin(event);
         } else if ((ur::network::PeerState)(uintptr_t)event.peer->data ==
                    ur::network::PeerState::AUTHENTICATED) {
-          GameLoop(event, connectHandler.GetConnectedPeers());
+          ur::engine::GameLoop(event.packet,
+                               connectHandler.GetConnectedPeers()[event.peer]);
         }
         enet_packet_destroy(event.packet);
         break;

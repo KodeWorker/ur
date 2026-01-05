@@ -69,7 +69,23 @@ void Game::Logic(const Vector2 &mousePoint, ENetElements &enetElements,
   }
 }
 
+ENetPacket *Game::Logic(const Vector2 &mousePoint, GameScreen &currentScreen) {
+  // 2. Input
+  if (IsKeyPressed(KEY_SPACE)) {
+    std::string message = "Hello Server!";
+    ENetPacket *packet = enet_packet_create(
+        message.c_str(), message.length() + 1, ENET_PACKET_FLAG_RELIABLE);
+    TraceLog(LOG_INFO, "Created offline packet with message: %s",
+             message.c_str());
+    return packet;
+  } else if (IsKeyPressed(KEY_ESCAPE)) {
+    currentScreen = MENU;
+  }
+  return nullptr;
+}
+
 void Game::Display() {
+  // TODO: Implement game display
   DrawText("GAME SCREEN", 20, 20, 40, MAROON);
   DrawText("Press SPACE to send a \"Hello Server!\" message", 20, 80, 20,
            DARKGRAY);

@@ -8,6 +8,7 @@
 #include "client/screen/menu.hpp"
 #include "client/screen/option.hpp"
 #include "client/screen/warning.hpp"
+#include "server/engine.hpp"
 #include <enet/enet.h>
 #include <iostream>
 #include <raylib.h>
@@ -35,6 +36,7 @@ int main() {
     return 1;
   atexit(enet_deinitialize);
   ENetElements enetElements;
+  enetElements.client = enet_host_create(NULL, 1, 2, 0, 0);
 
   // --- Main Loop ---
   while (!WindowShouldClose() && !menu.shouldQuit) {
@@ -48,6 +50,10 @@ int main() {
       connect.Logic(mousePoint, enetElements, currentScreen);
     } else if (currentScreen == GAME) {
       game.Logic(mousePoint, enetElements, currentScreen);
+    } else if (currentScreen == OFFLINE) {
+      ENetPacket *packet = game.Logic(mousePoint, currentScreen);
+      if (packet != nullptr)
+        ur::engine::GameLoop(packet, 0); // Offline mode with clientId 0
     } else if (currentScreen == OPTIONS) {
       option.Logic(currentScreen);
     } else if (currentScreen == WARNING) {
@@ -59,7 +65,7 @@ int main() {
     ClearBackground(RAYWHITE);
     if (currentScreen == MENU) {
       menu.Display(mousePoint, screenSettings);
-    } else if (currentScreen == GAME) {
+    } else if (currentScreen == GAME || currentScreen == OFFLINE) {
       game.Display();
     } else if (currentScreen == OPTIONS) {
       option.Display();
