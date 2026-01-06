@@ -56,6 +56,7 @@ int main() {
       ENetPacket *packet = game.Logic(mousePoint, currentScreen);
       if (packet != nullptr)
         ur::engine::GameLoop(packet, 0); // Offline mode with clientId 0
+      enet_packet_destroy(packet);
     } else if (currentScreen == OPTIONS) {
       option.Logic(currentScreen);
     } else if (currentScreen == WARNING) {

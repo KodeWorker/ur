@@ -59,6 +59,12 @@ void Game::Logic(const Vector2 &mousePoint, ENetElements &enetElements,
     enet_peer_send(enetElements.peer, 0, packet);
     TraceLog(LOG_INFO, "Sent packet to server");
   }
+  if (IsKeyPressed(KEY_ESCAPE)) {
+    if (enetElements.peer != nullptr) {
+      enet_peer_disconnect_now(enetElements.peer, 0);
+      enetElements.peer = nullptr;
+    }
+  }
 }
 
 ENetPacket *Game::Logic(const Vector2 &mousePoint, GameScreen &currentScreen) {
