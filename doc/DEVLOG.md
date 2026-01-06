@@ -5,6 +5,7 @@
   ### DONE
   1. code refactor pt3 - server game loop logic separation (cont.)
   2. offline screen
+  3. message ping-pong
   ### TODO
   1. player info transfer
   2. TODOs: ur::screen::Option, ur::screem::Game::logic & display, ur::engine::GameLoop

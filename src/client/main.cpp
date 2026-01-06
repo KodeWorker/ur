@@ -46,6 +46,7 @@ int main() {
     mousePoint = GetMousePosition();
 
     // Game Screen Logic
+    ENetPacket *responsePacket = nullptr;
     if (currentScreen == MENU) {
       menu.Logic(mousePoint, currentScreen);
     } else if (currentScreen == CONNECT) {
@@ -54,9 +55,10 @@ int main() {
       game.Logic(mousePoint, enetElements, currentScreen);
     } else if (currentScreen == OFFLINE) {
       ENetPacket *packet = game.Logic(mousePoint, currentScreen);
-      if (packet != nullptr)
-        ur::engine::GameLoop(packet, 0); // Offline mode with clientId 0
-      enet_packet_destroy(packet);
+      if (packet != nullptr) {
+        game.SetLastReceivedPacket(
+            ur::engine::GameLoop(packet, 0)); // Offline mode with clientId 0
+      }
     } else if (currentScreen == OPTIONS) {
       option.Logic(currentScreen);
     } else if (currentScreen == WARNING) {

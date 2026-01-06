@@ -41,8 +41,11 @@ int main() {
           connectHandler.GameLogin(event);
         } else if ((ur::network::PeerState)(uintptr_t)event.peer->data ==
                    ur::network::PeerState::AUTHENTICATED) {
-          ur::engine::GameLoop(event.packet,
-                               connectHandler.GetConnectedPeers()[event.peer]);
+          ENetPacket *responsePacket = ur::engine::GameLoop(
+              event.packet, connectHandler.GetConnectedPeers()[event.peer]);
+          if (responsePacket != nullptr) {
+            enet_peer_send(event.peer, 0, responsePacket);
+          }
         }
         enet_packet_destroy(event.packet);
         break;

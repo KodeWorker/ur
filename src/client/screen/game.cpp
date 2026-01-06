@@ -16,13 +16,13 @@ void Game::Logic(const Vector2 &mousePoint, ENetElements &enetElements,
       TraceLog(LOG_INFO, "Successfully connected to server");
       break;
     case ENET_EVENT_TYPE_RECEIVE: {
-      auto fbsClient = ur::fbs::GetClient(enetElements.event.packet->data);
       // Verify the flatbuffer
       flatbuffers::Verifier verifier(enetElements.event.packet->data,
                                      enetElements.event.packet->dataLength);
-      if (!fbsClient->Verify(verifier)) {
+      if (!ur::fbs::VerifyClientBuffer(verifier)) {
         TraceLog(LOG_WARNING, "Invalid flatbuffer received");
       } else {
+        auto fbsClient = ur::fbs::GetClient(enetElements.event.packet->data);
         if (fbsClient->status() ==
             ur::fbs::Status::Status_AUTHENTICATED_SUCCESS) {
           TraceLog(LOG_INFO, "Authenticated by server as user: %s with ID: %d",
@@ -40,7 +40,11 @@ void Game::Logic(const Vector2 &mousePoint, ENetElements &enetElements,
                    fbsClient->username()->c_str());
         }
       }
-      enet_packet_destroy(enetElements.event.packet);
+      // Store packet for Display, destroy previous one
+      if (lastReceivedPacket != nullptr) {
+        enet_packet_destroy(lastReceivedPacket);
+      }
+      lastReceivedPacket = enetElements.event.packet;
       break;
     }
     case ENET_EVENT_TYPE_DISCONNECT: {
@@ -73,8 +77,7 @@ ENetPacket *Game::Logic(const Vector2 &mousePoint, GameScreen &currentScreen) {
     std::string message = "Hello Server!";
     ENetPacket *packet = enet_packet_create(
         message.c_str(), message.length() + 1, ENET_PACKET_FLAG_RELIABLE);
-    TraceLog(LOG_INFO, "Created offline packet with message: %s",
-             message.c_str());
+    TraceLog(LOG_INFO, "Created packet with message: %s", message.c_str());
     return packet;
   } else if (IsKeyPressed(KEY_ESCAPE)) {
     currentScreen = MENU;
@@ -82,12 +85,38 @@ ENetPacket *Game::Logic(const Vector2 &mousePoint, GameScreen &currentScreen) {
   return nullptr;
 }
 
+// void Game::Display(ENetPacket *responsePacket) {
+//   // TODO: Implement game display
+//   DrawText("GAME SCREEN", 20, 20, 40, MAROON);
+//   DrawText("Press SPACE to send a \"Hello Server!\" message", 20, 80, 20,
+//            DARKGRAY);
+//   DrawText("Press ESC to return to Menu", 20, 110, 20, DARKGRAY);
+//   if (responsePacket != nullptr) {
+//     std::string serverMessage((char *)responsePacket->data);
+//     TraceLog(LOG_INFO, "Received response from server: %s",
+//              serverMessage.c_str());
+//   }
+// }
+
 void Game::Display() {
-  // TODO: Implement game display
   DrawText("GAME SCREEN", 20, 20, 40, MAROON);
   DrawText("Press SPACE to send a \"Hello Server!\" message", 20, 80, 20,
            DARKGRAY);
   DrawText("Press ESC to return to Menu", 20, 110, 20, DARKGRAY);
+  if (lastReceivedPacket != nullptr) {
+
+    flatbuffers::Verifier verifier(lastReceivedPacket->data,
+                                   lastReceivedPacket->dataLength);
+    if (ur::fbs::VerifyClientBuffer(verifier)) {
+      return;
+    }
+
+    std::string serverMessage((char *)lastReceivedPacket->data);
+    TraceLog(LOG_INFO, "Received response from server: %s",
+             serverMessage.c_str());
+    enet_packet_destroy(lastReceivedPacket);
+    lastReceivedPacket = nullptr;
+  }
 }
 
 } // namespace ur::screen
