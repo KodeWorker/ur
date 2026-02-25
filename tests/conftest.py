@@ -10,14 +10,14 @@ import pytest
 from ur.config import Settings
 
 # Read from env so values can be overridden per run (set in [tool.pytest.ini_options] env)
-TEST_MODEL = os.environ.get("UR_MODEL", "anthropic/claude-test")
-TEST_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "sk-test-key")
+TEST_MODEL = os.environ.get("UR_MODEL", "gemini/gemini-test")
+TEST_API_KEY = os.environ.get("GEMINI_API_KEY", "gm-test-key")
 
 # Provider-specific skip markers — decorate tests that only apply to one provider.
 # Switch provider with:  UR_MODEL=ollama_chat/qwen2.5 pytest
-skip_if_not_anthropic = pytest.mark.skipif(
-    not TEST_MODEL.startswith("anthropic"),
-    reason=f"Anthropic-only test (current UR_MODEL={TEST_MODEL!r})",
+skip_if_not_gemini = pytest.mark.skipif(
+    not TEST_MODEL.startswith("gemini"),
+    reason=f"Gemini-only test (current UR_MODEL={TEST_MODEL!r})",
 )
 skip_if_not_ollama = pytest.mark.skipif(
     not TEST_MODEL.startswith("ollama"),
@@ -32,7 +32,7 @@ def tmp_settings(tmp_path: Path) -> Settings:
     """Settings wired to a temp directory so no real files are touched."""
     return Settings(
         model=TEST_MODEL,
-        anthropic_api_key=TEST_API_KEY,
+        gemini_api_key=TEST_API_KEY,
         max_iterations=5,
         data_dir=tmp_path / "ur_data",
     )
