@@ -58,7 +58,7 @@ async def _run(task: str, settings) -> None:
         session.fail()
         console.print(f"\n[red]Error:[/red] {e}")
         if "auth" in str(e).lower() or "api_key" in str(e).lower():
-            console.print("[dim]Set ANTHROPIC_API_KEY in your environment or .env file.[/dim]")
+            console.print("[dim]Set GEMINI_API_KEY in your environment or .env file.[/dim]")
         await save_session(session, settings.db_path)
         raise typer.Exit(1)
 
@@ -194,9 +194,9 @@ def init() -> None:
     console.print(f"[green]✓[/green] data dir : {settings.data_dir}")
     console.print(f"[green]✓[/green] database : {settings.db_path}")
     console.print(f"[green]✓[/green] workspaces: {settings.workspaces_dir}")
-    if not settings.anthropic_api_key:
+    if not settings.gemini_api_key:
         console.print()
-        console.print("[yellow]ANTHROPIC_API_KEY is not set.[/yellow] "
+        console.print("[yellow]GEMINI_API_KEY is not set.[/yellow] "
                       "Add it to your environment or a .env file.")
 
 
