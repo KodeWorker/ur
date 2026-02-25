@@ -4,11 +4,11 @@ Agent assisted workflow — a local-first, cross-platform Python sandbox for AI 
 
 ## Overview
 
-`ur` gives an AI agent a place to work. It handles the LLM loop, conversation history, and a growing set of tools (code execution, browser automation, file ops, HTTP) so you can focus on the task, not the plumbing.
+`ur` gives an AI agent a safe place to work. It handles the LLM loop, conversation history, and a growing set of tools (code execution, browser automation, file ops, HTTP) so you can focus on the task, not the plumbing.
 
 - **Local-first** — everything runs on your machine, no cloud infra required
 - **Cross-platform** — Windows, Mac, Linux
-- **Provider-agnostic** — Anthropic Claude or any hosted Ollama model
+- **Provider-agnostic** — Google Gemini or any hosted Ollama models
 - **Extensible** — drop a `.py` file in `~/.ur/tools/` to add a custom tool
 
 ## Requirements
@@ -28,6 +28,8 @@ First-time setup:
 
 ```bash
 ur init
+# or
+uv run ur init
 ```
 
 ## Configuration
@@ -58,6 +60,7 @@ cp .env.example .env
 
 ```bash
 # Run a single task
+# `uv run` is only needed if you installed with `uv pip install -e .`
 ur run "Summarise the top 5 HN stories today"
 
 # Override model for one run
@@ -80,14 +83,14 @@ ur history a3f2b1
 ```bash
 # .env
 GEMINI_API_KEY=your-key-here
-UR_MODEL=gemini/gemini-2.0-flash
+UR_MODEL=gemini/gemini-2.5-flash-lite
 ```
 
 ### Ollama (hosted or local)
 
 ```bash
 # .env
-UR_MODEL=ollama_chat/qwen2.5
+UR_MODEL=ollama/qwen3:30b
 UR_OLLAMA_BASE_URL=http://my-server:11434   # omit for localhost
 ```
 
@@ -156,8 +159,8 @@ Tests are in `tests/unit/`, one file per source module. No real API calls are ma
 Provider-specific tests are guarded with skip markers that activate based on `UR_MODEL`:
 
 ```python
-@skip_if_not_anthropic   # skipped when UR_MODEL starts with "ollama"
-@skip_if_not_ollama      # skipped when UR_MODEL starts with "anthropic"
+@skip_if_not_gemini   # skipped when UR_MODEL starts with "ollama"
+@skip_if_not_ollama   # skipped when UR_MODEL starts with "gemini"
 ```
 
 ## Roadmap

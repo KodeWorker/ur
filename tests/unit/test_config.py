@@ -18,10 +18,10 @@ def reset_settings_singleton():
 
 def test_defaults(tmp_path):
     s = Settings(data_dir=tmp_path)
-    assert s.model == "gemini/gemini-2.0-flash"
+    assert s.model == "gemini/gemini-2.5-flash-lite"
     assert s.max_iterations == 20
     assert s.log_level == "INFO"
-    assert s.gemini_api_key == ""
+    assert s.gemini_api_key == "gm-test-key"
 
 
 def test_db_path_property(tmp_path):

@@ -15,7 +15,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    model: str = Field(default="gemini/gemini-2.0-flash")
+    model: str = Field(default="gemini/gemini-2.5-flash-lite")
     max_iterations: int = Field(default=20)
     data_dir: Path = Field(default_factory=lambda: Path(user_data_dir("ur")))
     log_level: str = Field(default="INFO")

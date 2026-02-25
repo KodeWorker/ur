@@ -10,7 +10,7 @@ import pytest
 from ur.config import Settings
 
 # Read from env so values can be overridden per run (set in [tool.pytest.ini_options] env)
-TEST_MODEL = os.environ.get("UR_MODEL", "gemini/gemini-test")
+TEST_MODEL = os.environ.get("UR_MODEL", "gemini/gemini-2.5-flash-lite")
 TEST_API_KEY = os.environ.get("GEMINI_API_KEY", "gm-test-key")
 
 # Provider-specific skip markers — decorate tests that only apply to one provider.
