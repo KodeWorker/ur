@@ -63,9 +63,14 @@ async def test_run_stops_after_one_iteration_in_phase1(tmp_settings):
 
 
 async def test_run_passes_full_message_history_to_llm(tmp_settings):
-    stream = _make_stream(["a2"])
+    captured: list = []
+
+    async def capture_and_return(messages):
+        captured.extend(messages)
+        return _make_stream(["a2"])
+
     with patch("ur.agent.loop.LLMClient") as MockClient:
-        MockClient.return_value.stream = AsyncMock(return_value=stream)
+        MockClient.return_value.stream = capture_and_return
         session = AgentSession.new(task="q1", model=TEST_MODEL)
         session.add_assistant_message("a1")
         session.add_user_message("q2")
@@ -73,6 +78,5 @@ async def test_run_passes_full_message_history_to_llm(tmp_settings):
         async for _ in run(session, tmp_settings):
             pass
 
-    called_messages = MockClient.return_value.stream.call_args.args[0]
-    assert len(called_messages) == 3
-    assert called_messages[-1] == {"role": "user", "content": "q2"}
+    assert len(captured) == 3
+    assert captured[-1] == {"role": "user", "content": "q2"}
