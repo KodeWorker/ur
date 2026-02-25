@@ -5,7 +5,7 @@ import pytest
 
 import ur.config as config_module
 from ur.config import Settings, get_settings
-from tests.conftest import skip_if_not_anthropic, skip_if_not_ollama
+from tests.conftest import skip_if_not_gemini, skip_if_not_ollama
 
 
 @pytest.fixture(autouse=True)
@@ -18,10 +18,10 @@ def reset_settings_singleton():
 
 def test_defaults(tmp_path):
     s = Settings(data_dir=tmp_path)
-    assert s.model == "anthropic/claude-sonnet-4-6"
+    assert s.model == "gemini/gemini-2.0-flash"
     assert s.max_iterations == 20
     assert s.log_level == "INFO"
-    assert s.anthropic_api_key == ""
+    assert s.gemini_api_key == ""
 
 
 def test_db_path_property(tmp_path):
@@ -65,11 +65,11 @@ def test_get_settings_returns_singleton(tmp_path):
     assert first is second
 
 
-@skip_if_not_anthropic
-def test_anthropic_api_key_from_env(tmp_path, monkeypatch):
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-live-key")
+@skip_if_not_gemini
+def test_gemini_api_key_from_env(tmp_path, monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "gm-live-key")
     s = Settings(data_dir=tmp_path)
-    assert s.anthropic_api_key == "sk-live-key"
+    assert s.gemini_api_key == "gm-live-key"
 
 
 @skip_if_not_ollama
