@@ -1,0 +1,155 @@
+from unittest.mock import AsyncMock, patch
+
+import pytest
+
+from tests.conftest import TEST_API_KEY, MockStreamWrapper, make_chunk, skip_if_not_anthropic, skip_if_not_ollama
+from ur.agent.models import UsageStats
+from ur.llm.client import CompletionStream, LLMClient, Provider
+
+
+# ── CompletionStream ──────────────────────────────────────────────────────────
+
+async def test_stream_yields_tokens():
+    stream = CompletionStream(MockStreamWrapper([
+        make_chunk("Hello"), make_chunk(", "), make_chunk("world"),
+    ]))
+    assert [t async for t in stream] == ["Hello", ", ", "world"]
+
+
+async def test_stream_accumulates_full_text():
+    stream = CompletionStream(MockStreamWrapper([make_chunk("foo"), make_chunk("bar")]))
+    async for _ in stream:
+        pass
+    assert stream.full_text == "foobar"
+
+
+async def test_stream_skips_none_content():
+    stream = CompletionStream(MockStreamWrapper([
+        make_chunk(None), make_chunk("hi"), make_chunk(None),
+    ]))
+    assert [t async for t in stream] == ["hi"]
+    assert stream.full_text == "hi"
+
+
+async def test_stream_captures_usage_from_chunk():
+    stream = CompletionStream(MockStreamWrapper([
+        make_chunk("text", usage={"prompt_tokens": 10, "completion_tokens": 5}),
+    ]))
+    async for _ in stream:
+        pass
+    assert stream.usage.input_tokens == 10
+    assert stream.usage.output_tokens == 5
+
+
+async def test_stream_usage_defaults_to_zero_when_absent():
+    stream = CompletionStream(MockStreamWrapper([make_chunk("hi")]))
+    async for _ in stream:
+        pass
+    assert stream.usage == UsageStats()
+
+
+async def test_stream_empty_response():
+    stream = CompletionStream(MockStreamWrapper([]))
+    assert [t async for t in stream] == []
+    assert stream.full_text == ""
+
+
+# ── Provider detection ────────────────────────────────────────────────────────
+
+def test_detect_provider_anthropic():
+    assert LLMClient._detect_provider("anthropic/claude-sonnet-4-6") == Provider.ANTHROPIC
+
+
+def test_detect_provider_ollama():
+    assert LLMClient._detect_provider("ollama/llama3.2") == Provider.OLLAMA
+
+
+def test_detect_provider_ollama_chat():
+    assert LLMClient._detect_provider("ollama_chat/qwen2.5") == Provider.OLLAMA
+
+
+def test_detect_provider_other():
+    assert LLMClient._detect_provider("openai/gpt-4o") == Provider.OTHER
+
+
+def test_llm_client_stores_provider_at_init(tmp_settings):
+    tmp_settings.model = "anthropic/claude-sonnet-4-6"
+    client = LLMClient(tmp_settings)
+    assert client.provider == Provider.ANTHROPIC
+
+
+# ── LLMClient ─────────────────────────────────────────────────────────────────
+
+async def test_llm_client_passes_model_and_messages(tmp_settings):
+    with patch("ur.llm.client.litellm.acompletion", new_callable=AsyncMock) as mock_ac:
+        mock_ac.return_value = MockStreamWrapper([make_chunk("ok")])
+        stream = await LLMClient(tmp_settings).stream([{"role": "user", "content": "hi"}])
+
+    kw = mock_ac.call_args.kwargs
+    assert kw["model"] == tmp_settings.model
+    assert kw["messages"] == [{"role": "user", "content": "hi"}]
+    assert kw["stream"] is True
+
+
+@skip_if_not_anthropic
+async def test_llm_client_passes_api_key_when_set(tmp_settings):
+    tmp_settings.anthropic_api_key = TEST_API_KEY
+    with patch("ur.llm.client.litellm.acompletion", new_callable=AsyncMock) as mock_ac:
+        mock_ac.return_value = MockStreamWrapper([make_chunk("ok")])
+        await LLMClient(tmp_settings).stream([])
+
+    assert mock_ac.call_args.kwargs["api_key"] == TEST_API_KEY
+
+
+@skip_if_not_anthropic
+async def test_llm_client_omits_api_key_when_empty(tmp_settings):
+    tmp_settings.anthropic_api_key = ""
+    with patch("ur.llm.client.litellm.acompletion", new_callable=AsyncMock) as mock_ac:
+        mock_ac.return_value = MockStreamWrapper([make_chunk("ok")])
+        await LLMClient(tmp_settings).stream([])
+
+    assert "api_key" not in mock_ac.call_args.kwargs
+
+
+async def test_llm_client_returns_completion_stream(tmp_settings):
+    with patch("ur.llm.client.litellm.acompletion", new_callable=AsyncMock) as mock_ac:
+        mock_ac.return_value = MockStreamWrapper([make_chunk("hi")])
+        result = await LLMClient(tmp_settings).stream([])
+
+    assert isinstance(result, CompletionStream)
+
+
+# ── Ollama ─────────────────────────────────────────────────────────────────────
+
+@skip_if_not_ollama
+async def test_ollama_model_passes_api_base(tmp_settings):
+    tmp_settings.model = "ollama/llama3.2"
+    tmp_settings.ollama_base_url = "http://my-server:11434"
+
+    with patch("ur.llm.client.litellm.acompletion", new_callable=AsyncMock) as mock_ac:
+        mock_ac.return_value = MockStreamWrapper([make_chunk("hi")])
+        await LLMClient(tmp_settings).stream([])
+
+    assert mock_ac.call_args.kwargs["api_base"] == "http://my-server:11434"
+
+
+@skip_if_not_ollama
+async def test_ollama_chat_model_passes_api_base(tmp_settings):
+    tmp_settings.model = "ollama_chat/qwen2.5"
+    tmp_settings.ollama_base_url = "http://my-server:11434"
+
+    with patch("ur.llm.client.litellm.acompletion", new_callable=AsyncMock) as mock_ac:
+        mock_ac.return_value = MockStreamWrapper([make_chunk("hi")])
+        await LLMClient(tmp_settings).stream([])
+
+    assert mock_ac.call_args.kwargs["api_base"] == "http://my-server:11434"
+
+@skip_if_not_anthropic
+async def test_non_ollama_model_does_not_pass_api_base(tmp_settings):
+    tmp_settings.model = "anthropic/claude-sonnet-4-6"
+
+    with patch("ur.llm.client.litellm.acompletion", new_callable=AsyncMock) as mock_ac:
+        mock_ac.return_value = MockStreamWrapper([make_chunk("hi")])
+        await LLMClient(tmp_settings).stream([])
+
+    assert "api_base" not in mock_ac.call_args.kwargs
