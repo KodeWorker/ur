@@ -15,15 +15,15 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    model: str = Field(default="anthropic/claude-sonnet-4-6")
+    model: str = Field(default="gemini/gemini-2.0-flash")
     max_iterations: int = Field(default=20)
     data_dir: Path = Field(default_factory=lambda: Path(user_data_dir("ur")))
     log_level: str = Field(default="INFO")
 
-    # Read ANTHROPIC_API_KEY directly (no UR_ prefix) so litellm can also find it
-    anthropic_api_key: str = Field(
+    # Read GEMINI_API_KEY directly (no UR_ prefix) so litellm can also find it
+    gemini_api_key: str = Field(
         default="",
-        validation_alias=AliasChoices("ANTHROPIC_API_KEY", "UR_ANTHROPIC_API_KEY"),
+        validation_alias=AliasChoices("GEMINI_API_KEY", "UR_GEMINI_API_KEY"),
     )
 
     # Ollama: base URL of the hosted server (env: UR_OLLAMA_BASE_URL)
