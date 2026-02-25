@@ -10,7 +10,6 @@ requires-python = ">=3.12"
 
 dependencies = [
     # LLM & Agent Engine
-    "anthropic>=0.40",
     "litellm>=1.40",
     # Memory & State
     "aiosqlite>=0.20",
@@ -58,11 +57,11 @@ packages = ["src/ur"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 env = [
-    "UR_MODEL=anthropic/claude-test",
-    "ANTHROPIC_API_KEY=sk-test-key",
+    "UR_MODEL=gemini/gemini-test",
+    "GEMINI_API_KEY=gm-test-key",
 ]
 markers = [
-    "anthropic: tests specific to the Anthropic provider",
+    "gemini: tests specific to the Gemini provider",
     "ollama: tests specific to the Ollama provider",
 ]
 

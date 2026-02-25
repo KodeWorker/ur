@@ -14,7 +14,7 @@ Agent assisted workflow — a local-first, cross-platform Python sandbox for AI 
 ## Requirements
 
 - Python 3.12+
-- An `ANTHROPIC_API_KEY` **or** a running Ollama server
+- A `GEMINI_API_KEY` **or** a running Ollama server
 
 ## Installation
 
@@ -40,8 +40,8 @@ cp .env.example .env
 
 | Environment variable | Default | Description |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | — | Anthropic API key |
-| `UR_MODEL` | `anthropic/claude-sonnet-4-6` | LLM model to use |
+| `GEMINI_API_KEY` | — | Gemini API key |
+| `UR_MODEL` | `gemini/gemini-2.0-flash` | LLM model to use |
 | `UR_OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
 | `UR_MAX_ITERATIONS` | `20` | Agent loop iteration cap |
 | `UR_DATA_DIR` | platform data dir | Override data/db location |
@@ -61,7 +61,7 @@ cp .env.example .env
 ur run "Summarise the top 5 HN stories today"
 
 # Override model for one run
-ur run "Explain quantum entanglement" --model anthropic/claude-opus-4-6
+ur run "Explain quantum entanglement" --model gemini/gemini-1.5-pro
 
 # Interactive multi-turn chat
 ur chat
@@ -75,12 +75,12 @@ ur history a3f2b1
 
 ## Providers
 
-### Anthropic (default)
+### Gemini (default)
 
 ```bash
 # .env
-ANTHROPIC_API_KEY=sk-ant-...
-UR_MODEL=anthropic/claude-sonnet-4-6
+GEMINI_API_KEY=your-key-here
+UR_MODEL=gemini/gemini-2.0-flash
 ```
 
 ### Ollama (hosted or local)
