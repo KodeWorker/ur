@@ -15,7 +15,7 @@ os.environ.setdefault("LITELLM_LOG", "ERROR")
 
 
 class Provider(str, Enum):
-    ANTHROPIC = "anthropic"
+    GEMINI = "gemini"
     OLLAMA = "ollama"
     OTHER = "other"
 
@@ -27,8 +27,8 @@ class LLMClient:
 
     @staticmethod
     def _detect_provider(model: str) -> Provider:
-        if model.startswith("anthropic"):
-            return Provider.ANTHROPIC
+        if model.startswith("gemini"):
+            return Provider.GEMINI
         if model.startswith("ollama"):
             return Provider.OLLAMA
         return Provider.OTHER
@@ -39,8 +39,8 @@ class LLMClient:
             messages=messages,
             stream=True,
         )
-        if self.provider == Provider.ANTHROPIC and self.settings.anthropic_api_key:
-            kwargs["api_key"] = self.settings.anthropic_api_key
+        if self.provider == Provider.GEMINI and self.settings.gemini_api_key:
+            kwargs["api_key"] = self.settings.gemini_api_key
         elif self.provider == Provider.OLLAMA:
             kwargs["api_base"] = self.settings.ollama_base_url
 
