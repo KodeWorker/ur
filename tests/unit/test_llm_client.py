@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from tests.conftest import TEST_API_KEY, MockStreamWrapper, make_chunk, skip_if_not_anthropic, skip_if_not_ollama
+from tests.conftest import TEST_API_KEY, MockStreamWrapper, make_chunk, skip_if_not_gemini, skip_if_not_ollama
 from ur.agent.models import UsageStats
 from ur.llm.client import CompletionStream, LLMClient, Provider
 
@@ -56,8 +56,8 @@ async def test_stream_empty_response():
 
 # ── Provider detection ────────────────────────────────────────────────────────
 
-def test_detect_provider_anthropic():
-    assert LLMClient._detect_provider("anthropic/claude-sonnet-4-6") == Provider.ANTHROPIC
+def test_detect_provider_gemini():
+    assert LLMClient._detect_provider("gemini/gemini-2.0-flash") == Provider.GEMINI
 
 
 def test_detect_provider_ollama():
@@ -73,9 +73,9 @@ def test_detect_provider_other():
 
 
 def test_llm_client_stores_provider_at_init(tmp_settings):
-    tmp_settings.model = "anthropic/claude-sonnet-4-6"
+    tmp_settings.model = "gemini/gemini-2.0-flash"
     client = LLMClient(tmp_settings)
-    assert client.provider == Provider.ANTHROPIC
+    assert client.provider == Provider.GEMINI
 
 
 # ── LLMClient ─────────────────────────────────────────────────────────────────
@@ -91,9 +91,9 @@ async def test_llm_client_passes_model_and_messages(tmp_settings):
     assert kw["stream"] is True
 
 
-@skip_if_not_anthropic
+@skip_if_not_gemini
 async def test_llm_client_passes_api_key_when_set(tmp_settings):
-    tmp_settings.anthropic_api_key = TEST_API_KEY
+    tmp_settings.gemini_api_key = TEST_API_KEY
     with patch("ur.llm.client.litellm.acompletion", new_callable=AsyncMock) as mock_ac:
         mock_ac.return_value = MockStreamWrapper([make_chunk("ok")])
         await LLMClient(tmp_settings).stream([])
@@ -101,9 +101,9 @@ async def test_llm_client_passes_api_key_when_set(tmp_settings):
     assert mock_ac.call_args.kwargs["api_key"] == TEST_API_KEY
 
 
-@skip_if_not_anthropic
+@skip_if_not_gemini
 async def test_llm_client_omits_api_key_when_empty(tmp_settings):
-    tmp_settings.anthropic_api_key = ""
+    tmp_settings.gemini_api_key = ""
     with patch("ur.llm.client.litellm.acompletion", new_callable=AsyncMock) as mock_ac:
         mock_ac.return_value = MockStreamWrapper([make_chunk("ok")])
         await LLMClient(tmp_settings).stream([])
@@ -144,9 +144,9 @@ async def test_ollama_chat_model_passes_api_base(tmp_settings):
 
     assert mock_ac.call_args.kwargs["api_base"] == "http://my-server:11434"
 
-@skip_if_not_anthropic
+@skip_if_not_gemini
 async def test_non_ollama_model_does_not_pass_api_base(tmp_settings):
-    tmp_settings.model = "anthropic/claude-sonnet-4-6"
+    tmp_settings.model = "gemini/gemini-2.0-flash"
 
     with patch("ur.llm.client.litellm.acompletion", new_callable=AsyncMock) as mock_ac:
         mock_ac.return_value = MockStreamWrapper([make_chunk("hi")])
