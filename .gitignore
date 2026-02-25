@@ -24,3 +24,6 @@ uv.lock
 .env
 .env.*
 !.env.example
+
+# Tests
+.pytest_cache/
