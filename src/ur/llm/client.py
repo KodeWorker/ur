@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import AsyncIterator
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 import litellm
@@ -15,7 +15,7 @@ litellm.suppress_debug_info = True
 os.environ.setdefault("LITELLM_LOG", "ERROR")
 
 
-class Provider(str, Enum):
+class Provider(StrEnum):
     GEMINI = "gemini"
     OLLAMA = "ollama"
     OTHER = "other"

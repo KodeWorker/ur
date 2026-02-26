@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import sys
-from typing import Optional
 
 import typer
 from rich import box
@@ -34,13 +32,15 @@ def _settings() -> Settings:
 @app.command()
 def run(
     task: str = typer.Argument(..., help="Task for the agent to complete"),
-    model: Optional[str] = typer.Option(None, "--model", "-m", help="Override LLM model"),
+    model: str | None = typer.Option(None, "--model", "-m", help="Override LLM model"),
 ) -> None:
     """Run the agent on a single task."""
     asyncio.run(_run(task, _settings(), model))
 
 
-async def _run(task: str, settings: Settings, model_override: str | None = None) -> None:
+async def _run(
+    task: str, settings: Settings, model_override: str | None = None
+) -> None:
     await init_db(settings.db_path)
     model = model_override or settings.model
     session = AgentSession.new(task=task, model=model)
@@ -52,26 +52,36 @@ async def _run(task: str, settings: Settings, model_override: str | None = None)
 
     try:
         accumulated = ""
-        with Live(console=console, refresh_per_second=15, vertical_overflow="visible") as live:
+        with Live(
+            console=console, refresh_per_second=15, vertical_overflow="visible"
+        ) as live:
             async for token in agent_run(session, settings):
                 accumulated += token
                 live.update(Markdown(accumulated))
     except Exception as e:
         session.fail()
         console.print(f"\n[red]Error:[/red] {e}")
-        if provider == Provider.GEMINI and ("auth" in str(e).lower() or "api_key" in str(e).lower()):
-            console.print("[dim]Set GEMINI_API_KEY in your environment or .env file.[/dim]")
-        elif provider == Provider.OLLAMA and "auth" in str(e).lower():
-            console.print("[dim]Set OLLAMA_BASE_URL in your environment or .env file.[/dim]")
+        e_lower = str(e).lower()
+        if provider == Provider.GEMINI and ("auth" in e_lower or "api_key" in e_lower):
+            console.print(
+                "[dim]Set GEMINI_API_KEY in your environment or .env file.[/dim]"
+            )
+        elif provider == Provider.OLLAMA and "auth" in e_lower:
+            console.print(
+                "[dim]Set OLLAMA_BASE_URL in your environment or .env file.[/dim]"
+            )
         else:
-            console.print("[dim]Set the correct environment variables for the provider.[/dim]")
+            console.print(
+                "[dim]Set the correct environment variables for the provider.[/dim]"
+            )
         await save_session(session, settings.db_path)
         raise typer.Exit(1)
 
     session.complete()
     console.print()
     console.print(
-        f"[dim]tokens in={session.usage.input_tokens} out={session.usage.output_tokens}[/]"
+        f"[dim]tokens in={session.usage.input_tokens}"
+        f" out={session.usage.output_tokens}[/]"
     )
     await save_session(session, settings.db_path)
 
@@ -80,7 +90,7 @@ async def _run(task: str, settings: Settings, model_override: str | None = None)
 
 @app.command()
 def chat(
-    model: Optional[str] = typer.Option(None, "--model", "-m", help="Override LLM model"),
+    model: str | None = typer.Option(None, "--model", "-m", help="Override LLM model"),
 ) -> None:
     """Start an interactive multi-turn chat session."""
     asyncio.run(_chat(_settings(), model))
@@ -118,19 +128,30 @@ async def _chat(settings: Settings, model_override: str | None = None) -> None:
 
         try:
             accumulated = ""
-            with Live(console=console, refresh_per_second=15, vertical_overflow="visible") as live:
+            with Live(
+                console=console, refresh_per_second=15, vertical_overflow="visible"
+            ) as live:
                 async for token in agent_run(session, settings):
                     accumulated += token
                     live.update(Markdown(accumulated))
         except Exception as e:
             session.fail()
             console.print(f"\n[red]Error:[/red] {e}")
-            if provider == Provider.GEMINI and ("auth" in str(e).lower() or "api_key" in str(e).lower()):
-                console.print("[dim]Set GEMINI_API_KEY in your environment or .env file.[/dim]")
-            elif provider == Provider.OLLAMA and "auth" in str(e).lower():
-                console.print("[dim]Set OLLAMA_BASE_URL in your environment or .env file.[/dim]")
+            e_lower = str(e).lower()
+            if provider == Provider.GEMINI and (
+                "auth" in e_lower or "api_key" in e_lower
+            ):
+                console.print(
+                    "[dim]Set GEMINI_API_KEY in your environment or .env file.[/dim]"
+                )
+            elif provider == Provider.OLLAMA and "auth" in e_lower:
+                console.print(
+                    "[dim]Set OLLAMA_BASE_URL in your environment or .env file.[/dim]"
+                )
             else:
-                console.print("[dim]Set the correct environment variables for the provider.[/dim]")
+                console.print(
+                    "[dim]Set the correct environment variables for the provider.[/dim]"
+                )
             await save_session(session, settings.db_path)
             continue
 
@@ -147,7 +168,7 @@ async def _chat(settings: Settings, model_override: str | None = None) -> None:
 
 @app.command()
 def history(
-    session_id: Optional[str] = typer.Argument(None, help="Session ID to inspect"),
+    session_id: str | None = typer.Argument(None, help="Session ID to inspect"),
     limit: int = typer.Option(20, "--limit", "-n", help="Number of sessions to show"),
 ) -> None:
     """List past sessions, or show messages for a specific session."""
@@ -175,7 +196,9 @@ async def _history(settings: Settings, session_id: str | None, limit: int) -> No
 
     sessions = await list_sessions(settings.db_path, limit=limit)
     if not sessions:
-        console.print("[dim]No sessions yet. Run [bold]ur run \"<task>\"[/bold] to start.[/dim]")
+        console.print(
+            "[dim]No sessions yet. Run [bold]ur run \"<task>\"[/bold] to start.[/dim]"
+        )
         return
 
     table = Table(box=box.ROUNDED, show_header=True)

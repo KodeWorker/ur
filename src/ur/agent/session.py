@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Literal
 
 from .models import Message, UsageStats
@@ -13,7 +13,7 @@ class AgentSession:
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     task: str = ""
     messages: list[Message] = field(default_factory=list)
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     status: Literal["running", "completed", "failed", "interrupted"] = "running"
     usage: UsageStats = field(default_factory=UsageStats)
     model: str = ""
@@ -25,7 +25,7 @@ class AgentSession:
             session.messages.append({
                 "role": "user",
                 "content": task,
-                "created_at": datetime.now(timezone.utc).isoformat(),
+                "created_at": datetime.now(UTC).isoformat(),
             })
         return session
 
@@ -33,14 +33,14 @@ class AgentSession:
         self.messages.append({
             "role": "user",
             "content": content,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
         })
 
     def add_assistant_message(self, content: str) -> None:
         self.messages.append({
             "role": "assistant",
             "content": content,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
         })
 
     def complete(self) -> None:

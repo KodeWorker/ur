@@ -1,11 +1,10 @@
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
 import ur.config as config_module
-from ur.config import Settings, get_settings
 from tests.conftest import skip_if_not_gemini, skip_if_not_ollama
+from ur.config import Settings, get_settings
 
 
 @pytest.fixture(autouse=True)

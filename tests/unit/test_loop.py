@@ -1,10 +1,7 @@
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
+from unittest.mock import AsyncMock, patch
 
 from tests.conftest import TEST_MODEL, MockStreamWrapper, make_chunk
 from ur.agent.loop import run
-from ur.agent.models import UsageStats
 from ur.agent.session import AgentSession
 from ur.llm.client import CompletionStream
 

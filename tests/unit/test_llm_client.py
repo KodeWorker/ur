@@ -1,11 +1,14 @@
 from unittest.mock import AsyncMock, patch
 
-import pytest
-
-from tests.conftest import TEST_API_KEY, MockStreamWrapper, make_chunk, skip_if_not_gemini, skip_if_not_ollama
+from tests.conftest import (
+    TEST_API_KEY,
+    MockStreamWrapper,
+    make_chunk,
+    skip_if_not_gemini,
+    skip_if_not_ollama,
+)
 from ur.agent.models import UsageStats
 from ur.llm.client import CompletionStream, LLMClient, Provider
-
 
 # ── CompletionStream ──────────────────────────────────────────────────────────
 
@@ -83,7 +86,7 @@ def test_llm_client_stores_provider_at_init(tmp_settings):
 async def test_llm_client_passes_model_and_messages(tmp_settings):
     with patch("ur.llm.client.litellm.acompletion", new_callable=AsyncMock) as mock_ac:
         mock_ac.return_value = MockStreamWrapper([make_chunk("ok")])
-        stream = await LLMClient(tmp_settings).stream([{"role": "user", "content": "hi"}])
+        await LLMClient(tmp_settings).stream([{"role": "user", "content": "hi"}])
 
     kw = mock_ac.call_args.kwargs
     assert kw["model"] == tmp_settings.model
