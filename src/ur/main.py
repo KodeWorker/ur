@@ -114,7 +114,11 @@ async def _chat(settings, model_override: str | None = None) -> None:
                     accumulated += token
                     live.update(Markdown(accumulated))
         except Exception as e:
+            session.fail()
             console.print(f"\n[red]Error:[/red] {e}")
+            if "auth" in str(e).lower() or "api_key" in str(e).lower():
+                console.print("[dim]Set GEMINI_API_KEY in your environment or .env file.[/dim]")
+            await save_session(session, settings.db_path)
             continue
 
         console.print()
