@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS messages (
 async def init_db(db_path: Path) -> None:
     db_path.parent.mkdir(parents=True, exist_ok=True)
     async with aiosqlite.connect(db_path) as db:
+        await db.execute("PRAGMA foreign_keys = ON")
         await db.executescript(SCHEMA)
         await db.commit()
 
@@ -37,5 +38,6 @@ async def init_db(db_path: Path) -> None:
 @asynccontextmanager
 async def get_db(db_path: Path) -> AsyncIterator[aiosqlite.Connection]:
     async with aiosqlite.connect(db_path) as db:
+        await db.execute("PRAGMA foreign_keys = ON")
         db.row_factory = aiosqlite.Row
         yield db
