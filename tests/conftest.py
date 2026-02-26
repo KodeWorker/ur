@@ -1,4 +1,5 @@
 """Shared fixtures for all tests."""
+
 from __future__ import annotations
 
 import os
@@ -11,7 +12,7 @@ from ur.config import Settings
 
 # Read from env; override per run via [tool.pytest.ini_options] env
 TEST_MODEL = os.environ.get("UR_MODEL", "gemini/gemini-2.5-flash-lite")
-TEST_API_KEY = os.environ.get("GEMINI_API_KEY", "gm-test-key")
+TEST_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
 # Provider-specific skip markers — decorate tests that only apply to one provider.
 # Switch provider with:  UR_MODEL=ollama_chat/qwen2.5 pytest
@@ -26,6 +27,7 @@ skip_if_not_ollama = pytest.mark.skipif(
 
 
 # ── Settings fixture ──────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def tmp_settings(tmp_path: Path) -> Settings:
@@ -44,6 +46,7 @@ def db_path(tmp_path: Path) -> Path:
 
 
 # ── litellm chunk helpers ─────────────────────────────────────────────────────
+
 
 def make_chunk(content: str | None, usage: dict | None = None) -> MagicMock:
     """Build a mock litellm streaming chunk."""
