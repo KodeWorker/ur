@@ -10,7 +10,6 @@
 .claude/todos/
 .claude/ide/
 .claude/projects/
-CLAUDE.md
 
 # Python
 __pycache__/
