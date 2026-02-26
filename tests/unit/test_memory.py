@@ -91,7 +91,8 @@ async def test_list_sessions_ordered_newest_first(initialized_db):
 
     rows = await list_sessions(initialized_db)
     # s2 was inserted after s1 so created_at >= s1's
-    assert rows[0]["task"] in ("first", "second")  # order by created_at DESC
+    assert rows[0]["task"] == "second"
+    assert rows[1]["task"] == "first"
 
 
 async def test_list_sessions_respects_limit(initialized_db):
@@ -120,6 +121,9 @@ async def test_get_session_messages_returns_in_order(initialized_db):
     assert [m["role"] for m in msgs] == ["user", "assistant", "user"]
     assert msgs[0]["content"] == "q"
     assert msgs[1]["content"] == "a"
+    # Verify created_at is persisted
+    assert "created_at" in msgs[0]
+    assert "created_at" in msgs[1]
 
 
 async def test_save_session_is_idempotent_for_messages(initialized_db):

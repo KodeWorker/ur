@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import sys
-from typing import Optional
 
 import typer
 from rich import box
@@ -14,7 +12,8 @@ from rich.table import Table
 
 from .agent.loop import run as agent_run
 from .agent.session import AgentSession
-from .config import get_settings
+from .config import Settings, get_settings
+from .llm.client import LLMClient, Provider
 from .memory.db import init_db
 from .memory.session_store import get_session_messages, list_sessions, save_session
 
@@ -22,11 +21,9 @@ app = typer.Typer(name="ur", help="Agent assisted workflow", no_args_is_help=Tru
 console = Console()
 
 
-def _settings(model: str | None = None):
+def _settings() -> Settings:
     s = get_settings()
     s.ensure_dirs()
-    if model:
-        s.model = model
     return s
 
 
@@ -35,37 +32,56 @@ def _settings(model: str | None = None):
 @app.command()
 def run(
     task: str = typer.Argument(..., help="Task for the agent to complete"),
-    model: Optional[str] = typer.Option(None, "--model", "-m", help="Override LLM model"),
+    model: str | None = typer.Option(None, "--model", "-m", help="Override LLM model"),
 ) -> None:
     """Run the agent on a single task."""
-    asyncio.run(_run(task, _settings(model)))
+    asyncio.run(_run(task, _settings(), model))
 
 
-async def _run(task: str, settings) -> None:
+async def _run(
+    task: str, settings: Settings, model_override: str | None = None
+) -> None:
     await init_db(settings.db_path)
-    session = AgentSession.new(task=task, model=settings.model)
+    model = model_override or settings.model
+    session = AgentSession.new(task=task, model=model)
 
-    console.print(f"[dim]session {session.id[:8]}  model={settings.model}[/]")
+    console.print(f"[dim]session {session.id[:8]}  model={model}[/]")
     console.print()
+
+    provider = LLMClient._detect_provider(model)
 
     try:
         accumulated = ""
-        with Live(console=console, refresh_per_second=15, vertical_overflow="visible") as live:
+        with Live(
+            console=console, refresh_per_second=15, vertical_overflow="visible"
+        ) as live:
             async for token in agent_run(session, settings):
                 accumulated += token
                 live.update(Markdown(accumulated))
     except Exception as e:
         session.fail()
         console.print(f"\n[red]Error:[/red] {e}")
-        if "auth" in str(e).lower() or "api_key" in str(e).lower():
-            console.print("[dim]Set GEMINI_API_KEY in your environment or .env file.[/dim]")
+        e_lower = str(e).lower()
+        if provider == Provider.GEMINI and ("auth" in e_lower or "api_key" in e_lower):
+            console.print(
+                "[dim]Set GEMINI_API_KEY in your environment or .env file.[/dim]"
+            )
+        elif provider == Provider.OLLAMA and "auth" in e_lower:
+            console.print(
+                "[dim]Set OLLAMA_BASE_URL in your environment or .env file.[/dim]"
+            )
+        else:
+            console.print(
+                "[dim]Set the correct environment variables for the provider.[/dim]"
+            )
         await save_session(session, settings.db_path)
         raise typer.Exit(1)
 
     session.complete()
     console.print()
     console.print(
-        f"[dim]tokens in={session.usage.input_tokens} out={session.usage.output_tokens}[/]"
+        f"[dim]tokens in={session.usage.input_tokens}"
+        f" out={session.usage.output_tokens}[/]"
     )
     await save_session(session, settings.db_path)
 
@@ -74,24 +90,27 @@ async def _run(task: str, settings) -> None:
 
 @app.command()
 def chat(
-    model: Optional[str] = typer.Option(None, "--model", "-m", help="Override LLM model"),
+    model: str | None = typer.Option(None, "--model", "-m", help="Override LLM model"),
 ) -> None:
     """Start an interactive multi-turn chat session."""
-    asyncio.run(_chat(_settings(model)))
+    asyncio.run(_chat(_settings(), model))
 
 
-async def _chat(settings) -> None:
+async def _chat(settings: Settings, model_override: str | None = None) -> None:
     await init_db(settings.db_path)
-    session = AgentSession.new(task="", model=settings.model)
+    model = model_override or settings.model
+    session = AgentSession.new(task="", model=model)
 
     console.print(
         Panel(
-            f"[bold]ur[/bold]  model=[cyan]{settings.model}[/cyan]  "
+            f"[bold]ur[/bold]  model=[cyan]{model}[/cyan]  "
             f"session=[dim]{session.id[:8]}[/dim]\n"
             "[dim]Ctrl+C or Ctrl+D to exit[/dim]",
             box=box.ROUNDED,
         )
     )
+
+    provider = LLMClient._detect_provider(model)
 
     while True:
         try:
@@ -109,12 +128,31 @@ async def _chat(settings) -> None:
 
         try:
             accumulated = ""
-            with Live(console=console, refresh_per_second=15, vertical_overflow="visible") as live:
+            with Live(
+                console=console, refresh_per_second=15, vertical_overflow="visible"
+            ) as live:
                 async for token in agent_run(session, settings):
                     accumulated += token
                     live.update(Markdown(accumulated))
         except Exception as e:
+            session.fail()
             console.print(f"\n[red]Error:[/red] {e}")
+            e_lower = str(e).lower()
+            if provider == Provider.GEMINI and (
+                "auth" in e_lower or "api_key" in e_lower
+            ):
+                console.print(
+                    "[dim]Set GEMINI_API_KEY in your environment or .env file.[/dim]"
+                )
+            elif provider == Provider.OLLAMA and "auth" in e_lower:
+                console.print(
+                    "[dim]Set OLLAMA_BASE_URL in your environment or .env file.[/dim]"
+                )
+            else:
+                console.print(
+                    "[dim]Set the correct environment variables for the provider.[/dim]"
+                )
+            await save_session(session, settings.db_path)
             continue
 
         console.print()
@@ -130,14 +168,14 @@ async def _chat(settings) -> None:
 
 @app.command()
 def history(
-    session_id: Optional[str] = typer.Argument(None, help="Session ID to inspect"),
+    session_id: str | None = typer.Argument(None, help="Session ID to inspect"),
     limit: int = typer.Option(20, "--limit", "-n", help="Number of sessions to show"),
 ) -> None:
     """List past sessions, or show messages for a specific session."""
     asyncio.run(_history(_settings(), session_id, limit))
 
 
-async def _history(settings, session_id: str | None, limit: int) -> None:
+async def _history(settings: Settings, session_id: str | None, limit: int) -> None:
     await init_db(settings.db_path)
 
     if session_id:
@@ -158,7 +196,9 @@ async def _history(settings, session_id: str | None, limit: int) -> None:
 
     sessions = await list_sessions(settings.db_path, limit=limit)
     if not sessions:
-        console.print("[dim]No sessions yet. Run [bold]ur run \"<task>\"[/bold] to start.[/dim]")
+        console.print(
+            "[dim]No sessions yet. Run [bold]ur run \"<task>\"[/bold] to start.[/dim]"
+        )
         return
 
     table = Table(box=box.ROUNDED, show_header=True)
