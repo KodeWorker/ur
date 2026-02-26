@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 
-from ..config import Settings
 from ..llm.client import LLMClient
 from .session import AgentSession
 
 
 async def run(
     session: AgentSession,
-    settings: Settings,
+    client: LLMClient,
+    max_iterations: int,
     system_prompt: str | None = None,
 ) -> AsyncIterator[str, None]:
     """
@@ -21,12 +21,11 @@ async def run(
     Phase 1: single LLM call, no tool use.
     Phase 2+: will iterate up to max_iterations, dispatching tool calls.
     """
-    client = LLMClient(settings)
     messages = session.messages
     if system_prompt:
         messages = [{"role": "system", "content": system_prompt}, *messages]
 
-    for _ in range(settings.max_iterations):
+    for _ in range(max_iterations):
         stream = await client.stream(messages)
 
         async for token in stream:
