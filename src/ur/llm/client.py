@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from collections.abc import AsyncIterator
 from enum import Enum
+from typing import Any
 
 import litellm
 
@@ -34,7 +35,7 @@ class LLMClient:
         return Provider.OTHER
 
     async def stream(self, messages: list[Message]) -> CompletionStream:
-        kwargs: dict = dict(
+        kwargs: dict[str, Any] = dict(
             model=self.settings.model,
             messages=messages,
             stream=True,

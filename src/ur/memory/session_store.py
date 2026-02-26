@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from ..agent.session import AgentSession
 from .db import get_db
@@ -41,7 +42,7 @@ async def save_session(session: AgentSession, db_path: Path) -> None:
         await db.commit()
 
 
-async def list_sessions(db_path: Path, limit: int = 20) -> list[dict]:
+async def list_sessions(db_path: Path, limit: int = 20) -> list[dict[str, Any]]:
     async with get_db(db_path) as db:
         cursor = await db.execute(
             "SELECT * FROM sessions ORDER BY created_at DESC LIMIT ?",
@@ -51,7 +52,7 @@ async def list_sessions(db_path: Path, limit: int = 20) -> list[dict]:
         return [dict(row) for row in rows]
 
 
-async def get_session_messages(session_id: str, db_path: Path) -> list[dict]:
+async def get_session_messages(session_id: str, db_path: Path) -> list[dict[str, Any]]:
     async with get_db(db_path) as db:
         cursor = await db.execute(
             "SELECT role, content, created_at FROM messages WHERE session_id = ? ORDER BY id",

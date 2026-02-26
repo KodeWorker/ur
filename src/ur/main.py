@@ -14,7 +14,7 @@ from rich.table import Table
 
 from .agent.loop import run as agent_run
 from .agent.session import AgentSession
-from .config import get_settings
+from .config import Settings, get_settings
 from .memory.db import init_db
 from .memory.session_store import get_session_messages, list_sessions, save_session
 
@@ -22,7 +22,7 @@ app = typer.Typer(name="ur", help="Agent assisted workflow", no_args_is_help=Tru
 console = Console()
 
 
-def _settings():
+def _settings() -> Settings:
     s = get_settings()
     s.ensure_dirs()
     return s
@@ -39,7 +39,7 @@ def run(
     asyncio.run(_run(task, _settings(), model))
 
 
-async def _run(task: str, settings, model_override: str | None = None) -> None:
+async def _run(task: str, settings: Settings, model_override: str | None = None) -> None:
     await init_db(settings.db_path)
     model = model_override or settings.model
     session = AgentSession.new(task=task, model=model)
@@ -79,7 +79,7 @@ def chat(
     asyncio.run(_chat(_settings(), model))
 
 
-async def _chat(settings, model_override: str | None = None) -> None:
+async def _chat(settings: Settings, model_override: str | None = None) -> None:
     await init_db(settings.db_path)
     model = model_override or settings.model
     session = AgentSession.new(task="", model=model)
@@ -141,7 +141,7 @@ def history(
     asyncio.run(_history(_settings(), session_id, limit))
 
 
-async def _history(settings, session_id: str | None, limit: int) -> None:
+async def _history(settings: Settings, session_id: str | None, limit: int) -> None:
     await init_db(settings.db_path)
 
     if session_id:
