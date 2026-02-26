@@ -58,8 +58,8 @@ packages = ["src/ur"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 env = [
-    "UR_MODEL=gemini/gemini-2.5-flash-lite",
-    "GEMINI_API_KEY=gm-test-key",
+    "D:UR_MODEL=gemini/gemini-2.5-flash-lite",
+    "D:GEMINI_API_KEY=gm-test-key",
 ]
 markers = [
     "gemini: tests specific to the Gemini provider",
