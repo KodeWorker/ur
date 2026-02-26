@@ -22,11 +22,9 @@ app = typer.Typer(name="ur", help="Agent assisted workflow", no_args_is_help=Tru
 console = Console()
 
 
-def _settings(model: str | None = None):
+def _settings():
     s = get_settings()
     s.ensure_dirs()
-    if model:
-        s.model = model
     return s
 
 
@@ -38,14 +36,15 @@ def run(
     model: Optional[str] = typer.Option(None, "--model", "-m", help="Override LLM model"),
 ) -> None:
     """Run the agent on a single task."""
-    asyncio.run(_run(task, _settings(model)))
+    asyncio.run(_run(task, _settings(), model))
 
 
-async def _run(task: str, settings) -> None:
+async def _run(task: str, settings, model_override: str | None = None) -> None:
     await init_db(settings.db_path)
-    session = AgentSession.new(task=task, model=settings.model)
+    model = model_override or settings.model
+    session = AgentSession.new(task=task, model=model)
 
-    console.print(f"[dim]session {session.id[:8]}  model={settings.model}[/]")
+    console.print(f"[dim]session {session.id[:8]}  model={model}[/]")
     console.print()
 
     try:
@@ -77,16 +76,17 @@ def chat(
     model: Optional[str] = typer.Option(None, "--model", "-m", help="Override LLM model"),
 ) -> None:
     """Start an interactive multi-turn chat session."""
-    asyncio.run(_chat(_settings(model)))
+    asyncio.run(_chat(_settings(), model))
 
 
-async def _chat(settings) -> None:
+async def _chat(settings, model_override: str | None = None) -> None:
     await init_db(settings.db_path)
-    session = AgentSession.new(task="", model=settings.model)
+    model = model_override or settings.model
+    session = AgentSession.new(task="", model=model)
 
     console.print(
         Panel(
-            f"[bold]ur[/bold]  model=[cyan]{settings.model}[/cyan]  "
+            f"[bold]ur[/bold]  model=[cyan]{model}[/cyan]  "
             f"session=[dim]{session.id[:8]}[/dim]\n"
             "[dim]Ctrl+C or Ctrl+D to exit[/dim]",
             box=box.ROUNDED,
