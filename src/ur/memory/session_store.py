@@ -45,7 +45,7 @@ async def save_session(session: AgentSession, db_path: Path) -> None:
 async def list_sessions(db_path: Path, limit: int = 20) -> list[dict[str, Any]]:
     async with get_db(db_path) as db:
         cursor = await db.execute(
-            "SELECT * FROM sessions ORDER BY created_at DESC LIMIT ?",
+            "SELECT * FROM sessions ORDER BY created_at DESC, rowid DESC LIMIT ?",
             (limit,),
         )
         rows = await cursor.fetchall()
