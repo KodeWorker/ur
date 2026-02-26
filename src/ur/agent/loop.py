@@ -7,7 +7,11 @@ from ..llm.client import LLMClient
 from .session import AgentSession
 
 
-async def run(session: AgentSession, settings: Settings) -> AsyncIterator[str, None]:
+async def run(
+    session: AgentSession,
+    settings: Settings,
+    system_prompt: str | None = None,
+) -> AsyncIterator[str, None]:
     """
     Core agentic loop. Yields tokens as they stream from the LLM.
 
@@ -18,9 +22,12 @@ async def run(session: AgentSession, settings: Settings) -> AsyncIterator[str, N
     Phase 2+: will iterate up to max_iterations, dispatching tool calls.
     """
     client = LLMClient(settings)
+    messages = session.messages
+    if system_prompt:
+        messages = [{"role": "system", "content": system_prompt}, *messages]
 
     for _ in range(settings.max_iterations):
-        stream = await client.stream(session.messages)
+        stream = await client.stream(messages)
 
         async for token in stream:
             yield token
