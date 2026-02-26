@@ -18,11 +18,14 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 
 CREATE TABLE IF NOT EXISTS messages (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    session_id  TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
-    role        TEXT NOT NULL,
-    content     TEXT NOT NULL,
-    created_at  TEXT NOT NULL
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id   TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    role         TEXT NOT NULL,
+    content      TEXT NOT NULL DEFAULT 'null',
+    tool_calls   TEXT,
+    tool_call_id TEXT,
+    name         TEXT,
+    created_at   TEXT NOT NULL
 );
 """
 
