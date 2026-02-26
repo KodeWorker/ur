@@ -1,5 +1,8 @@
 from unittest.mock import AsyncMock, patch
 
+import litellm
+import pytest
+
 from tests.conftest import TEST_MODEL, MockStreamWrapper, make_chunk
 from ur.agent.loop import run
 from ur.agent.session import AgentSession
@@ -80,3 +83,51 @@ async def test_run_passes_full_message_history_to_llm(tmp_settings):
     assert len(captured) == 3
     assert captured[-1]["role"] == "user"
     assert captured[-1]["content"] == "q2"
+
+
+async def test_run_handles_empty_response(tmp_settings):
+    stream = _make_stream([])
+    with patch("ur.agent.loop.LLMClient") as MockClient:
+        MockClient.return_value.stream = AsyncMock(return_value=stream)
+        session = AgentSession.new(task="t", model=TEST_MODEL)
+        async for _ in run(session, tmp_settings):
+            pass
+
+    assert session.messages[-1]["role"] == "assistant"
+    assert session.messages[-1]["content"] == ""
+    assert "created_at" in session.messages[-1]
+
+
+# ── Exception propagation ─────────────────────────────────────────────────────
+
+
+class _ErroringChunkSource:
+    """A raw chunk source that yields one real chunk then raises APIConnectionError."""
+
+    def __aiter__(self):
+        return self._iter()
+
+    async def _iter(self):
+        yield make_chunk("first token")
+        raise litellm.APIConnectionError(
+            message="Connection lost",
+            llm_provider="gemini",
+            model="gemini/gemini-test",
+        )
+
+
+async def test_loop_run_propagates_stream_error(tmp_settings):
+    """Errors raised while iterating the stream must propagate out of loop.run()."""
+
+    # Arrange: LLMClient.stream() returns a CompletionStream whose underlying source
+    # raises mid-iteration — simulating a dropped connection after the first chunk.
+    stream = CompletionStream(_ErroringChunkSource())
+
+    with patch("ur.agent.loop.LLMClient") as MockClient:
+        MockClient.return_value.stream = AsyncMock(return_value=stream)
+        session = AgentSession.new(task="t", model=TEST_MODEL)
+
+        # Act & Assert
+        with pytest.raises(litellm.APIConnectionError, match="Connection lost"):
+            async for _ in run(session, tmp_settings):
+                pass

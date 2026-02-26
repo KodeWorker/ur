@@ -29,6 +29,7 @@ def _settings() -> Settings:
 
 # ── run ───────────────────────────────────────────────────────────────────────
 
+
 @app.command()
 def run(
     task: str = typer.Argument(..., help="Task for the agent to complete"),
@@ -68,7 +69,7 @@ async def _run(
             )
         elif provider == Provider.OLLAMA and "auth" in e_lower:
             console.print(
-                "[dim]Set OLLAMA_BASE_URL in your environment or .env file.[/dim]"
+                "[dim]Set UR_OLLAMA_BASE_URL in your environment or .env file.[/dim]"
             )
         else:
             console.print(
@@ -87,6 +88,7 @@ async def _run(
 
 
 # ── chat ──────────────────────────────────────────────────────────────────────
+
 
 @app.command()
 def chat(
@@ -146,7 +148,8 @@ async def _chat(settings: Settings, model_override: str | None = None) -> None:
                 )
             elif provider == Provider.OLLAMA and "auth" in e_lower:
                 console.print(
-                    "[dim]Set OLLAMA_BASE_URL in your environment or .env file.[/dim]"
+                    "[dim]Set UR_OLLAMA_BASE_URL in your environment"
+                    " or .env file.[/dim]"
                 )
             else:
                 console.print(
@@ -165,6 +168,7 @@ async def _chat(settings: Settings, model_override: str | None = None) -> None:
 
 
 # ── history ───────────────────────────────────────────────────────────────────
+
 
 @app.command()
 def history(
@@ -197,17 +201,17 @@ async def _history(settings: Settings, session_id: str | None, limit: int) -> No
     sessions = await list_sessions(settings.db_path, limit=limit)
     if not sessions:
         console.print(
-            "[dim]No sessions yet. Run [bold]ur run \"<task>\"[/bold] to start.[/dim]"
+            '[dim]No sessions yet. Run [bold]ur run "<task>"[/bold] to start.[/dim]'
         )
         return
 
     table = Table(box=box.ROUNDED, show_header=True)
-    table.add_column("ID",     style="dim",   width=10)
-    table.add_column("Task",                  max_width=52, no_wrap=True)
-    table.add_column("Model",  style="cyan",  width=18)
-    table.add_column("Status",               width=12)
+    table.add_column("ID", style="dim", width=10)
+    table.add_column("Task", max_width=52, no_wrap=True)
+    table.add_column("Model", style="cyan", width=18)
+    table.add_column("Status", width=12)
     table.add_column("Tokens", justify="right", width=8)
-    table.add_column("Date",   style="dim",   width=19)
+    table.add_column("Date", style="dim", width=19)
 
     status_colors = {"completed": "green", "failed": "red", "interrupted": "yellow"}
     for s in sessions:
@@ -226,6 +230,7 @@ async def _history(settings: Settings, session_id: str | None, limit: int) -> No
 
 # ── init ──────────────────────────────────────────────────────────────────────
 
+
 @app.command()
 def init() -> None:
     """Initialize ur: create data directories and database."""
@@ -236,8 +241,10 @@ def init() -> None:
     console.print(f"[green]✓[/green] workspaces: {settings.workspaces_dir}")
     if not settings.gemini_api_key:
         console.print()
-        console.print("[yellow]GEMINI_API_KEY is not set.[/yellow] "
-                      "Add it to your environment or a .env file.")
+        console.print(
+            "[yellow]GEMINI_API_KEY is not set.[/yellow] "
+            "Add it to your environment or a .env file."
+        )
 
 
 if __name__ == "__main__":
