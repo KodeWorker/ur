@@ -5,7 +5,9 @@ from ur.agent.session import AgentSession
 def test_new_with_task_adds_user_message():
     s = AgentSession.new(task="hello", model=TEST_MODEL)
     assert len(s.messages) == 1
-    assert s.messages[0] == {"role": "user", "content": "hello"}
+    assert s.messages[0]["role"] == "user"
+    assert s.messages[0]["content"] == "hello"
+    assert "created_at" in s.messages[0]
     assert s.task == "hello"
     assert s.model == TEST_MODEL
 
@@ -18,14 +20,18 @@ def test_new_with_empty_task_has_no_messages():
 def test_add_user_message():
     s = AgentSession.new(task="", model=TEST_MODEL)
     s.add_user_message("ping")
-    assert s.messages[-1] == {"role": "user", "content": "ping"}
+    assert s.messages[-1]["role"] == "user"
+    assert s.messages[-1]["content"] == "ping"
+    assert "created_at" in s.messages[-1]
 
 
 def test_add_assistant_message():
     s = AgentSession.new(task="hi", model=TEST_MODEL)
     s.add_assistant_message("hello back")
     assert len(s.messages) == 2
-    assert s.messages[-1] == {"role": "assistant", "content": "hello back"}
+    assert s.messages[-1]["role"] == "assistant"
+    assert s.messages[-1]["content"] == "hello back"
+    assert "created_at" in s.messages[-1]
 
 
 def test_status_transitions():

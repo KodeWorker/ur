@@ -34,7 +34,9 @@ async def test_run_adds_assistant_message_to_session(tmp_settings):
         async for _ in run(session, tmp_settings):
             pass
 
-    assert session.messages[-1] == {"role": "assistant", "content": "42"}
+    assert session.messages[-1]["role"] == "assistant"
+    assert session.messages[-1]["content"] == "42"
+    assert "created_at" in session.messages[-1]
 
 
 async def test_run_accumulates_usage(tmp_settings):
@@ -79,4 +81,5 @@ async def test_run_passes_full_message_history_to_llm(tmp_settings):
             pass
 
     assert len(captured) == 3
-    assert captured[-1] == {"role": "user", "content": "q2"}
+    assert captured[-1]["role"] == "user"
+    assert captured[-1]["content"] == "q2"

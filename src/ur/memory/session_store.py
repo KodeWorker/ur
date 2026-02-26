@@ -32,12 +32,13 @@ async def save_session(session: AgentSession, db_path: Path) -> None:
         )
         # Clear and re-insert messages so repeated saves stay idempotent
         await db.execute("DELETE FROM messages WHERE session_id = ?", (session.id,))
-        now = datetime.now(timezone.utc).isoformat()
         for msg in session.messages:
             content = msg["content"] if isinstance(msg["content"], str) else str(msg["content"])
+            # Use message's created_at if present, otherwise use current time
+            created_at = msg.get("created_at", datetime.now(timezone.utc).isoformat())
             await db.execute(
                 "INSERT INTO messages (session_id, role, content, created_at) VALUES (?, ?, ?, ?)",
-                (session.id, msg["role"], content, now),
+                (session.id, msg["role"], content, created_at),
             )
         await db.commit()
 
