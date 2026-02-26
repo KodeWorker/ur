@@ -1,0 +1,29 @@
+# Claude Code local config — sensitive & generated files
+.claude/.credentials.json
+.claude/history.jsonl
+.claude/cache/
+.claude/backups/
+.claude/debug/
+.claude/downloads/
+.claude/file-history/
+.claude/shell-snapshots/
+.claude/todos/
+.claude/ide/
+.claude/projects/
+CLAUDE.md
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+dist/
+*.egg-info/
+uv.lock
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Tests
+.pytest_cache/

@@ -1,0 +1,41 @@
+from __future__ import annotations
+
+from contextlib import asynccontextmanager
+from pathlib import Path
+from typing import AsyncIterator
+
+import aiosqlite
+
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS sessions (
+    id                   TEXT PRIMARY KEY,
+    task                 TEXT NOT NULL,
+    model                TEXT NOT NULL,
+    status               TEXT NOT NULL DEFAULT 'running',
+    created_at           TEXT NOT NULL,
+    total_input_tokens   INTEGER NOT NULL DEFAULT 0,
+    total_output_tokens  INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS messages (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id  TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    role        TEXT NOT NULL,
+    content     TEXT NOT NULL,
+    created_at  TEXT NOT NULL
+);
+"""
+
+
+async def init_db(db_path: Path) -> None:
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    async with aiosqlite.connect(db_path) as db:
+        await db.executescript(SCHEMA)
+        await db.commit()
+
+
+@asynccontextmanager
+async def get_db(db_path: Path) -> AsyncIterator[aiosqlite.Connection]:
+    async with aiosqlite.connect(db_path) as db:
+        db.row_factory = aiosqlite.Row
+        yield db
