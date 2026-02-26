@@ -22,9 +22,10 @@ class Provider(StrEnum):
 
 
 class LLMClient:
-    def __init__(self, settings: Settings) -> None:
+    def __init__(self, settings: Settings, model: str | None = None) -> None:
         self.settings = settings
-        self.provider = self._detect_provider(settings.model)
+        self.model = model or settings.model
+        self.provider = self._detect_provider(self.model)
 
     @staticmethod
     def _detect_provider(model: str) -> Provider:
@@ -36,7 +37,7 @@ class LLMClient:
 
     async def stream(self, messages: list[Message]) -> CompletionStream:
         kwargs: dict[str, Any] = dict(
-            model=self.settings.model,
+            model=self.model,
             messages=messages,
             stream=True,
         )
