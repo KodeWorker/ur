@@ -1,5 +1,8 @@
 from unittest.mock import AsyncMock, patch
 
+import litellm
+import pytest
+
 from tests.conftest import (
     TEST_API_KEY,
     MockStreamWrapper,
@@ -12,10 +15,17 @@ from ur.llm.client import CompletionStream, LLMClient, Provider
 
 # ── CompletionStream ──────────────────────────────────────────────────────────
 
+
 async def test_stream_yields_tokens():
-    stream = CompletionStream(MockStreamWrapper([
-        make_chunk("Hello"), make_chunk(", "), make_chunk("world"),
-    ]))
+    stream = CompletionStream(
+        MockStreamWrapper(
+            [
+                make_chunk("Hello"),
+                make_chunk(", "),
+                make_chunk("world"),
+            ]
+        )
+    )
     assert [t async for t in stream] == ["Hello", ", ", "world"]
 
 
@@ -27,17 +37,27 @@ async def test_stream_accumulates_full_text():
 
 
 async def test_stream_skips_none_content():
-    stream = CompletionStream(MockStreamWrapper([
-        make_chunk(None), make_chunk("hi"), make_chunk(None),
-    ]))
+    stream = CompletionStream(
+        MockStreamWrapper(
+            [
+                make_chunk(None),
+                make_chunk("hi"),
+                make_chunk(None),
+            ]
+        )
+    )
     assert [t async for t in stream] == ["hi"]
     assert stream.full_text == "hi"
 
 
 async def test_stream_captures_usage_from_chunk():
-    stream = CompletionStream(MockStreamWrapper([
-        make_chunk("text", usage={"prompt_tokens": 10, "completion_tokens": 5}),
-    ]))
+    stream = CompletionStream(
+        MockStreamWrapper(
+            [
+                make_chunk("text", usage={"prompt_tokens": 10, "completion_tokens": 5}),
+            ]
+        )
+    )
     async for _ in stream:
         pass
     assert stream.usage.input_tokens == 10
@@ -58,6 +78,7 @@ async def test_stream_empty_response():
 
 
 # ── Provider detection ────────────────────────────────────────────────────────
+
 
 def test_detect_provider_gemini():
     assert LLMClient._detect_provider("gemini/gemini-2.0-flash") == Provider.GEMINI
@@ -82,6 +103,7 @@ def test_llm_client_stores_provider_at_init(tmp_settings):
 
 
 # ── LLMClient ─────────────────────────────────────────────────────────────────
+
 
 async def test_llm_client_passes_model_and_messages(tmp_settings):
     with patch("ur.llm.client.litellm.acompletion", new_callable=AsyncMock) as mock_ac:
@@ -124,6 +146,7 @@ async def test_llm_client_returns_completion_stream(tmp_settings):
 
 # ── Ollama ─────────────────────────────────────────────────────────────────────
 
+
 @skip_if_not_ollama
 async def test_ollama_model_passes_api_base(tmp_settings):
     tmp_settings.model = "ollama/llama3.2"
@@ -147,6 +170,7 @@ async def test_ollama_chat_model_passes_api_base(tmp_settings):
 
     assert mock_ac.call_args.kwargs["api_base"] == "http://my-server:11434"
 
+
 @skip_if_not_gemini
 async def test_non_ollama_model_does_not_pass_api_base(tmp_settings):
     tmp_settings.model = "gemini/gemini-2.0-flash"
@@ -156,3 +180,21 @@ async def test_non_ollama_model_does_not_pass_api_base(tmp_settings):
         await LLMClient(tmp_settings).stream([])
 
     assert "api_base" not in mock_ac.call_args.kwargs
+
+
+# ── Exception propagation ─────────────────────────────────────────────────────
+
+
+async def test_llm_client_raises_authentication_error(tmp_settings):
+    """AuthenticationError from litellm.acompletion must surface from stream()."""
+    auth_error = litellm.AuthenticationError(
+        message="Invalid API key",
+        llm_provider="gemini",
+        model=tmp_settings.model,
+    )
+
+    with patch("ur.llm.client.litellm.acompletion", new_callable=AsyncMock) as mock_ac:
+        mock_ac.side_effect = auth_error
+
+        with pytest.raises(litellm.AuthenticationError, match="Invalid API key"):
+            await LLMClient(tmp_settings).stream([])
