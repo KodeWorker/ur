@@ -7,7 +7,7 @@ from ..llm.client import LLMClient
 from .session import AgentSession
 
 
-async def run(session: AgentSession, settings: Settings) -> AsyncIterator[str]:
+async def run(session: AgentSession, settings: Settings) -> AsyncIterator[str, None]:
     """
     Core agentic loop. Yields tokens as they stream from the LLM.
 
