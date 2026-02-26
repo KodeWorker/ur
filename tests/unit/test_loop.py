@@ -80,3 +80,16 @@ async def test_run_passes_full_message_history_to_llm(tmp_settings):
     assert len(captured) == 3
     assert captured[-1]["role"] == "user"
     assert captured[-1]["content"] == "q2"
+
+
+async def test_run_handles_empty_response(tmp_settings):
+    stream = _make_stream([])
+    with patch("ur.agent.loop.LLMClient") as MockClient:
+        MockClient.return_value.stream = AsyncMock(return_value=stream)
+        session = AgentSession.new(task="t", model=TEST_MODEL)
+        async for _ in run(session, tmp_settings):
+            pass
+
+    assert session.messages[-1]["role"] == "assistant"
+    assert session.messages[-1]["content"] == ""
+    assert "created_at" in session.messages[-1]
