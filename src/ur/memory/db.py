@@ -34,6 +34,7 @@ async def init_db(db_path: Path) -> None:
     db_path.parent.mkdir(parents=True, exist_ok=True)
     async with aiosqlite.connect(db_path) as db:
         await db.execute("PRAGMA foreign_keys = ON")
+        await db.execute("PRAGMA journal_mode = WAL")
         await db.executescript(SCHEMA)
         await db.commit()
 
