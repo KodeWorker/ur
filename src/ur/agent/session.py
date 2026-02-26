@@ -22,26 +22,14 @@ class AgentSession:
     def new(cls, task: str, model: str) -> AgentSession:
         session = cls(task=task, model=model)
         if task:
-            session.messages.append({
-                "role": "user",
-                "content": task,
-                "created_at": datetime.now(UTC).isoformat(),
-            })
+            session.messages.append({"role": "user", "content": task})
         return session
 
     def add_user_message(self, content: str) -> None:
-        self.messages.append({
-            "role": "user",
-            "content": content,
-            "created_at": datetime.now(UTC).isoformat(),
-        })
+        self.messages.append({"role": "user", "content": content})
 
     def add_assistant_message(self, content: str) -> None:
-        self.messages.append({
-            "role": "assistant",
-            "content": content,
-            "created_at": datetime.now(UTC).isoformat(),
-        })
+        self.messages.append({"role": "assistant", "content": content})
 
     def complete(self) -> None:
         self.status = "completed"
