@@ -15,6 +15,7 @@ from rich.table import Table
 from .agent.loop import run as agent_run
 from .agent.session import AgentSession
 from .config import Settings, get_settings
+from .llm.client import LLMClient, Provider
 from .memory.db import init_db
 from .memory.session_store import get_session_messages, list_sessions, save_session
 
@@ -47,6 +48,8 @@ async def _run(task: str, settings: Settings, model_override: str | None = None)
     console.print(f"[dim]session {session.id[:8]}  model={model}[/]")
     console.print()
 
+    provider = LLMClient._detect_provider(model)
+
     try:
         accumulated = ""
         with Live(console=console, refresh_per_second=15, vertical_overflow="visible") as live:
@@ -56,8 +59,12 @@ async def _run(task: str, settings: Settings, model_override: str | None = None)
     except Exception as e:
         session.fail()
         console.print(f"\n[red]Error:[/red] {e}")
-        if "auth" in str(e).lower() or "api_key" in str(e).lower():
+        if provider == Provider.GEMINI and ("auth" in str(e).lower() or "api_key" in str(e).lower()):
             console.print("[dim]Set GEMINI_API_KEY in your environment or .env file.[/dim]")
+        elif provider == Provider.OLLAMA and "auth" in str(e).lower():
+            console.print("[dim]Set OLLAMA_BASE_URL in your environment or .env file.[/dim]")
+        else:
+            console.print("[dim]Set the correct environment variables for the provider.[/dim]")
         await save_session(session, settings.db_path)
         raise typer.Exit(1)
 
@@ -93,6 +100,8 @@ async def _chat(settings: Settings, model_override: str | None = None) -> None:
         )
     )
 
+    provider = LLMClient._detect_provider(model)
+
     while True:
         try:
             task = console.input("\n[bold blue]you[/bold blue] › ")
@@ -116,8 +125,12 @@ async def _chat(settings: Settings, model_override: str | None = None) -> None:
         except Exception as e:
             session.fail()
             console.print(f"\n[red]Error:[/red] {e}")
-            if "auth" in str(e).lower() or "api_key" in str(e).lower():
+            if provider == Provider.GEMINI and ("auth" in str(e).lower() or "api_key" in str(e).lower()):
                 console.print("[dim]Set GEMINI_API_KEY in your environment or .env file.[/dim]")
+            elif provider == Provider.OLLAMA and "auth" in str(e).lower():
+                console.print("[dim]Set OLLAMA_BASE_URL in your environment or .env file.[/dim]")
+            else:
+                console.print("[dim]Set the correct environment variables for the provider.[/dim]")
             await save_session(session, settings.db_path)
             continue
 
