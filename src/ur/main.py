@@ -135,10 +135,10 @@ async def _chat(settings: Settings, model_override: str | None = None) -> None:
         if not task.strip():
             continue
 
-        session.add_user_message(task)
         console.print()
 
         try:
+            session.add_user_message(task)
             reasoning_acc = ""
             content_acc = ""
             with Live(
@@ -156,6 +156,7 @@ async def _chat(settings: Settings, model_override: str | None = None) -> None:
                         parts.append(Markdown(content_acc))
                     live.update(Group(*parts))
         except Exception as e:
+            session.messages.pop()  # remove orphaned user message from failed turn
             console.print(f"\n[red]Error:[/red] {e}")
             e_lower = str(e).lower()
             if client.provider == Provider.GEMINI and (
@@ -204,9 +205,9 @@ async def _history(settings: Settings, session_id: str | None, limit: int) -> No
         async with get_db(settings.db_path) as db:
             cursor = await db.execute(
                 "SELECT id FROM sessions"
-                " WHERE id LIKE ? || '%'"
+                " WHERE SUBSTR(id, 1, LENGTH(?)) = ?"
                 " ORDER BY created_at DESC LIMIT 2",
-                (session_id,),
+                (session_id, session_id),
             )
             rows = await cursor.fetchall()
         if not rows:

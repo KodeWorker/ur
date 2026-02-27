@@ -72,6 +72,8 @@ class CompletionStream:
 
     async def _iter(self) -> AsyncGenerator[StreamChunk, None]:
         async for chunk in self._response:
+            if not chunk.choices:
+                continue
             delta = chunk.choices[0].delta
 
             # Reasoning/thinking tokens (e.g. DeepSeek-R1 via Ollama)
