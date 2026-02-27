@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from collections.abc import AsyncGenerator, AsyncIterator
 from enum import StrEnum
-from typing import Any
+from typing import Any, ClassVar
 
 import litellm
 
@@ -37,7 +37,7 @@ class LLMClient:
         return Provider.OTHER
 
     # Keys that are internal metadata and must never be sent to the LLM API
-    _INTERNAL_KEYS: frozenset[str] = frozenset({"created_at"})
+    _INTERNAL_KEYS: ClassVar[frozenset[str]] = frozenset({"created_at"})
 
     async def stream(self, messages: list[Message]) -> CompletionStream:
         api_messages = [
@@ -72,6 +72,8 @@ class CompletionStream:
 
     async def _iter(self) -> AsyncGenerator[StreamChunk, None]:
         async for chunk in self._response:
+            if not chunk.choices:
+                continue
             delta = chunk.choices[0].delta
 
             # Reasoning/thinking tokens (e.g. DeepSeek-R1 via Ollama)

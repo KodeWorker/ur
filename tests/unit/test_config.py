@@ -2,17 +2,16 @@ from unittest.mock import patch
 
 import pytest
 
-import ur.config as config_module
 from tests.conftest import skip_if_not_gemini, skip_if_not_ollama
 from ur.config import Settings, get_settings
 
 
 @pytest.fixture(autouse=True)
 def reset_settings_singleton():
-    """Ensure the module-level singleton is cleared between tests."""
-    config_module._settings = None
+    """Clear the lru_cache between tests so each test gets a fresh Settings."""
+    get_settings.cache_clear()
     yield
-    config_module._settings = None
+    get_settings.cache_clear()
 
 
 def test_defaults(tmp_path):

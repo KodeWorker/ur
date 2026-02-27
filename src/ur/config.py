@@ -49,9 +49,6 @@ class Settings(BaseSettings):
         self.logs_dir.mkdir(parents=True, exist_ok=True)
 
 
-_settings: Settings | None = None
-
-
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     return Settings()

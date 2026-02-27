@@ -36,7 +36,7 @@ def test_add_assistant_tool_call_message():
     s.add_assistant_tool_call_message({"name": "test", "arguments": "{}"})
     assert len(s.messages) == 2
     assert s.messages[-1]["role"] == "assistant"
-    assert s.messages[-1]["tool_call"] == {"name": "test", "arguments": "{}"}
+    assert s.messages[-1]["tool_calls"] == [{"name": "test", "arguments": "{}"}]
     assert s.messages[-1]["content"] is None
 
 
@@ -47,7 +47,7 @@ def test_add_assistant_tool_call_message_with_content():
     )
     assert len(s.messages) == 2
     assert s.messages[-1]["role"] == "assistant"
-    assert s.messages[-1]["tool_call"] == {"name": "test", "arguments": "{}"}
+    assert s.messages[-1]["tool_calls"] == [{"name": "test", "arguments": "{}"}]
     assert s.messages[-1]["content"] == "hello back"
 
 
