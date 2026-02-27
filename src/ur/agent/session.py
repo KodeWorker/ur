@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Any, Literal
 
 from .models import Message, UsageStats
 
@@ -42,7 +42,7 @@ class AgentSession:
         )
 
     def add_assistant_tool_call_message(
-        self, tool_call: dict, content: str | None = None
+        self, tool_call: dict[str, Any], content: str | None = None
     ) -> None:
         self.messages.append(
             {

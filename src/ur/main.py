@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 
 import typer
 from rich import box
@@ -62,7 +63,7 @@ async def _run(
                     reasoning_acc += chunk.text
                 else:
                     content_acc += chunk.text
-                parts: list = []
+                parts: list[Any] = []
                 if reasoning_acc:
                     parts.append(Text(reasoning_acc, style="dim"))
                 if content_acc:
@@ -149,7 +150,7 @@ async def _chat(settings: Settings, model_override: str | None = None) -> None:
                         reasoning_acc += chunk.text
                     else:
                         content_acc += chunk.text
-                    parts: list = []
+                    parts: list[Any] = []
                     if reasoning_acc:
                         parts.append(Text(reasoning_acc, style="dim"))
                     if content_acc:
@@ -209,7 +210,7 @@ async def _history(settings: Settings, session_id: str | None, limit: int) -> No
                 " ORDER BY created_at DESC LIMIT 2",
                 (session_id, session_id),
             )
-            rows = await cursor.fetchall()
+            rows = await cursor.fetchall()  # type: ignore[assignment]
         if not rows:
             console.print(f"[red]No session matching '{session_id}'[/red]")
             raise typer.Exit(1)

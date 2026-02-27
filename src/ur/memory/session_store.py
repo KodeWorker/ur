@@ -7,12 +7,13 @@ from typing import Any
 
 import aiosqlite
 
+from ..agent.models import Message
 from ..agent.session import AgentSession
 from .db import get_db
 
 
 def _serialize_message(
-    msg: dict[str, Any],
+    msg: Message,
 ) -> tuple[str, str | None, str | None, str | None]:
     content = json.dumps(msg.get("content"))
     tool_calls_raw = msg.get("tool_calls")
@@ -96,7 +97,6 @@ async def save_session(session: AgentSession, db_path: Path) -> None:
                     created_at,
                 ),
             )
-        await db.commit()
 
 
 async def list_sessions(db_path: Path, limit: int = 20) -> list[dict[str, Any]]:
