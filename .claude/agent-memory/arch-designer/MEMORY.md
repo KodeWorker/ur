@@ -25,6 +25,20 @@
   into OpenAI wire-format payload; litellm ignores it currently but it's incorrect.
 - `Message = dict[str, Any]` — no TypedDict contract; mypy cannot distinguish roles.
 - `messages` table missing `tool_calls`, `tool_call_id`, `name` columns for Phase 2.
+- Issue #11 (loop.py:24): `LLMClient(settings)` constructed inside `loop.run()` on every
+  turn — must be session-scoped. Recommended fix: inject `client: LLMClient` as parameter,
+  remove `Settings` from loop entirely. Also: `main.py` calls `LLMClient._detect_provider`
+  statically (lines 52, 115) instead of reading from a client instance — symptom of same
+  root issue.
+
+## Decisions recorded
+- Issue #11: chosen approach is "inject LLMClient as parameter" (Option A), NOT a class
+  refactor. Rationale: loop stays a dumb function; no per-turn state needs to outlive a
+  single run(); class form premature until Phase 2 reveals stateful loop requirements.
+- LLMClient should accept explicit `model` param at construction (model=None falls back to
+  settings.model) so resolved model is baked in, not re-read from settings on every stream().
+- After fix: loop.py must NOT import Settings or config at all — that import removal is the
+  structural boundary signal.
 
 ## Links to detailed notes
 - `issue-10-message-serialization.md` — full analysis and fix plan for Issue #10
