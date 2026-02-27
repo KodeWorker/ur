@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 
 from ..llm.client import LLMClient
+from .models import StreamChunk
 from .session import AgentSession
 
 
@@ -11,7 +12,7 @@ async def run(
     client: LLMClient,
     max_iterations: int,
     system_prompt: str | None = None,
-) -> AsyncIterator[str, None]:
+) -> AsyncGenerator[StreamChunk, None]:
     """
     Core agentic loop. Yields tokens as they stream from the LLM.
 
@@ -28,8 +29,8 @@ async def run(
     for _ in range(max_iterations):
         stream = await client.stream(messages)
 
-        async for token in stream:
-            yield token
+        async for chunk in stream:
+            yield chunk
 
         session.add_assistant_message(stream.full_text)
         session.usage.add(stream.usage)

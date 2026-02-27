@@ -4,11 +4,12 @@ import asyncio
 
 import typer
 from rich import box
-from rich.console import Console
+from rich.console import Console, Group
 from rich.live import Live
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.table import Table
+from rich.text import Text
 
 from .agent.loop import run as agent_run
 from .agent.session import AgentSession
@@ -51,13 +52,22 @@ async def _run(
     console.print()
 
     try:
-        accumulated = ""
+        reasoning_acc = ""
+        content_acc = ""
         with Live(
             console=console, refresh_per_second=15, vertical_overflow="visible"
         ) as live:
-            async for token in agent_run(session, client, settings.max_iterations):
-                accumulated += token
-                live.update(Markdown(accumulated))
+            async for chunk in agent_run(session, client, settings.max_iterations):
+                if chunk.kind == "reasoning":
+                    reasoning_acc += chunk.text
+                else:
+                    content_acc += chunk.text
+                parts: list = []
+                if reasoning_acc:
+                    parts.append(Text(reasoning_acc, style="dim"))
+                if content_acc:
+                    parts.append(Markdown(content_acc))
+                live.update(Group(*parts))
     except Exception as e:
         session.fail()
         console.print(f"\n[red]Error:[/red] {e}")
@@ -129,13 +139,22 @@ async def _chat(settings: Settings, model_override: str | None = None) -> None:
         console.print()
 
         try:
-            accumulated = ""
+            reasoning_acc = ""
+            content_acc = ""
             with Live(
                 console=console, refresh_per_second=15, vertical_overflow="visible"
             ) as live:
-                async for token in agent_run(session, client, settings.max_iterations):
-                    accumulated += token
-                    live.update(Markdown(accumulated))
+                async for chunk in agent_run(session, client, settings.max_iterations):
+                    if chunk.kind == "reasoning":
+                        reasoning_acc += chunk.text
+                    else:
+                        content_acc += chunk.text
+                    parts: list = []
+                    if reasoning_acc:
+                        parts.append(Text(reasoning_acc, style="dim"))
+                    if content_acc:
+                        parts.append(Markdown(content_acc))
+                    live.update(Group(*parts))
         except Exception as e:
             console.print(f"\n[red]Error:[/red] {e}")
             e_lower = str(e).lower()

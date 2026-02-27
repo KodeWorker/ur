@@ -31,6 +31,26 @@ def test_add_assistant_message():
     assert s.messages[-1]["content"] == "hello back"
 
 
+def test_add_assistant_tool_call_message():
+    s = AgentSession.new(task="hi", model=TEST_MODEL)
+    s.add_assistant_tool_call_message({"name": "test", "arguments": "{}"})
+    assert len(s.messages) == 2
+    assert s.messages[-1]["role"] == "assistant"
+    assert s.messages[-1]["tool_call"] == {"name": "test", "arguments": "{}"}
+    assert s.messages[-1]["content"] is None
+
+
+def test_add_assistant_tool_call_message_with_content():
+    s = AgentSession.new(task="hi", model=TEST_MODEL)
+    s.add_assistant_tool_call_message(
+        {"name": "test", "arguments": "{}"}, content="hello back"
+    )
+    assert len(s.messages) == 2
+    assert s.messages[-1]["role"] == "assistant"
+    assert s.messages[-1]["tool_call"] == {"name": "test", "arguments": "{}"}
+    assert s.messages[-1]["content"] == "hello back"
+
+
 def test_status_transitions():
     s = AgentSession.new(task="t", model=TEST_MODEL)
     assert s.status == "running"

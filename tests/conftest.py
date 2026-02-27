@@ -48,10 +48,15 @@ def db_path(tmp_path: Path) -> Path:
 # ── litellm chunk helpers ─────────────────────────────────────────────────────
 
 
-def make_chunk(content: str | None, usage: dict | None = None) -> MagicMock:
+def make_chunk(
+    content: str | None,
+    usage: dict | None = None,
+    reasoning: str | None = None,
+) -> MagicMock:
     """Build a mock litellm streaming chunk."""
     chunk = MagicMock()
     chunk.choices[0].delta.content = content
+    chunk.choices[0].delta.reasoning_content = reasoning
     if usage:
         chunk.usage = MagicMock(
             prompt_tokens=usage.get("prompt_tokens", 0),
