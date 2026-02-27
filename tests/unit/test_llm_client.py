@@ -10,13 +10,13 @@ from tests.conftest import (
     skip_if_not_gemini,
     skip_if_not_ollama,
 )
-from ur.agent.models import UsageStats
+from ur.agent.models import StreamChunk, UsageStats
 from ur.llm.client import CompletionStream, LLMClient, Provider
 
 # ── CompletionStream ──────────────────────────────────────────────────────────
 
 
-async def test_stream_yields_tokens():
+async def test_stream_yields_content_chunks():
     stream = CompletionStream(
         MockStreamWrapper(
             [
@@ -26,14 +26,46 @@ async def test_stream_yields_tokens():
             ]
         )
     )
-    assert [t async for t in stream] == ["Hello", ", ", "world"]
+    chunks = [c async for c in stream]
+    assert chunks == [
+        StreamChunk(kind="content", text="Hello"),
+        StreamChunk(kind="content", text=", "),
+        StreamChunk(kind="content", text="world"),
+    ]
 
 
-async def test_stream_accumulates_full_text():
-    stream = CompletionStream(MockStreamWrapper([make_chunk("foo"), make_chunk("bar")]))
+async def test_stream_yields_reasoning_chunks():
+    stream = CompletionStream(
+        MockStreamWrapper(
+            [
+                make_chunk(None, reasoning="think..."),
+                make_chunk("answer"),
+            ]
+        )
+    )
+    chunks = [c async for c in stream]
+    assert chunks == [
+        StreamChunk(kind="reasoning", text="think..."),
+        StreamChunk(kind="content", text="answer"),
+    ]
+    assert stream.reasoning_text == "think..."
+    assert stream.full_text == "answer"
+
+
+async def test_stream_accumulates_full_text_content_only():
+    stream = CompletionStream(
+        MockStreamWrapper(
+            [
+                make_chunk(None, reasoning="think"),
+                make_chunk("foo"),
+                make_chunk("bar"),
+            ]
+        )
+    )
     async for _ in stream:
         pass
     assert stream.full_text == "foobar"
+    assert stream.reasoning_text == "think"
 
 
 async def test_stream_skips_none_content():
@@ -46,7 +78,8 @@ async def test_stream_skips_none_content():
             ]
         )
     )
-    assert [t async for t in stream] == ["hi"]
+    chunks = [c async for c in stream]
+    assert chunks == [StreamChunk(kind="content", text="hi")]
     assert stream.full_text == "hi"
 
 
@@ -73,8 +106,9 @@ async def test_stream_usage_defaults_to_zero_when_absent():
 
 async def test_stream_empty_response():
     stream = CompletionStream(MockStreamWrapper([]))
-    assert [t async for t in stream] == []
+    assert [c async for c in stream] == []
     assert stream.full_text == ""
+    assert stream.reasoning_text == ""
 
 
 # ── Provider detection ────────────────────────────────────────────────────────

@@ -5,6 +5,7 @@ import pytest
 
 from tests.conftest import TEST_MODEL, MockStreamWrapper, make_chunk
 from ur.agent.loop import run
+from ur.agent.models import StreamChunk
 from ur.agent.session import AgentSession
 from ur.llm.client import CompletionStream, LLMClient
 
@@ -24,12 +25,15 @@ def _make_client(stream: CompletionStream) -> MagicMock:
     return client
 
 
-async def test_run_yields_tokens():
+async def test_run_yields_chunks():
     stream = _make_stream(["Hello", " world"])
     session = AgentSession.new(task="hi", model=TEST_MODEL)
-    tokens = [t async for t in run(session, _make_client(stream), _MAX_ITER)]
+    chunks = [c async for c in run(session, _make_client(stream), _MAX_ITER)]
 
-    assert tokens == ["Hello", " world"]
+    assert chunks == [
+        StreamChunk(kind="content", text="Hello"),
+        StreamChunk(kind="content", text=" world"),
+    ]
 
 
 async def test_run_adds_assistant_message_to_session():

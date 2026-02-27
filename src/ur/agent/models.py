@@ -34,6 +34,12 @@ Message = UserMessage | AssistantMessage | ToolMessage | SystemMessage
 
 
 @dataclass
+class StreamChunk:
+    kind: Literal["reasoning", "content"]
+    text: str
+
+
+@dataclass
 class UsageStats:
     input_tokens: int = 0
     output_tokens: int = 0

@@ -7,7 +7,7 @@ from typing import Any
 
 import litellm
 
-from ..agent.models import Message, UsageStats
+from ..agent.models import Message, StreamChunk, UsageStats
 from ..config import Settings
 
 # Suppress litellm's verbose startup output
@@ -63,18 +63,27 @@ class CompletionStream:
 
     def __init__(self, response: litellm.CustomStreamWrapper) -> None:
         self._response = response
-        self.full_text: str = ""
+        self.full_text: str = ""  # content only — stored in session messages
+        self.reasoning_text: str = ""  # thinking tokens — display only
         self.usage: UsageStats = UsageStats()
 
-    def __aiter__(self) -> AsyncIterator[str]:
+    def __aiter__(self) -> AsyncIterator[StreamChunk]:
         return self._iter()
 
-    async def _iter(self) -> AsyncIterator[str]:
+    async def _iter(self) -> AsyncIterator[StreamChunk]:
         async for chunk in self._response:
-            delta = chunk.choices[0].delta.content or ""
-            if delta:
-                self.full_text += delta
-                yield delta
+            delta = chunk.choices[0].delta
+
+            # Reasoning/thinking tokens (e.g. DeepSeek-R1 via Ollama)
+            reasoning = getattr(delta, "reasoning_content", None) or ""
+            if reasoning:
+                self.reasoning_text += reasoning
+                yield StreamChunk(kind="reasoning", text=reasoning)
+
+            content = delta.content or ""
+            if content:
+                self.full_text += content
+                yield StreamChunk(kind="content", text=content)
 
             # Capture usage when the provider includes it in the stream
             if hasattr(chunk, "usage") and chunk.usage:
