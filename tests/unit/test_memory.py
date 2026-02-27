@@ -122,9 +122,14 @@ async def test_get_session_messages_returns_in_order(initialized_db):
     assert [m["role"] for m in msgs] == ["user", "assistant", "user"]
     assert msgs[0]["content"] == "q"
     assert msgs[1]["content"] == "a"
-    # Verify created_at is persisted
-    assert "created_at" in msgs[0]
-    assert "created_at" in msgs[1]
+    # created_at is stripped by default (fix #20); use with_metadata=True to retrieve it
+    assert "created_at" not in msgs[0]
+
+    msgs_with_meta = await get_session_messages(
+        session.id, initialized_db, with_metadata=True
+    )
+    assert "created_at" in msgs_with_meta[0]
+    assert "created_at" in msgs_with_meta[1]
 
 
 async def test_save_session_is_idempotent_for_messages(initialized_db):

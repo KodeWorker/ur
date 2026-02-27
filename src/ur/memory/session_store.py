@@ -20,7 +20,9 @@ def _serialize_message(
     return content, tool_calls, msg.get("tool_call_id"), msg.get("name")
 
 
-def _deserialize_message(row: aiosqlite.Row) -> dict[str, Any]:
+def _deserialize_message(
+    row: aiosqlite.Row, *, keep_metadata: bool = False
+) -> dict[str, Any]:
     d = dict(row)
 
     raw_content = d.pop("content", None)
@@ -34,13 +36,19 @@ def _deserialize_message(row: aiosqlite.Row) -> dict[str, Any]:
     if raw_tool_calls is not None:
         try:
             d["tool_calls"] = json.loads(raw_tool_calls)
-        except (json.JSONDecodeError, TypeError):
-            d["tool_calls"] = raw_tool_calls
+        except (json.JSONDecodeError, TypeError) as exc:
+            raise ValueError(
+                f"Corrupt tool_calls JSON in message row: {raw_tool_calls!r}"
+            ) from exc
 
     # Drop None-valued optional fields to keep clean OpenAI wire format
     for key in ("tool_call_id", "name"):
         if d.get(key) is None:
             d.pop(key, None)
+
+    # Strip DB-internal metadata unless caller explicitly requests it
+    if not keep_metadata:
+        d.pop("created_at", None)
 
     return d
 
@@ -101,7 +109,9 @@ async def list_sessions(db_path: Path, limit: int = 20) -> list[dict[str, Any]]:
         return [dict(row) for row in rows]
 
 
-async def get_session_messages(session_id: str, db_path: Path) -> list[dict[str, Any]]:
+async def get_session_messages(
+    session_id: str, db_path: Path, *, with_metadata: bool = False
+) -> list[dict[str, Any]]:
     async with get_db(db_path) as db:
         cursor = await db.execute(
             "SELECT role, content, tool_calls, tool_call_id, name, created_at"
@@ -109,4 +119,4 @@ async def get_session_messages(session_id: str, db_path: Path) -> list[dict[str,
             (session_id,),
         )
         rows = await cursor.fetchall()
-        return [_deserialize_message(row) for row in rows]
+        return [_deserialize_message(row, keep_metadata=with_metadata) for row in rows]

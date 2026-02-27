@@ -29,16 +29,24 @@ class LLMClient:
 
     @staticmethod
     def _detect_provider(model: str) -> Provider:
-        if model.startswith("gemini"):
+        prefix = model.split("/")[0]
+        if prefix == "gemini":
             return Provider.GEMINI
-        if model.startswith("ollama"):
+        if prefix in {"ollama", "ollama_chat"}:
             return Provider.OLLAMA
         return Provider.OTHER
 
+    # Keys that are internal metadata and must never be sent to the LLM API
+    _INTERNAL_KEYS: frozenset[str] = frozenset({"created_at"})
+
     async def stream(self, messages: list[Message]) -> CompletionStream:
+        api_messages = [
+            {k: v for k, v in msg.items() if k not in self._INTERNAL_KEYS}
+            for msg in messages
+        ]
         kwargs: dict[str, Any] = dict(
             model=self.model,
-            messages=messages,
+            messages=api_messages,
             stream=True,
         )
         if self.provider == Provider.GEMINI and self.settings.gemini_api_key:

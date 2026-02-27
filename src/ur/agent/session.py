@@ -8,6 +8,10 @@ from typing import Literal
 from .models import Message, UsageStats
 
 
+def _now_iso() -> str:
+    return datetime.now(UTC).isoformat()
+
+
 @dataclass
 class AgentSession:
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
@@ -22,14 +26,20 @@ class AgentSession:
     def new(cls, task: str, model: str) -> AgentSession:
         session = cls(task=task, model=model)
         if task:
-            session.messages.append({"role": "user", "content": task})
+            session.messages.append(
+                {"role": "user", "content": task, "created_at": _now_iso()}
+            )
         return session
 
     def add_user_message(self, content: str) -> None:
-        self.messages.append({"role": "user", "content": content})
+        self.messages.append(
+            {"role": "user", "content": content, "created_at": _now_iso()}
+        )
 
     def add_assistant_message(self, content: str) -> None:
-        self.messages.append({"role": "assistant", "content": content})
+        self.messages.append(
+            {"role": "assistant", "content": content, "created_at": _now_iso()}
+        )
 
     def complete(self) -> None:
         self.status = "completed"
