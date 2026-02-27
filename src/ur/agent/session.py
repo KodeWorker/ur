@@ -40,7 +40,7 @@ class AgentSession:
         self.messages.append(
             {"role": "assistant", "content": content, "created_at": _now_iso()}
         )
-
+    
     def add_assistant_tool_call_message(
         self, tool_call: dict, content: str | None = None
     ) -> None:
