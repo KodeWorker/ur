@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator
 from enum import StrEnum
 from typing import Any
 
@@ -70,7 +70,7 @@ class CompletionStream:
     def __aiter__(self) -> AsyncIterator[StreamChunk]:
         return self._iter()
 
-    async def _iter(self) -> AsyncIterator[StreamChunk]:
+    async def _iter(self) -> AsyncGenerator[StreamChunk, None]:
         async for chunk in self._response:
             delta = chunk.choices[0].delta
 
