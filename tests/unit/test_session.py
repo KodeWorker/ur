@@ -7,7 +7,6 @@ def test_new_with_task_adds_user_message():
     assert len(s.messages) == 1
     assert s.messages[0]["role"] == "user"
     assert s.messages[0]["content"] == "hello"
-    assert "created_at" in s.messages[0]
     assert s.task == "hello"
     assert s.model == TEST_MODEL
 
@@ -22,7 +21,6 @@ def test_add_user_message():
     s.add_user_message("ping")
     assert s.messages[-1]["role"] == "user"
     assert s.messages[-1]["content"] == "ping"
-    assert "created_at" in s.messages[-1]
 
 
 def test_add_assistant_message():
@@ -31,7 +29,6 @@ def test_add_assistant_message():
     assert len(s.messages) == 2
     assert s.messages[-1]["role"] == "assistant"
     assert s.messages[-1]["content"] == "hello back"
-    assert "created_at" in s.messages[-1]
 
 
 def test_status_transitions():

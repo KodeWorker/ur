@@ -44,30 +44,31 @@ async def _run(
 ) -> None:
     await init_db(settings.db_path)
     model = model_override or settings.model
+    client = LLMClient(settings, model=model)
     session = AgentSession.new(task=task, model=model)
 
     console.print(f"[dim]session {session.id[:8]}  model={model}[/]")
     console.print()
-
-    provider = LLMClient._detect_provider(model)
 
     try:
         accumulated = ""
         with Live(
             console=console, refresh_per_second=15, vertical_overflow="visible"
         ) as live:
-            async for token in agent_run(session, settings):
+            async for token in agent_run(session, client, settings.max_iterations):
                 accumulated += token
                 live.update(Markdown(accumulated))
     except Exception as e:
         session.fail()
         console.print(f"\n[red]Error:[/red] {e}")
         e_lower = str(e).lower()
-        if provider == Provider.GEMINI and ("auth" in e_lower or "api_key" in e_lower):
+        if client.provider == Provider.GEMINI and (
+            "auth" in e_lower or "api_key" in e_lower
+        ):
             console.print(
                 "[dim]Set GEMINI_API_KEY in your environment or .env file.[/dim]"
             )
-        elif provider == Provider.OLLAMA and "auth" in e_lower:
+        elif client.provider == Provider.OLLAMA and "auth" in e_lower:
             console.print(
                 "[dim]Set UR_OLLAMA_BASE_URL in your environment or .env file.[/dim]"
             )
@@ -101,6 +102,7 @@ def chat(
 async def _chat(settings: Settings, model_override: str | None = None) -> None:
     await init_db(settings.db_path)
     model = model_override or settings.model
+    client = LLMClient(settings, model=model)
     session = AgentSession.new(task="", model=model)
 
     console.print(
@@ -111,8 +113,6 @@ async def _chat(settings: Settings, model_override: str | None = None) -> None:
             box=box.ROUNDED,
         )
     )
-
-    provider = LLMClient._detect_provider(model)
 
     while True:
         try:
@@ -133,20 +133,20 @@ async def _chat(settings: Settings, model_override: str | None = None) -> None:
             with Live(
                 console=console, refresh_per_second=15, vertical_overflow="visible"
             ) as live:
-                async for token in agent_run(session, settings):
+                async for token in agent_run(session, client, settings.max_iterations):
                     accumulated += token
                     live.update(Markdown(accumulated))
         except Exception as e:
             session.fail()
             console.print(f"\n[red]Error:[/red] {e}")
             e_lower = str(e).lower()
-            if provider == Provider.GEMINI and (
+            if client.provider == Provider.GEMINI and (
                 "auth" in e_lower or "api_key" in e_lower
             ):
                 console.print(
                     "[dim]Set GEMINI_API_KEY in your environment or .env file.[/dim]"
                 )
-            elif provider == Provider.OLLAMA and "auth" in e_lower:
+            elif client.provider == Provider.OLLAMA and "auth" in e_lower:
                 console.print(
                     "[dim]Set UR_OLLAMA_BASE_URL in your environment"
                     " or .env file.[/dim]"

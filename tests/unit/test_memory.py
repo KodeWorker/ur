@@ -3,7 +3,7 @@ import pytest
 from tests.conftest import TEST_MODEL
 from ur.agent.models import UsageStats
 from ur.agent.session import AgentSession
-from ur.memory.db import init_db
+from ur.memory.db import get_db, init_db
 from ur.memory.session_store import get_session_messages, list_sessions, save_session
 
 
@@ -15,6 +15,7 @@ async def initialized_db(db_path):
 
 # ── init_db ───────────────────────────────────────────────────────────────────
 
+
 async def test_init_db_creates_file(tmp_path):
     path = tmp_path / "sub" / "ur.db"
     await init_db(path)
@@ -22,7 +23,6 @@ async def test_init_db_creates_file(tmp_path):
 
 
 async def test_init_db_creates_sessions_table(initialized_db):
-    from ur.memory.db import get_db
     async with get_db(initialized_db) as db:
         cursor = await db.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='sessions'"
@@ -31,7 +31,6 @@ async def test_init_db_creates_sessions_table(initialized_db):
 
 
 async def test_init_db_creates_messages_table(initialized_db):
-    from ur.memory.db import get_db
     async with get_db(initialized_db) as db:
         cursor = await db.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='messages'"
@@ -45,6 +44,7 @@ async def test_init_db_is_idempotent(db_path):
 
 
 # ── save_session / list_sessions ──────────────────────────────────────────────
+
 
 async def test_save_and_list_session(initialized_db):
     session = AgentSession.new(task="ping", model=TEST_MODEL)
@@ -111,6 +111,7 @@ async def test_list_sessions_empty_db(initialized_db):
 
 # ── get_session_messages ──────────────────────────────────────────────────────
 
+
 async def test_get_session_messages_returns_in_order(initialized_db):
     session = AgentSession.new(task="q", model=TEST_MODEL)
     session.add_assistant_message("a")
@@ -139,3 +140,51 @@ async def test_save_session_is_idempotent_for_messages(initialized_db):
 async def test_get_session_messages_unknown_id_returns_empty(initialized_db):
     msgs = await get_session_messages("nonexistent-id", initialized_db)
     assert msgs == []
+
+
+# ── structured content round-trips ────────────────────────────────────────────
+
+
+async def test_round_trip_assistant_message_with_tool_calls(initialized_db):
+    session = AgentSession.new(task="", model=TEST_MODEL)
+    session.messages.append(
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "call_abc",
+                    "type": "function",
+                    "function": {
+                        "name": "read_file",
+                        "arguments": '{"path": "/etc/hosts"}',
+                    },
+                }
+            ],
+        }
+    )
+    await save_session(session, initialized_db)
+
+    msgs = await get_session_messages(session.id, initialized_db)
+    assistant = next(m for m in msgs if m["role"] == "assistant")
+    assert assistant["content"] is None
+    assert assistant["tool_calls"][0]["id"] == "call_abc"
+    assert assistant["tool_calls"][0]["function"]["name"] == "read_file"
+
+
+async def test_round_trip_tool_message(initialized_db):
+    session = AgentSession.new(task="", model=TEST_MODEL)
+    session.messages.append(
+        {
+            "role": "tool",
+            "tool_call_id": "call_abc",
+            "content": "file contents here",
+        }
+    )
+    await save_session(session, initialized_db)
+
+    msgs = await get_session_messages(session.id, initialized_db)
+    tool_msg = next(m for m in msgs if m["role"] == "tool")
+    assert tool_msg["tool_call_id"] == "call_abc"
+    assert tool_msg["content"] == "file contents here"
+    assert "name" not in tool_msg
