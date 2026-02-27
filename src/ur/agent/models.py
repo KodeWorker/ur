@@ -7,18 +7,22 @@ from typing import Any, Literal, NotRequired, TypedDict
 class UserMessage(TypedDict):
     role: Literal["user"]
     content: str | list[Any]
+    created_at: NotRequired[str]
 
 
 class AssistantMessage(TypedDict):
     role: Literal["assistant"]
     content: str | list[Any] | None
     tool_calls: NotRequired[list[Any]]
+    created_at: NotRequired[str]
 
 
 class ToolMessage(TypedDict):
     role: Literal["tool"]
     tool_call_id: str
     content: str
+    name: NotRequired[str]
+    created_at: NotRequired[str]
 
 
 class SystemMessage(TypedDict):

@@ -14,7 +14,7 @@ from .agent.loop import run as agent_run
 from .agent.session import AgentSession
 from .config import Settings, get_settings
 from .llm.client import LLMClient, Provider
-from .memory.db import init_db
+from .memory.db import get_db, init_db
 from .memory.session_store import get_session_messages, list_sessions, save_session
 
 app = typer.Typer(name="ur", help="Agent assisted workflow", no_args_is_help=True)
@@ -137,7 +137,6 @@ async def _chat(settings: Settings, model_override: str | None = None) -> None:
                     accumulated += token
                     live.update(Markdown(accumulated))
         except Exception as e:
-            session.fail()
             console.print(f"\n[red]Error:[/red] {e}")
             e_lower = str(e).lower()
             if client.provider == Provider.GEMINI and (
@@ -183,18 +182,35 @@ async def _history(settings: Settings, session_id: str | None, limit: int) -> No
     await init_db(settings.db_path)
 
     if session_id:
-        # Match partial IDs
-        sessions = await list_sessions(settings.db_path, limit=1000)
-        matched = [s for s in sessions if s["id"].startswith(session_id)]
-        if not matched:
+        async with get_db(settings.db_path) as db:
+            cursor = await db.execute(
+                "SELECT id FROM sessions"
+                " WHERE id LIKE ? || '%'"
+                " ORDER BY created_at DESC LIMIT 2",
+                (session_id,),
+            )
+            rows = await cursor.fetchall()
+        if not rows:
             console.print(f"[red]No session matching '{session_id}'[/red]")
             raise typer.Exit(1)
-        full_id = matched[0]["id"]
-        messages = await get_session_messages(full_id, settings.db_path)
+        if len(rows) > 1:
+            console.print(
+                f"[red]Ambiguous prefix '{session_id}' matches multiple sessions[/red]"
+            )
+            raise typer.Exit(1)
+        full_id = rows[0]["id"]
+        messages = await get_session_messages(
+            full_id, settings.db_path, with_metadata=True
+        )
         for msg in messages:
             role_style = "bold blue" if msg["role"] == "user" else "bold green"
-            console.print(f"[{role_style}]{msg['role']}[/] [{msg['created_at'][:19]}]")
-            console.print(Markdown(msg["content"]))
+            ts = msg.get("created_at", "")[:19]
+            console.print(f"[{role_style}]{msg['role']}[/] [{ts}]")
+            content = msg.get("content")
+            if isinstance(content, str):
+                console.print(Markdown(content))
+            elif content is not None:
+                console.print(str(content))
             console.print()
         return
 
