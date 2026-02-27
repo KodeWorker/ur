@@ -136,6 +136,12 @@ def test_llm_client_stores_provider_at_init(tmp_settings):
     assert client.provider == Provider.GEMINI
 
 
+def test_llm_client_model_override_sets_correct_provider(tmp_settings):
+    client = LLMClient(tmp_settings, model="ollama_chat/qwen2.5")
+    assert client.provider == Provider.OLLAMA
+    assert client.model == "ollama_chat/qwen2.5"
+
+
 # ── LLMClient ─────────────────────────────────────────────────────────────────
 
 

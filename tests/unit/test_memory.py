@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 import pytest
 
 from tests.conftest import TEST_MODEL
@@ -85,12 +87,14 @@ async def test_save_upserts_on_repeated_calls(initialized_db):
 
 async def test_list_sessions_ordered_newest_first(initialized_db):
     s1 = AgentSession.new(task="first", model=TEST_MODEL)
-    s2 = AgentSession.new(task="second", model=TEST_MODEL)
+    s2 = AgentSession(
+        task="second", model=TEST_MODEL, created_at=s1.created_at + timedelta(seconds=1)
+    )
     await save_session(s1, initialized_db)
     await save_session(s2, initialized_db)
 
     rows = await list_sessions(initialized_db)
-    # s2 was inserted after s1 so created_at >= s1's
+    # s2 is 1 second ahead of s1, so ORDER BY created_at DESC puts it first
     assert rows[0]["task"] == "second"
     assert rows[1]["task"] == "first"
 
