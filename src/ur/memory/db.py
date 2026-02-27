@@ -45,3 +45,4 @@ async def get_db(db_path: Path) -> AsyncIterator[aiosqlite.Connection]:
         await db.execute("PRAGMA foreign_keys = ON")
         db.row_factory = aiosqlite.Row
         yield db
+        await db.commit()
