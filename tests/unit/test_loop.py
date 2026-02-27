@@ -89,6 +89,33 @@ async def test_run_passes_full_message_history_to_llm():
     assert captured[-1]["content"] == "q2"
 
 
+async def test_run_prepends_system_prompt_to_messages_sent_to_llm():
+    """system_prompt is prepended to the messages sent to client.stream but
+    is not added to session.messages."""
+    captured: list = []
+
+    async def capture_and_return(messages):
+        captured.extend(messages)
+        return _make_stream(["reply"])
+
+    client = MagicMock(spec=LLMClient)
+    client.stream = capture_and_return
+    session = AgentSession.new(task="hello", model=TEST_MODEL)
+    initial_session_message_count = len(session.messages)
+
+    async for _ in run(session, client, _MAX_ITER, system_prompt="Be helpful."):
+        pass
+
+    # System message is the first element sent to the LLM
+    assert captured[0] == {"role": "system", "content": "Be helpful."}
+
+    # The original session messages follow after the system message
+    assert captured[1:] == session.messages[:initial_session_message_count]
+
+    # System message is NOT stored in the session
+    assert all(m["role"] != "system" for m in session.messages)
+
+
 async def test_run_handles_empty_response():
     stream = _make_stream([])
     session = AgentSession.new(task="t", model=TEST_MODEL)
