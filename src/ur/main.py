@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import signal
 from typing import Any
 
+import aiosqlite
 import typer
 from rich import box
 from rich.console import Console, Group
@@ -69,6 +71,7 @@ async def _run(
                 if content_acc:
                     parts.append(Markdown(content_acc))
                 live.update(Group(*parts))
+        session.complete()
     except Exception as e:
         session.fail()
         console.print(f"\n[red]Error:[/red] {e}")
@@ -79,7 +82,7 @@ async def _run(
             console.print(
                 "[dim]Set GEMINI_API_KEY in your environment or .env file.[/dim]"
             )
-        elif client.provider == Provider.OLLAMA and "auth" in e_lower:
+        elif client.provider == Provider.OLLAMA:
             console.print(
                 "[dim]Set UR_OLLAMA_BASE_URL in your environment or .env file.[/dim]"
             )
@@ -87,16 +90,15 @@ async def _run(
             console.print(
                 "[dim]Set the correct environment variables for the provider.[/dim]"
             )
-        await save_session(session, settings.db_path)
         raise typer.Exit(1)
-
-    session.complete()
-    console.print()
-    console.print(
-        f"[dim]tokens in={session.usage.input_tokens}"
-        f" out={session.usage.output_tokens}[/]"
-    )
-    await save_session(session, settings.db_path)
+    finally:
+        await save_session(session, settings.db_path)
+        if session.usage:
+            console.print()
+            console.print(
+                f"[dim]tokens in={session.usage.input_tokens}"
+                f" out={session.usage.output_tokens}[/]"
+            )
 
 
 # ── chat ──────────────────────────────────────────────────────────────────────
@@ -125,13 +127,21 @@ async def _chat(settings: Settings, model_override: str | None = None) -> None:
         )
     )
 
-    while True:
+    while session.status == "running":
+        # asyncio.run() replaces the SIGINT handler with _cancel_main_task, which
+        # only schedules task cancellation and does not raise KeyboardInterrupt.
+        # Restore the default handler for the duration of the blocking input() call
+        # so that the first Ctrl+C exits immediately.
+        _prev_sigint = signal.signal(signal.SIGINT, signal.default_int_handler)
         try:
             task = console.input("\n[bold blue]you[/bold blue] › ")
         except (KeyboardInterrupt, EOFError):
             console.print("\n[dim]Goodbye.[/dim]")
             session.interrupt()
+            await save_session(session, settings.db_path)
             break
+        finally:
+            signal.signal(signal.SIGINT, _prev_sigint)
 
         if not task.strip():
             continue
@@ -166,7 +176,7 @@ async def _chat(settings: Settings, model_override: str | None = None) -> None:
                 console.print(
                     "[dim]Set GEMINI_API_KEY in your environment or .env file.[/dim]"
                 )
-            elif client.provider == Provider.OLLAMA and "auth" in e_lower:
+            elif client.provider == Provider.OLLAMA:
                 console.print(
                     "[dim]Set UR_OLLAMA_BASE_URL in your environment"
                     " or .env file.[/dim]"
@@ -175,16 +185,16 @@ async def _chat(settings: Settings, model_override: str | None = None) -> None:
                 console.print(
                     "[dim]Set the correct environment variables for the provider.[/dim]"
                 )
+        except BaseException:
+            session.interrupt()
+            raise
+        finally:
+            console.print()
+            console.print(
+                f"[dim]tokens in={session.usage.input_tokens} "
+                f"out={session.usage.output_tokens} (session total)[/]"
+            )
             await save_session(session, settings.db_path)
-            continue
-
-        console.print()
-        console.print(
-            f"[dim]tokens in={session.usage.input_tokens} "
-            f"out={session.usage.output_tokens} (session total)[/]"
-        )
-
-    await save_session(session, settings.db_path)
 
 
 # ── history ───────────────────────────────────────────────────────────────────
@@ -210,7 +220,7 @@ async def _history(settings: Settings, session_id: str | None, limit: int) -> No
                 " ORDER BY created_at DESC LIMIT 2",
                 (session_id, session_id),
             )
-            rows = await cursor.fetchall()  # type: ignore[assignment]
+            rows: list[aiosqlite.Row] = await cursor.fetchall()  # type: ignore[assignment]
         if not rows:
             console.print(f"[red]No session matching '{session_id}'[/red]")
             raise typer.Exit(1)
