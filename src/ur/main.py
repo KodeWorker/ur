@@ -80,7 +80,7 @@ async def _run(
             console.print(
                 "[dim]Set GEMINI_API_KEY in your environment or .env file.[/dim]"
             )
-        elif client.provider == Provider.OLLAMA and "auth" in e_lower:
+        elif client.provider == Provider.OLLAMA:
             console.print(
                 "[dim]Set UR_OLLAMA_BASE_URL in your environment or .env file.[/dim]"
             )
@@ -167,7 +167,7 @@ async def _chat(settings: Settings, model_override: str | None = None) -> None:
                 console.print(
                     "[dim]Set GEMINI_API_KEY in your environment or .env file.[/dim]"
                 )
-            elif client.provider == Provider.OLLAMA and "auth" in e_lower:
+            elif client.provider == Provider.OLLAMA:
                 console.print(
                     "[dim]Set UR_OLLAMA_BASE_URL in your environment"
                     " or .env file.[/dim]"
