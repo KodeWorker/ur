@@ -269,7 +269,7 @@ async def _history(settings: Settings, session_id: str | None, limit: int) -> No
         tokens = s["total_input_tokens"] + s["total_output_tokens"]
         table.add_row(
             s["id"][:8],
-            s["task"][:80] or "[dim]chat[/dim]",
+            s["task"] or "[dim]chat[/dim]",
             s["model"],
             f"[{color}]{s['status']}[/]",
             str(tokens) if tokens else "—",
