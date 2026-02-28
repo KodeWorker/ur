@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import aiosqlite
 
@@ -18,7 +18,9 @@ def _serialize_message(
     content = json.dumps(msg.get("content"))
     tool_calls_raw = msg.get("tool_calls")
     tool_calls = json.dumps(tool_calls_raw) if tool_calls_raw is not None else None
-    return content, tool_calls, msg.get("tool_call_id"), msg.get("name")
+    tool_call_id = cast(str | None, msg.get("tool_call_id"))
+    name = cast(str | None, msg.get("name"))
+    return content, tool_calls, tool_call_id, name
 
 
 def _deserialize_message(

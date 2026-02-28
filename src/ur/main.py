@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
+import aiosqlite
 import typer
 from rich import box
 from rich.console import Console, Group
@@ -210,7 +211,7 @@ async def _history(settings: Settings, session_id: str | None, limit: int) -> No
                 " ORDER BY created_at DESC LIMIT 2",
                 (session_id, session_id),
             )
-            rows = await cursor.fetchall()  # type: ignore[assignment]
+            rows: list[aiosqlite.Row] = await cursor.fetchall()  # type: ignore[assignment]
         if not rows:
             console.print(f"[red]No session matching '{session_id}'[/red]")
             raise typer.Exit(1)
