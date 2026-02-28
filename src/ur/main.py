@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import signal
 from typing import Any
 
 import aiosqlite
@@ -126,14 +127,21 @@ async def _chat(settings: Settings, model_override: str | None = None) -> None:
         )
     )
 
-    while True:
+    while session.status == "running":
+        # asyncio.run() replaces the SIGINT handler with _cancel_main_task, which
+        # only schedules task cancellation and does not raise KeyboardInterrupt.
+        # Restore the default handler for the duration of the blocking input() call
+        # so that the first Ctrl+C exits immediately.
+        _prev_sigint = signal.signal(signal.SIGINT, signal.default_int_handler)
         try:
             task = console.input("\n[bold blue]you[/bold blue] › ")
         except (KeyboardInterrupt, EOFError):
-            await save_session(session, settings.db_path)
             console.print("\n[dim]Goodbye.[/dim]")
             session.interrupt()
+            await save_session(session, settings.db_path)
             break
+        finally:
+            signal.signal(signal.SIGINT, _prev_sigint)
 
         if not task.strip():
             continue
@@ -177,16 +185,16 @@ async def _chat(settings: Settings, model_override: str | None = None) -> None:
                 console.print(
                     "[dim]Set the correct environment variables for the provider.[/dim]"
                 )
+        except BaseException:
+            session.interrupt()
+            raise
+        finally:
+            console.print()
+            console.print(
+                f"[dim]tokens in={session.usage.input_tokens} "
+                f"out={session.usage.output_tokens} (session total)[/]"
+            )
             await save_session(session, settings.db_path)
-            continue
-
-        console.print()
-        console.print(
-            f"[dim]tokens in={session.usage.input_tokens} "
-            f"out={session.usage.output_tokens} (session total)[/]"
-        )
-
-    await save_session(session, settings.db_path)
 
 
 # ── history ───────────────────────────────────────────────────────────────────
