@@ -27,6 +27,8 @@ CREATE TABLE IF NOT EXISTS messages (
     name         TEXT,
     created_at   TEXT NOT NULL
 );
+
+CREATE INDEX IF NOT EXISTS idx_messages_session_id ON messages(session_id);
 """
 
 
