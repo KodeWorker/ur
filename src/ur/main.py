@@ -91,6 +91,9 @@ async def _run(
                 "[dim]Set the correct environment variables for the provider.[/dim]"
             )
         raise typer.Exit(1)
+    except BaseException:
+        session.interrupt()
+        raise
     finally:
         await save_session(session, settings.db_path)
         if session.usage:
