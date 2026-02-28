@@ -70,6 +70,7 @@ async def _run(
                 if content_acc:
                     parts.append(Markdown(content_acc))
                 live.update(Group(*parts))
+        session.complete()
     except Exception as e:
         session.fail()
         console.print(f"\n[red]Error:[/red] {e}")
@@ -88,16 +89,15 @@ async def _run(
             console.print(
                 "[dim]Set the correct environment variables for the provider.[/dim]"
             )
-        await save_session(session, settings.db_path)
         raise typer.Exit(1)
-
-    session.complete()
-    console.print()
-    console.print(
-        f"[dim]tokens in={session.usage.input_tokens}"
-        f" out={session.usage.output_tokens}[/]"
-    )
-    await save_session(session, settings.db_path)
+    finally:
+        await save_session(session, settings.db_path)
+        if session.usage:
+            console.print()
+            console.print(
+                f"[dim]tokens in={session.usage.input_tokens}"
+                f" out={session.usage.output_tokens}[/]"
+            )
 
 
 # ── chat ──────────────────────────────────────────────────────────────────────
@@ -130,6 +130,7 @@ async def _chat(settings: Settings, model_override: str | None = None) -> None:
         try:
             task = console.input("\n[bold blue]you[/bold blue] › ")
         except (KeyboardInterrupt, EOFError):
+            await save_session(session, settings.db_path)
             console.print("\n[dim]Goodbye.[/dim]")
             session.interrupt()
             break
