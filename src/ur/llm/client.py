@@ -39,7 +39,11 @@ class LLMClient:
     # Keys that are internal metadata and must never be sent to the LLM API
     _INTERNAL_KEYS: ClassVar[frozenset[str]] = frozenset({"created_at"})
 
-    async def stream(self, messages: list[Message]) -> CompletionStream:
+    async def stream(
+        self,
+        messages: list[Message],
+        tools: list[dict[str, Any]] | None = None,
+    ) -> CompletionStream:
         api_messages = [
             {k: v for k, v in msg.items() if k not in self._INTERNAL_KEYS}
             for msg in messages
@@ -49,6 +53,8 @@ class LLMClient:
             messages=api_messages,
             stream=True,
         )
+        if tools:
+            kwargs["tools"] = tools
         if self.provider == Provider.GEMINI and self.settings.gemini_api_key:
             kwargs["api_key"] = self.settings.gemini_api_key
         elif self.provider == Provider.OLLAMA:
@@ -66,11 +72,18 @@ class CompletionStream:
         self.full_text: str = ""  # content only — stored in session messages
         self.reasoning_text: str = ""  # thinking tokens — display only
         self.usage: UsageStats = UsageStats()
+        self.tool_calls: list[dict[str, Any]] = []
+
+    @property
+    def has_tool_calls(self) -> bool:
+        return bool(self.tool_calls)
 
     def __aiter__(self) -> AsyncIterator[StreamChunk]:
         return self._iter()
 
     async def _iter(self) -> AsyncGenerator[StreamChunk, None]:
+        tool_calls_acc: dict[int, dict[str, Any]] = {}
+
         async for chunk in self._response:
             if not chunk.choices:
                 continue
@@ -87,9 +100,26 @@ class CompletionStream:
                 self.full_text += content
                 yield StreamChunk(kind="content", text=content)
 
+            # Tool-call delta accumulation — fragments arrive index-by-index
+            for tc_delta in getattr(delta, "tool_calls", None) or []:
+                idx: int = tc_delta.index
+                if idx not in tool_calls_acc:
+                    tool_calls_acc[idx] = {
+                        "id": tc_delta.id,
+                        "type": "function",
+                        "function": {
+                            "name": tc_delta.function.name,
+                            "arguments": "",
+                        },
+                    }
+                args_fragment: str = tc_delta.function.arguments or ""
+                tool_calls_acc[idx]["function"]["arguments"] += args_fragment
+
             # Capture usage when the provider includes it in the stream
             if hasattr(chunk, "usage") and chunk.usage:
                 self.usage = UsageStats(
                     input_tokens=getattr(chunk.usage, "prompt_tokens", 0) or 0,
                     output_tokens=getattr(chunk.usage, "completion_tokens", 0) or 0,
                 )
+
+        self.tool_calls = [tool_calls_acc[i] for i in sorted(tool_calls_acc)]
