@@ -24,6 +24,32 @@ class Provider(StrEnum):
     OTHER = "other"
 
 
+def _to_ollama_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Convert OpenAI-format messages to Ollama format.
+
+    Ollama requires tool_calls[].function.arguments to be a dict, whereas the
+    OpenAI wire format (and our session store) uses a JSON string.
+    """
+    result = []
+    for msg in messages:
+        tool_calls = msg.get("tool_calls")
+        if not tool_calls:
+            result.append(msg)
+            continue
+        converted_tcs = []
+        for tc in tool_calls:
+            fn = tc.get("function") or {}
+            args = fn.get("arguments", {})
+            if isinstance(args, str):
+                try:
+                    args = json.loads(args)
+                except json.JSONDecodeError:
+                    args = {}
+            converted_tcs.append({**tc, "function": {**fn, "arguments": args}})
+        result.append({**msg, "tool_calls": converted_tcs})
+    return result
+
+
 class LLMClient:
     def __init__(self, settings: Settings, model: str | None = None) -> None:
         self.settings = settings
@@ -57,7 +83,7 @@ class LLMClient:
             client = ollama.AsyncClient(host=self.settings.ollama_base_url)
             response = await client.chat(
                 model=model_name,
-                messages=api_messages,
+                messages=_to_ollama_messages(api_messages),
                 tools=tools or [],
                 stream=True,
             )
