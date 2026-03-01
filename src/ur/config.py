@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     # Use model names like "ollama/llama3.2" or "ollama_chat/qwen2.5"
     ollama_base_url: str = Field(default="http://localhost:11434")
 
+    tool_builtin_truncate_at: int = Field(default=4000)
+    tool_builtin_max_lines: int = Field(default=200)
+
     @property
     def db_path(self) -> Path:
         return self.data_dir / "ur.db"
