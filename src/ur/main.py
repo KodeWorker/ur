@@ -43,6 +43,7 @@ def _make_registry(no_tools: bool, settings: Settings) -> ToolRegistry | None:
             max_lines=settings.tool_builtin_max_lines,
         )
     except ImportError:
+        console.print("[yellow]tools extra not installed — running without tools[/]")
         return None
 
 
