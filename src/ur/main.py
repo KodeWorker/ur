@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import signal
-from typing import Any
 
 import aiosqlite
 import typer
@@ -85,25 +84,28 @@ async def _run(
                 session, client, settings.max_iterations, registry=registry
             ):
                 if chunk.kind == "tool_call":
-                    reasoning_acc = ""
-                    content_acc = ""
+                    if reasoning_acc:
+                        live.update(Group())
+                        console.print(Text(reasoning_acc, style="dim"))
+                        reasoning_acc = ""
                     live.update(Group())
                     console.print(f"[dim]⚙ {chunk.text}[/]")
                     continue
                 if chunk.kind == "tool_result":
                     preview = chunk.text.split("\n")[0][:120]
                     console.print(f"[dim]🤖 {preview}[/]")
+                    content_acc = ""
                     continue
                 if chunk.kind == "reasoning":
                     reasoning_acc += chunk.text
+                    live.update(Text(reasoning_acc, style="dim"))
                 else:
+                    if reasoning_acc:
+                        live.update(Group())
+                        console.print(Text(reasoning_acc, style="dim"))
+                        reasoning_acc = ""
                     content_acc += chunk.text
-                parts: list[Any] = []
-                if reasoning_acc:
-                    parts.append(Text(reasoning_acc, style="dim"))
-                if content_acc:
-                    parts.append(Markdown(content_acc))
-                live.update(Group(*parts))
+                    live.update(Markdown(content_acc))
         session.complete()
     except Exception as e:
         session.fail()
@@ -201,25 +203,28 @@ async def _chat(
                     session, client, settings.max_iterations, registry=registry
                 ):
                     if chunk.kind == "tool_call":
-                        reasoning_acc = ""
-                        content_acc = ""
+                        if reasoning_acc:
+                            live.update(Group())
+                            console.print(Text(reasoning_acc, style="dim"))
+                            reasoning_acc = ""
                         live.update(Group())
                         console.print(f"[dim]⚙ {chunk.text}[/]")
                         continue
                     if chunk.kind == "tool_result":
                         preview = chunk.text.split("\n")[0][:120]
                         console.print(f"[dim]🤖 {preview}[/]")
+                        content_acc = ""
                         continue
                     if chunk.kind == "reasoning":
                         reasoning_acc += chunk.text
+                        live.update(Text(reasoning_acc, style="dim"))
                     else:
+                        if reasoning_acc:
+                            live.update(Group())
+                            console.print(Text(reasoning_acc, style="dim"))
+                            reasoning_acc = ""
                         content_acc += chunk.text
-                    parts_chat: list[Any] = []
-                    if reasoning_acc:
-                        parts_chat.append(Text(reasoning_acc, style="dim"))
-                    if content_acc:
-                        parts_chat.append(Markdown(content_acc))
-                    live.update(Group(*parts_chat))
+                        live.update(Markdown(content_acc))
         except Exception as e:
             session.messages.pop()  # remove orphaned user message from failed turn
             console.print(f"\n[red]Error:[/red] {e}")
