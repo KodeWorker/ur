@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import functools
 
-import aiofiles  # type: ignore[import-untyped]
 import httpx
 
 from .registry import ToolRegistry
@@ -38,6 +37,8 @@ async def shell(command: str, max_chars: int = 4000, timeout: int = 30) -> str:
 async def read_file(path: str, max_lines: int = 200) -> str:
     """Read a file and return its contents."""
     try:
+        import aiofiles  # type: ignore[import-untyped]
+
         async with aiofiles.open(path) as f:
             lines = await f.readlines()
         if len(lines) > max_lines:
@@ -52,6 +53,8 @@ async def read_file(path: str, max_lines: int = 200) -> str:
 async def write_file(path: str, content: str) -> str:
     """Write content to a file, overwriting any existing content."""
     try:
+        import aiofiles  # type: ignore[import-untyped]
+
         async with aiofiles.open(path, "w") as f:
             await f.write(content)
         return f"Written {len(content)} bytes to {path}"
