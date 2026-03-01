@@ -85,6 +85,9 @@ async def _run(
                 session, client, settings.max_iterations, registry=registry
             ):
                 if chunk.kind == "tool_call":
+                    reasoning_acc = ""
+                    content_acc = ""
+                    live.update(Group())
                     console.print(f"[dim]⚙ {chunk.text}[/]")
                     continue
                 if chunk.kind == "tool_result":
@@ -198,6 +201,9 @@ async def _chat(
                     session, client, settings.max_iterations, registry=registry
                 ):
                     if chunk.kind == "tool_call":
+                        reasoning_acc = ""
+                        content_acc = ""
+                        live.update(Group())
                         console.print(f"[dim]⚙ {chunk.text}[/]")
                         continue
                     if chunk.kind == "tool_result":

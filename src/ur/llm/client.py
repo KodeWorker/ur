@@ -86,6 +86,7 @@ class LLMClient:
                 messages=_to_ollama_messages(api_messages),
                 tools=tools or [],
                 stream=True,
+                think=self.settings.model_think or None,
             )
             return OllamaCompletionStream(response)
 
