@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import json
 import os
+import uuid
 from collections.abc import AsyncGenerator, AsyncIterator
 from enum import StrEnum
 from typing import Any, ClassVar
 
 import litellm
+import ollama
 
 from ..agent.models import Message, StreamChunk, UsageStats
 from ..config import Settings
@@ -48,6 +51,18 @@ class LLMClient:
             {k: v for k, v in msg.items() if k not in self._INTERNAL_KEYS}
             for msg in messages
         ]
+
+        if self.provider == Provider.OLLAMA:
+            model_name = self.model.split("/", 1)[-1]
+            client = ollama.AsyncClient(host=self.settings.ollama_base_url)
+            response = await client.chat(
+                model=model_name,
+                messages=api_messages,
+                tools=tools or [],
+                stream=True,
+            )
+            return OllamaCompletionStream(response)
+
         kwargs: dict[str, Any] = dict(
             model=self.model,
             messages=api_messages,
@@ -57,8 +72,6 @@ class LLMClient:
             kwargs["tools"] = tools
         if self.provider == Provider.GEMINI and self.settings.gemini_api_key:
             kwargs["api_key"] = self.settings.gemini_api_key
-        elif self.provider == Provider.OLLAMA:
-            kwargs["api_base"] = self.settings.ollama_base_url
 
         response = await litellm.acompletion(**kwargs)
         return CompletionStream(response)
@@ -123,3 +136,44 @@ class CompletionStream:
                 )
 
         self.tool_calls = [tool_calls_acc[i] for i in sorted(tool_calls_acc)]
+
+
+class OllamaCompletionStream(CompletionStream):
+    """Wraps an ollama async streaming response with native tool-call support."""
+
+    def __init__(self, response: AsyncIterator[ollama.ChatResponse]) -> None:
+        self._ollama_response = response
+        self.full_text = ""
+        self.reasoning_text = ""
+        self.usage: UsageStats = UsageStats()
+        self.tool_calls: list[dict[str, Any]] = []
+
+    def __aiter__(self) -> AsyncIterator[StreamChunk]:
+        return self._iter_ollama()
+
+    async def _iter_ollama(self) -> AsyncGenerator[StreamChunk, None]:
+        async for chunk in self._ollama_response:
+            msg = chunk.message
+
+            thinking: str = msg.thinking or ""
+            if thinking:
+                self.reasoning_text += thinking
+                yield StreamChunk(kind="reasoning", text=thinking)
+
+            content: str = msg.content or ""
+            if content:
+                self.full_text += content
+                yield StreamChunk(kind="content", text=content)
+
+            for tc in msg.tool_calls or []:
+                args = tc.function.arguments or {}
+                self.tool_calls.append(
+                    {
+                        "id": f"call_{uuid.uuid4().hex[:8]}",
+                        "type": "function",
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": json.dumps(dict(args)),
+                        },
+                    }
+                )

@@ -11,6 +11,7 @@ requires-python = ">=3.12"
 dependencies = [
     # LLM & Agent Engine
     "litellm>=1.40",
+    "ollama>=0.4",
     # Memory & State
     "aiosqlite>=0.20",
     "pydantic>=2.7",
