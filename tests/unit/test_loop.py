@@ -3,11 +3,17 @@ from unittest.mock import AsyncMock, MagicMock
 import litellm
 import pytest
 
-from tests.conftest import TEST_MODEL, MockStreamWrapper, make_chunk
+from tests.conftest import (
+    TEST_MODEL,
+    MockStreamWrapper,
+    make_chunk,
+    make_tool_call_chunk,
+)
 from ur.agent.loop import run
 from ur.agent.models import StreamChunk
 from ur.agent.session import AgentSession
 from ur.llm.client import CompletionStream, LLMClient
+from ur.tools.registry import ToolRegistry
 
 _MAX_ITER = 5
 
@@ -17,6 +23,28 @@ def _make_stream(tokens: list[str], usage: dict | None = None) -> CompletionStre
     if usage:
         chunks[-1] = make_chunk(tokens[-1], usage=usage)
     return CompletionStream(MockStreamWrapper(chunks))
+
+
+def _make_tool_call_stream(
+    tool_call_id: str, name: str, arguments: str
+) -> CompletionStream:
+    chunks = [make_tool_call_chunk(tool_call_id, name, arguments)]
+    return CompletionStream(MockStreamWrapper(chunks))
+
+
+def _make_registry(name: str, result: str) -> ToolRegistry:
+    registry = ToolRegistry()
+
+    async def _fn(**kwargs: str) -> str:
+        return result
+
+    registry.register(
+        name=name,
+        description="test tool",
+        parameters={"type": "object", "properties": {}, "required": []},
+        fn=_fn,
+    )
+    return registry
 
 
 def _make_client(stream: CompletionStream) -> MagicMock:
@@ -71,7 +99,7 @@ async def test_run_stops_after_one_iteration_in_phase1():
 async def test_run_passes_full_message_history_to_llm():
     captured: list = []
 
-    async def capture_and_return(messages):
+    async def capture_and_return(messages, tools=None):
         captured.extend(messages)
         return _make_stream(["a2"])
 
@@ -94,7 +122,7 @@ async def test_run_prepends_system_prompt_to_messages_sent_to_llm():
     is not added to session.messages."""
     captured: list = []
 
-    async def capture_and_return(messages):
+    async def capture_and_return(messages, tools=None):
         captured.extend(messages)
         return _make_stream(["reply"])
 
@@ -154,3 +182,132 @@ async def test_loop_run_propagates_stream_error():
     with pytest.raises(litellm.APIConnectionError, match="Connection lost"):
         async for _ in run(session, client, _MAX_ITER):
             pass
+
+
+# ── Tool dispatch ─────────────────────────────────────────────────────────────
+
+
+async def test_run_dispatches_single_tool_call():
+    """Loop executes a tool call and sends the result back for a second LLM call."""
+    call_id = "call_abc"
+    tc_stream = _make_tool_call_stream(call_id, "shell", '{"command": "ls"}')
+    text_stream = _make_stream(["files: a.txt"])
+
+    client = MagicMock(spec=LLMClient)
+    client.stream = AsyncMock(side_effect=[tc_stream, text_stream])
+    registry = _make_registry("shell", "a.txt")
+    session = AgentSession.new(task="list files", model=TEST_MODEL)
+
+    chunks = [c async for c in run(session, client, _MAX_ITER, registry=registry)]
+
+    # Content from the final text response is yielded
+    assert any(c.text == "files: a.txt" for c in chunks)
+    # Two LLM calls: one for tool dispatch, one for final reply
+    assert client.stream.call_count == 2
+    # Message order: user → assistant (tool_calls) → tool result → assistant (text)
+    roles = [m["role"] for m in session.messages]
+    assert roles == ["user", "assistant", "tool", "assistant"]
+
+
+async def test_run_appends_tool_result_messages_to_session():
+    """Tool result messages have the correct tool_call_id, name and content."""
+    call_id = "call_xyz"
+    tc_stream = _make_tool_call_stream(call_id, "shell", '{"command": "pwd"}')
+    text_stream = _make_stream(["done"])
+
+    client = MagicMock(spec=LLMClient)
+    client.stream = AsyncMock(side_effect=[tc_stream, text_stream])
+    registry = _make_registry("shell", "/home/user")
+    session = AgentSession.new(task="where", model=TEST_MODEL)
+
+    async for _ in run(session, client, _MAX_ITER, registry=registry):
+        pass
+
+    tool_msgs = [m for m in session.messages if m["role"] == "tool"]
+    assert len(tool_msgs) == 1
+    assert tool_msgs[0]["tool_call_id"] == call_id
+    assert tool_msgs[0]["name"] == "shell"
+    assert tool_msgs[0]["content"] == "/home/user"
+
+
+async def test_run_tool_error_does_not_propagate():
+    """A tool that raises must return an error string — the loop must continue."""
+    call_id = "call_err"
+    tc_stream = _make_tool_call_stream(call_id, "shell", '{"command": "fail"}')
+    text_stream = _make_stream(["I see there was an error"])
+
+    client = MagicMock(spec=LLMClient)
+    client.stream = AsyncMock(side_effect=[tc_stream, text_stream])
+
+    registry = ToolRegistry()
+
+    async def _failing(**kwargs: str) -> str:
+        raise RuntimeError("execution failed")
+
+    registry.register(
+        name="shell",
+        description="test",
+        parameters={"type": "object", "properties": {}, "required": []},
+        fn=_failing,
+    )
+    session = AgentSession.new(task="test", model=TEST_MODEL)
+
+    # Must not raise
+    async for _ in run(session, client, _MAX_ITER, registry=registry):
+        pass
+
+    tool_msgs = [m for m in session.messages if m["role"] == "tool"]
+    assert len(tool_msgs) == 1
+    assert "Error" in tool_msgs[0]["content"]
+
+
+async def test_run_loops_up_to_max_iterations():
+    """Loop terminates at max_iterations even if every response is a tool call."""
+    call_count = 0
+
+    async def _always_tool_call(messages, tools=None):
+        nonlocal call_count
+        call_count += 1
+        return _make_tool_call_stream(f"call_{call_count}", "shell", '{"command": "x"}')
+
+    client = MagicMock(spec=LLMClient)
+    client.stream = _always_tool_call
+    registry = _make_registry("shell", "output")
+    max_iter = 3
+    session = AgentSession.new(task="loop", model=TEST_MODEL)
+
+    async for _ in run(session, client, max_iter, registry=registry):
+        pass
+
+    assert call_count == max_iter
+
+
+async def test_run_without_registry_stops_after_first_response():
+    """registry=None preserves the Phase 1 single-call behavior."""
+    stream = _make_stream(["answer"])
+    client = _make_client(stream)
+    session = AgentSession.new(task="t", model=TEST_MODEL)
+
+    async for _ in run(session, client, _MAX_ITER, registry=None):
+        pass
+
+    client.stream.assert_called_once()
+
+
+async def test_run_unknown_tool_returns_error_string():
+    """Calling an unregistered tool writes an error string to the tool result."""
+    call_id = "call_unk"
+    tc_stream = _make_tool_call_stream(call_id, "unknown_tool", "{}")
+    text_stream = _make_stream(["ok"])
+
+    client = MagicMock(spec=LLMClient)
+    client.stream = AsyncMock(side_effect=[tc_stream, text_stream])
+    registry = ToolRegistry()  # empty — no tools registered
+    session = AgentSession.new(task="t", model=TEST_MODEL)
+
+    async for _ in run(session, client, _MAX_ITER, registry=registry):
+        pass
+
+    tool_msgs = [m for m in session.messages if m["role"] == "tool"]
+    assert len(tool_msgs) == 1
+    assert "unknown tool" in tool_msgs[0]["content"]
