@@ -3,16 +3,15 @@
 from __future__ import annotations
 
 import asyncio
+import functools
 
 import aiofiles  # type: ignore[import-untyped]
 import httpx
 
 from .registry import ToolRegistry
 
-_TRUNCATE_AT = 4000
 
-
-async def shell(command: str, timeout: int = 30) -> str:
+async def shell(command: str, max_chars: int = 4000, timeout: int = 30) -> str:
     """Run a shell command and return stdout+stderr."""
     try:
         proc = await asyncio.create_subprocess_shell(
@@ -26,9 +25,10 @@ async def shell(command: str, timeout: int = 30) -> str:
             proc.kill()
             return f"Error: command timed out after {timeout}s"
         output = stdout.decode(errors="replace")
-        if len(output) > _TRUNCATE_AT:
+        if len(output) > max_chars:
             output = (
-                output[:_TRUNCATE_AT] + f"\n... (truncated, {len(output)} chars total)"
+                output[:max_chars]
+                + f"\n... (truncated, {len(output) - max_chars} more chars)"
             )
         return output or "(no output)"
     except Exception as e:
@@ -59,22 +59,26 @@ async def write_file(path: str, content: str) -> str:
         return f"Error: {e}"
 
 
-async def http_get(url: str, timeout: int = 10) -> str:
+async def http_get(url: str, max_chars: int = 4000, timeout: int = 10) -> str:
     """Fetch a URL and return the response body text."""
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(url, timeout=timeout, follow_redirects=True)
             text = response.text
-            if len(text) > _TRUNCATE_AT:
+            if len(text) > max_chars:
                 text = (
-                    text[:_TRUNCATE_AT] + f"\n... (truncated, {len(text)} chars total)"
+                    text[:max_chars]
+                    + f"\n... (truncated, {len(text) - max_chars} more chars)"
                 )
             return text
     except Exception as e:
         return f"Error: {e}"
 
 
-def create_default_registry() -> ToolRegistry:
+def create_default_registry(
+    truncate_at: int = 4000,
+    max_lines: int = 200,
+) -> ToolRegistry:
     """Return a ToolRegistry pre-populated with all built-in tools."""
     registry = ToolRegistry()
 
@@ -82,7 +86,7 @@ def create_default_registry() -> ToolRegistry:
         name="shell",
         description=(
             "Run a shell command and return stdout+stderr combined. "
-            f"Output truncated at {_TRUNCATE_AT} characters."
+            f"Output truncated at {truncate_at} characters."
         ),
         parameters={
             "type": "object",
@@ -96,14 +100,14 @@ def create_default_registry() -> ToolRegistry:
             },
             "required": ["command"],
         },
-        fn=shell,
+        fn=functools.partial(shell, max_chars=truncate_at),
     )
 
     registry.register(
         name="read_file",
         description=(
             "Read a file and return its contents. "
-            "Truncated at max_lines lines (default 200)."
+            f"Truncated at max_lines lines (default {max_lines})."
         ),
         parameters={
             "type": "object",
@@ -120,7 +124,7 @@ def create_default_registry() -> ToolRegistry:
             },
             "required": ["path"],
         },
-        fn=read_file,
+        fn=functools.partial(read_file, max_lines=max_lines),
     )
 
     registry.register(
@@ -144,7 +148,7 @@ def create_default_registry() -> ToolRegistry:
         name="http_get",
         description=(
             "Fetch a URL with an HTTP GET request and return the response body text. "
-            f"Output truncated at {_TRUNCATE_AT} characters."
+            f"Output truncated at {truncate_at} characters."
         ),
         parameters={
             "type": "object",
@@ -158,7 +162,7 @@ def create_default_registry() -> ToolRegistry:
             },
             "required": ["url"],
         },
-        fn=http_get,
+        fn=functools.partial(http_get, max_chars=truncate_at),
     )
 
     return registry

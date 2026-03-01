@@ -32,13 +32,16 @@ def _settings() -> Settings:
     return s
 
 
-def _make_registry(no_tools: bool) -> ToolRegistry | None:
+def _make_registry(no_tools: bool, settings: Settings) -> ToolRegistry | None:
     if no_tools:
         return None
     try:
         from .tools.builtin import create_default_registry
 
-        return create_default_registry()
+        return create_default_registry(
+            truncate_at=settings.tool_builtin_truncate_at,
+            max_lines=settings.tool_builtin_max_lines,
+        )
     except ImportError:
         return None
 
@@ -66,7 +69,7 @@ async def _run(
     model = model_override or settings.model
     client = LLMClient(settings, model=model)
     session = AgentSession.new(task=task, model=model)
-    registry = _make_registry(no_tools)
+    registry = _make_registry(no_tools, settings)
 
     console.print(f"[dim]session {session.id[:8]}  model={model}[/]")
     console.print()
@@ -144,7 +147,7 @@ async def _chat(
     model = model_override or settings.model
     client = LLMClient(settings, model=model)
     session = AgentSession.new(task="", model=model)
-    registry = _make_registry(no_tools)
+    registry = _make_registry(no_tools, settings)
 
     console.print(
         Panel(
