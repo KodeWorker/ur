@@ -83,6 +83,13 @@ async def _run(
             async for chunk in agent_run(
                 session, client, settings.max_iterations, registry=registry
             ):
+                if chunk.kind == "tool_call":
+                    console.print(f"[dim]⚙ {chunk.text}[/]")
+                    continue
+                if chunk.kind == "tool_result":
+                    preview = chunk.text.split("\n")[0][:120]
+                    console.print(f"[dim]🤖 {preview}[/]")
+                    continue
                 if chunk.kind == "reasoning":
                     reasoning_acc += chunk.text
                 else:
@@ -189,6 +196,13 @@ async def _chat(
                 async for chunk in agent_run(
                     session, client, settings.max_iterations, registry=registry
                 ):
+                    if chunk.kind == "tool_call":
+                        console.print(f"[dim]⚙ {chunk.text}[/]")
+                        continue
+                    if chunk.kind == "tool_result":
+                        preview = chunk.text.split("\n")[0][:120]
+                        console.print(f"[dim]🤖 {preview}[/]")
+                        continue
                     if chunk.kind == "reasoning":
                         reasoning_acc += chunk.text
                     else:

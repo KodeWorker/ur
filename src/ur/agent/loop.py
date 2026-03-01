@@ -47,10 +47,13 @@ async def run(
             )
             # Execute each requested tool and record results
             for tc in stream.tool_calls:
-                result = await _execute_tool(registry, tc)
                 tc_id: str = tc.get("id") or ""
                 tc_name: str = (tc.get("function") or {}).get("name") or ""
+                tc_args: str = (tc.get("function") or {}).get("arguments") or ""
+                yield StreamChunk(kind="tool_call", text=f"{tc_name}({tc_args})")
+                result = await _execute_tool(registry, tc)
                 session.add_tool_result_message(tc_id, tc_name, result)
+                yield StreamChunk(kind="tool_result", text=result)
             # Rebuild messages for next iteration
             messages = session.messages
             if system_prompt:
