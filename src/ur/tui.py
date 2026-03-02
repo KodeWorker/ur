@@ -146,6 +146,94 @@ class TurnWidget(Vertical):
         )
 
 
+# ── ToolConfirmWidget ─────────────────────────────────────────────────────────
+
+
+class ToolConfirmWidget(Vertical):
+    """Inline tool-call confirmation rendered as a chat message in the scroll pane.
+
+    The worker awaits wait_for_response(); the Input submission resolves it.
+
+    Returns:
+      None      — allowed (only "yes" or "YES" exactly)
+      ""        — denied with no reason; loop.py produces "Tool call denied by user."
+      "<text>"  — denied with reason; loop.py builds
+                  f"Tool call denied by user with {text}"
+    """
+
+    DEFAULT_CSS = """
+    ToolConfirmWidget {
+        height: auto;
+        margin-bottom: 1;
+        padding: 0 1;
+        border-left: thick $warning;
+    }
+    ToolConfirmWidget .confirm-name {
+        text-style: bold;
+        color: $warning;
+        height: auto;
+    }
+    ToolConfirmWidget .confirm-args {
+        color: $text-disabled;
+        height: auto;
+    }
+    ToolConfirmWidget .confirm-prompt {
+        color: $text-disabled;
+        height: auto;
+        margin-top: 1;
+    }
+    ToolConfirmWidget .confirm-result {
+        height: auto;
+        margin-top: 1;
+    }
+    """
+
+    def __init__(self, name: str, args: str) -> None:
+        super().__init__()
+        self._tool_name = name
+        self._tool_args = args
+        self._future: asyncio.Future[str | None] | None = None
+
+    def compose(self) -> ComposeResult:
+        yield Static(f"⚙ {self._tool_name}", classes="confirm-name", markup=False)
+        if self._tool_args and self._tool_args != "{}":
+            preview = self._tool_args[:300]
+            if len(self._tool_args) > 300:
+                preview += "…"
+            yield Static(preview, classes="confirm-args", markup=False)
+        yield Static(
+            "Allow? [dim]yes/YES to allow — ↵ or type a reason + ↵ to deny[/dim]",
+            classes="confirm-prompt",
+        )
+        yield Input(placeholder="reason for denial (↵ to deny)…", id="confirm-input")
+
+    def on_mount(self) -> None:
+        self._future = asyncio.get_running_loop().create_future()
+        self.query_one("#confirm-input", Input).focus()
+
+    async def on_input_submitted(self, event: Input.Submitted) -> None:
+        event.stop()  # prevent bubbling to UrApp.on_input_submitted
+        reason = event.value.strip()
+        allowed = reason in ("yes", "YES")  # strict match only; anything else is denied
+        result: str | None = None if allowed else reason
+
+        await self.query_one(".confirm-prompt").remove()
+        await event.input.remove()
+        label = (
+            "[green]✓ allowed[/green]"
+            if allowed
+            else f"[red]✗ denied[/red]: {reason}" if reason else "[red]✗ denied[/red]"
+        )
+        await self.mount(Static(label, classes="confirm-result"))
+
+        if self._future is not None and not self._future.done():
+            self._future.set_result(result)
+
+    async def wait_for_response(self) -> str | None:
+        assert self._future is not None, "wait_for_response called before on_mount"
+        return await self._future
+
+
 # ── UrApp ─────────────────────────────────────────────────────────────────────
 
 
@@ -162,7 +250,6 @@ class UrApp(App[None]):
     }
     #input-bar {
         height: 3;
-        border-top: solid $primary;
     }
     #status {
         height: 1;
@@ -246,12 +333,22 @@ class UrApp(App[None]):
         scroll = self.query_one("#scroll", ScrollableContainer)
         reasoning_acc = ""
         content_acc = ""
+
+        async def _confirm_tool(name: str, args: str) -> str | None:
+            widget = ToolConfirmWidget(name, args)
+            await scroll.mount(widget)
+            scroll.scroll_end(animate=False)
+            result = await widget.wait_for_response()
+            scroll.scroll_end(animate=False)
+            return result
+
         try:
             async for chunk in agent_run(
                 self._session,
                 self._client,
                 self._settings.max_iterations,
                 registry=self._tool_registry,
+                confirm_tool=_confirm_tool if self._tool_registry is not None else None,
             ):
                 if chunk.kind == "reasoning":
                     reasoning_acc += chunk.text
@@ -312,10 +409,22 @@ class UrApp(App[None]):
             f"tokens in={usage.input_tokens} out={usage.output_tokens}"
         )
 
+    async def action_quit(self) -> None:
+        """Textual's built-in quit (command palette, default binding) — delegate."""
+        await self.action_request_quit()
+
     async def action_request_quit(self) -> None:
-        """Ctrl+C / Ctrl+D: mark session interrupted if still running, then exit."""
+        """Ctrl+C / Ctrl+D: finalise session status, then exit.
+
+        - streaming in progress → interrupted  (user cut it short)
+        - idle when quit        → completed    (conversation ended normally)
+        """
         if self._session.status == "running":
-            self._session.interrupt()
+            streaming = any(w.is_running for w in self.workers)
+            if streaming:
+                self._session.interrupt()
+            else:
+                self._session.complete()
             await save_session(self._session, self._settings.db_path)
         self.exit()
 
