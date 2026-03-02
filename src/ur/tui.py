@@ -240,7 +240,7 @@ class ToolConfirmWidget(Vertical):
         label = (
             "[green]✓ 🤖 allowed[/green]"
             if allowed
-            else f"[red]✗ 🤖 denied[/red]: {reason}"
+            else f"[red]✗ 🤖 denied[/red]: {escape(reason)}"
             if reason
             else "[red]✗ 🤖 denied[/red]"
         )
@@ -303,7 +303,6 @@ class UrApp(App[None]):
         self._client = client
         self._session = session
         self._tool_registry = registry
-        self._workspace = workspace_dir
         self._current_turn: TurnWidget | None = None
 
     def compose(self) -> ComposeResult:

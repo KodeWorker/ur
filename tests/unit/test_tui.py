@@ -148,6 +148,7 @@ async def test_turn_widget_tool_call_resets_content_segment(
             turn = TurnWidget("hello")
             await app.query_one("#scroll").mount(turn)
             await pilot.pause()
+            await pilot.pause()  # second pause ensures TurnWidget is fully attached
 
             await turn.append_content("before tool")
             await turn.add_tool_call("shell(ls)")
@@ -252,7 +253,7 @@ async def test_urapp_run_mode_session_interrupted_on_ctrl_c(
 # ── UrApp lifecycle — chat mode ───────────────────────────────────────────────
 
 
-async def test_urapp_chat_mode_ctrl_d_interrupts_session(
+async def test_urapp_chat_mode_ctrl_c_idle_completes_session(
     tmp_settings: Settings,
 ) -> None:
     """Ctrl+C in chat mode with no stream running marks session completed."""

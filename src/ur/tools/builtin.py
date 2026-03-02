@@ -12,6 +12,8 @@ import httpx
 
 from .registry import ToolRegistry
 
+_DNS_REBIND_SUFFIXES = (".nip.io", ".xip.io", ".sslip.io")
+
 
 def _validate_url(url: str) -> None:
     """Raise ValueError if url is not a safe public http/https URL.
@@ -32,8 +34,7 @@ def _validate_url(url: str) -> None:
     host = (parsed.hostname or "").lower()
     if not host or host in ("localhost", "ip6-localhost", "ip6-loopback"):
         raise ValueError(f"Blocked host: {host!r}")
-    _REBIND_SUFFIXES = (".nip.io", ".xip.io", ".sslip.io")
-    if any(host.endswith(s) for s in _REBIND_SUFFIXES):
+    if any(host.endswith(s) for s in _DNS_REBIND_SUFFIXES):
         raise ValueError(f"Blocked host: {host!r} (dynamic-DNS rebind suffix)")
     try:
         addr = ipaddress.ip_address(host)
@@ -90,12 +91,15 @@ async def read_file(path: str, max_lines: int = 200, cwd: Path | None = None) ->
             except ValueError:
                 return "Error: path escapes workspace directory"
         async with aiofiles.open(resolved) as f:
-            lines = await f.readlines()
-        if len(lines) > max_lines:
-            head = lines[:max_lines]
-            head.append(f"\n... ({len(lines) - max_lines} more lines)")
-            return "".join(head)
-        return "".join(lines)
+            head: list[str] = []
+            total = 0
+            async for line in f:
+                total += 1
+                if total <= max_lines:
+                    head.append(line)
+        if total > max_lines:
+            head.append(f"\n... ({total - max_lines} more lines)")
+        return "".join(head)
     except Exception as e:
         return f"Error: {e}"
 
@@ -165,7 +169,7 @@ async def http_get(url: str, max_chars: int = 4000, timeout: int = 10) -> str:
     try:
         _validate_url(url)
         async with httpx.AsyncClient(headers=_HTTP_HEADERS) as client:
-            response = await client.get(url, timeout=timeout, follow_redirects=True)
+            response = await client.get(url, timeout=timeout, follow_redirects=False)
             text = response.text
             if len(text) > max_chars:
                 text = (
@@ -269,7 +273,8 @@ def create_default_registry(
         description=(
             "Fetch a known URL and return the raw response body (HTML, JSON, text). "
             "Use when you already have a URL and the page does not require JavaScript. "
-            f"Output truncated at {truncate_at} characters."
+            f"Output truncated at {truncate_at} characters. "
+            "Redirects are not followed; use the Location header to follow manually."
         ),
         parameters={
             "type": "object",
