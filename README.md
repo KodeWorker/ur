@@ -9,7 +9,7 @@ Agent assisted workflow — a local-first, cross-platform Python sandbox for AI 
 - **Local-first** — everything runs on your machine, no cloud infra required
 - **Cross-platform** — Windows, Mac, Linux
 - **Provider-agnostic** — Google Gemini or any hosted Ollama models
-- **Extensible** — drop a `.py` file in `~/.ur/tools/` to add a custom tool
+- **Extensible** — drop a `.py` file in `<data_dir>/tools/` to add a custom tool
 
 ## Requirements
 
@@ -46,7 +46,7 @@ cp .env.example .env
 | `UR_MODEL` | `gemini/gemini-2.0-flash` | LLM model to use |
 | `UR_OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
 | `UR_MAX_ITERATIONS` | `20` | Agent loop iteration cap |
-| `UR_DATA_DIR` | platform data dir | Override data/db location |
+| `UR_DATA_DIR` | platform data dir | Override data/db/tools location |
 
 **Platform data directories** (auto-detected):
 
@@ -99,22 +99,27 @@ Supported model prefixes: `ollama/` (generate API) and `ollama_chat/` (chat API)
 ## Architecture
 
 ```
-src/ur/
-├── config.py           Settings (pydantic-settings, platformdirs)
-├── main.py             Typer CLI entry point
-├── agent/
-│   ├── loop.py         Core agentic loop — yields tokens, dispatches tools
-│   ├── session.py      AgentSession — messages, usage, lifecycle
-│   └── models.py       Message type alias, UsageStats
-├── llm/
-│   └── client.py       LiteLLM wrapper + CompletionStream
-├── memory/
-│   ├── db.py           SQLite schema, get_db context manager
-│   └── session_store.py  save / list / get session messages
-└── sandbox/            (Phase 2) ExecutionBackend protocol
-    ├── subprocess_backend.py   Tier 1: default, zero deps
-    ├── docker_backend.py       Tier 2: opt-in
-    └── wasm_backend.py         Tier 3: stub / future
+.
+├── docs/
+│   ├── devlog/         Daily development notes
+│   └── plans/          Feature implementation plans
+├── src/ur/
+│   ├── config.py       Settings (pydantic-settings, platformdirs)
+│   ├── main.py         Typer CLI entry point
+│   ├── tui.py          Textual TUI (run + chat commands)
+│   ├── agent/
+│   │   ├── loop.py     Core agentic loop — yields tokens, dispatches tools
+│   │   ├── session.py  AgentSession — messages, usage, lifecycle
+│   │   └── models.py   Message type alias, UsageStats
+│   ├── llm/
+│   │   └── client.py   LiteLLM wrapper + CompletionStream
+│   ├── memory/
+│   │   ├── db.py       SQLite schema, get_db context manager
+│   │   └── session_store.py  save / list / get session messages
+│   └── tools/
+│       ├── registry.py ToolRegistry — register, lookup, dispatch
+│       └── builtin.py  shell, read_file, write_file, http_get, browser_get
+└── tests/unit/         Unit tests, one file per source module
 ```
 
 ### Sandbox tiers
@@ -128,12 +133,28 @@ src/ur/
 ### Optional extras
 
 ```bash
-pip install -e ".[tools]"         # playwright, httpx, aiofiles, psutil
+pip install -e ".[tools]"         # playwright, markdownify, httpx, aiofiles, psutil
 pip install -e ".[sandbox]"       # docker SDK (Tier 2)
 pip install -e ".[api]"           # fastapi + uvicorn (REST/SSE)
 pip install -e ".[memory]"        # chromadb + sentence-transformers
 pip install -e ".[observability]" # opentelemetry, langfuse
 pip install -e ".[queue]"         # arq (Redis-backed task queue)
+```
+
+The `[tools]` extra enables five built-in tools:
+
+| Tool | Description |
+|---|---|
+| `shell` | Run a shell command, return stdout+stderr |
+| `read_file` | Read a file from disk |
+| `write_file` | Write a file to disk |
+| `http_get` | Fetch a URL with a plain HTTP GET |
+| `browser_get` | Visit a URL with headless Chromium (JS rendered), return page as markdown |
+
+After installing `[tools]`, download the Chromium binary once for `browser_get`:
+
+```bash
+uv run playwright install chromium
 ```
 
 ## Development
@@ -166,7 +187,7 @@ Provider-specific tests are guarded with skip markers that activate based on `UR
 ## Roadmap
 
 - **Phase 1** (done) — LLM loop, streaming CLI, SQLite sessions
-- **Phase 2** — tool suite: filesystem, code execution, HTTP, browser
+- **Phase 2** (done) — tool suite: filesystem, code execution, HTTP, browser
 - **Phase 3** — full audit trail, token cost display, `ur history <id>`
 - **Phase 4** — Docker sandbox, REST API, OpenTelemetry tracing
 - **Phase 5** — long-term memory (ChromaDB), multi-task queue, multi-agent seams

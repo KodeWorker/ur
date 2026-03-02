@@ -57,6 +57,7 @@ def make_chunk(
     chunk = MagicMock()
     chunk.choices[0].delta.content = content
     chunk.choices[0].delta.reasoning_content = reasoning
+    chunk.choices[0].delta.tool_calls = None  # explicit: no tool-call deltas
     if usage:
         chunk.usage = MagicMock(
             prompt_tokens=usage.get("prompt_tokens", 0),
@@ -64,6 +65,26 @@ def make_chunk(
         )
     else:
         chunk.usage = None
+    return chunk
+
+
+def make_tool_call_chunk(
+    tool_call_id: str,
+    name: str,
+    arguments: str,
+    index: int = 0,
+) -> MagicMock:
+    """Build a mock litellm streaming chunk containing a tool-call delta."""
+    chunk = MagicMock()
+    chunk.choices[0].delta.content = None
+    chunk.choices[0].delta.reasoning_content = None
+    tc = MagicMock()
+    tc.index = index
+    tc.id = tool_call_id
+    tc.function.name = name
+    tc.function.arguments = arguments
+    chunk.choices[0].delta.tool_calls = [tc]
+    chunk.usage = None
     return chunk
 
 

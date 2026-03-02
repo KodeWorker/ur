@@ -42,12 +42,25 @@ class AgentSession:
         )
 
     def add_assistant_tool_call_message(
-        self, tool_call: dict[str, Any], content: str | None = None
+        self, tool_calls: list[dict[str, Any]], content: str | None = None
     ) -> None:
         self.messages.append(
             {
                 "role": "assistant",
-                "tool_calls": [tool_call],
+                "tool_calls": tool_calls,
+                "content": content,
+                "created_at": _now_iso(),
+            }
+        )
+
+    def add_tool_result_message(
+        self, tool_call_id: str, name: str, content: str
+    ) -> None:
+        self.messages.append(
+            {
+                "role": "tool",
+                "tool_call_id": tool_call_id,
+                "name": name,
                 "content": content,
                 "created_at": _now_iso(),
             }

@@ -20,6 +20,8 @@ def test_defaults(tmp_path):
     assert hasattr(s, "gemini_api_key")
     assert hasattr(s, "max_iterations")
     assert hasattr(s, "log_level")
+    assert hasattr(s, "tool_builtin_truncate_at")
+    assert hasattr(s, "tool_builtin_max_lines")
 
 
 def test_db_path_property(tmp_path):

@@ -35,7 +35,7 @@ Message = UserMessage | AssistantMessage | ToolMessage | SystemMessage
 
 @dataclass
 class StreamChunk:
-    kind: Literal["reasoning", "content"]
+    kind: Literal["reasoning", "content", "tool_call", "tool_result"]
     text: str
 
 

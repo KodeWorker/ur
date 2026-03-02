@@ -33,7 +33,7 @@ def test_add_assistant_message():
 
 def test_add_assistant_tool_call_message():
     s = AgentSession.new(task="hi", model=TEST_MODEL)
-    s.add_assistant_tool_call_message({"name": "test", "arguments": "{}"})
+    s.add_assistant_tool_call_message([{"name": "test", "arguments": "{}"}])
     assert len(s.messages) == 2
     assert s.messages[-1]["role"] == "assistant"
     assert s.messages[-1]["tool_calls"] == [{"name": "test", "arguments": "{}"}]
@@ -43,12 +43,21 @@ def test_add_assistant_tool_call_message():
 def test_add_assistant_tool_call_message_with_content():
     s = AgentSession.new(task="hi", model=TEST_MODEL)
     s.add_assistant_tool_call_message(
-        {"name": "test", "arguments": "{}"}, content="hello back"
+        [{"name": "test", "arguments": "{}"}], content="hello back"
     )
     assert len(s.messages) == 2
     assert s.messages[-1]["role"] == "assistant"
     assert s.messages[-1]["tool_calls"] == [{"name": "test", "arguments": "{}"}]
     assert s.messages[-1]["content"] == "hello back"
+
+
+def test_add_tool_result_message():
+    s = AgentSession.new(task="hi", model=TEST_MODEL)
+    s.add_tool_result_message("call_abc", "shell", "output text")
+    assert s.messages[-1]["role"] == "tool"
+    assert s.messages[-1]["tool_call_id"] == "call_abc"
+    assert s.messages[-1]["name"] == "shell"
+    assert s.messages[-1]["content"] == "output text"
 
 
 def test_status_transitions():
