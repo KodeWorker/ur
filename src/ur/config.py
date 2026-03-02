@@ -34,7 +34,7 @@ class Settings(BaseSettings):
 
     tool_builtin_truncate_at: int = Field(default=4000)
     tool_builtin_max_lines: int = Field(default=200)
-    tool_builtin_max_search_results: int = Field(default=5)
+    tool_builtin_max_search_results: int = Field(default=10)
 
     @property
     def db_path(self) -> Path:

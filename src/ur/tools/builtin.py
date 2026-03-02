@@ -115,7 +115,7 @@ async def http_get(url: str, max_chars: int = 4000, timeout: int = 10) -> str:
         return f"Error: {e}"
 
 
-async def web_search(query: str, max_results: int = 5) -> str:
+async def web_search(query: str, max_results: int = 10) -> str:
     """Perform a web search and return the top results."""
     try:
         from ddgs import DDGS
@@ -136,7 +136,7 @@ async def web_search(query: str, max_results: int = 5) -> str:
 def create_default_registry(
     truncate_at: int = 4000,
     max_lines: int = 200,
-    max_search_results: int = 5,
+    max_search_results: int = 10,
     workspace_dir: Path | None = None,
 ) -> ToolRegistry:
     """Return a ToolRegistry pre-populated with all built-in tools."""
@@ -261,11 +261,6 @@ def create_default_registry(
             "type": "object",
             "properties": {
                 "query": {"type": "string", "description": "Search query"},
-                "max_results": {
-                    "type": "integer",
-                    "description": f"Max results (default {max_search_results})",
-                    "default": max_search_results,
-                },
             },
             "required": ["query"],
         },
