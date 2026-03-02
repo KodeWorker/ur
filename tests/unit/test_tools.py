@@ -130,7 +130,9 @@ async def test_builtin_create_default_registry(_require_tools: None) -> None:
 
     registry = create_default_registry()
     names = {t["function"]["name"] for t in registry.as_tools_list()}
-    assert {"shell", "read_file", "write_file", "http_get", "browser_get"} == names
+    assert names == {
+        "shell", "read_file", "write_file", "http_get", "browser_get", "web_search"
+    }
 
 
 # ── browser_get tests (skipped if playwright or markdownify not installed) ────
@@ -209,6 +211,60 @@ async def test_browser_get_handles_error(
     mocker.patch("playwright.async_api.async_playwright", return_value=mock_ap_cm)
 
     result = await browser_get("https://example.com")
+    assert result.startswith("Error:")
+
+
+# ── web_search tests (skipped if duckduckgo-search not installed) ─────────────
+
+
+@pytest.fixture
+def _require_ddg() -> None:
+    pytest.importorskip("ddgs", reason="requires ddgs")
+
+
+def _patch_ddgs(mocker: MockerFixture, results: list[dict[str, str]]) -> None:
+    """Patch DDGS so DDGS().text(...) returns *results* without a network call."""
+    mock_instance = mocker.MagicMock()
+    mock_instance.text.return_value = iter(results)
+    mocker.patch("ddgs.DDGS", return_value=mock_instance)
+
+
+async def test_web_search_returns_formatted_results(
+    _require_ddg: None, mocker: MockerFixture
+) -> None:
+    from ur.tools.builtin import web_search
+
+    _patch_ddgs(mocker, [
+        {"title": "Example", "href": "https://example.com", "body": "An example site."},
+        {"title": "Test", "href": "https://test.com", "body": "A test site."},
+    ])
+
+    result = await web_search("example query")
+    assert "Example" in result
+    assert "https://example.com" in result
+    assert "1." in result
+    assert "2." in result
+
+
+async def test_web_search_no_results(_require_ddg: None, mocker: MockerFixture) -> None:
+    from ur.tools.builtin import web_search
+
+    _patch_ddgs(mocker, [])
+
+    result = await web_search("nothing matches this")
+    assert result == "No results found."
+
+
+async def test_web_search_handles_error(
+    _require_ddg: None, mocker: MockerFixture
+) -> None:
+    from ur.tools.builtin import web_search
+
+    mock_instance = mocker.MagicMock()
+    mock_instance.text.side_effect = Exception("network error")
+    mocker.patch("ddgs.DDGS", return_value=mock_instance)
+
+    result = await web_search("query")
     assert result.startswith("Error:")
 
 

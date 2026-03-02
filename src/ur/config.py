@@ -34,6 +34,7 @@ class Settings(BaseSettings):
 
     tool_builtin_truncate_at: int = Field(default=4000)
     tool_builtin_max_lines: int = Field(default=200)
+    tool_builtin_max_search_results: int = Field(default=5)
 
     @property
     def db_path(self) -> Path:
@@ -55,7 +56,7 @@ class Settings(BaseSettings):
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.workspaces_dir.mkdir(parents=True, exist_ok=True)
         self.logs_dir.mkdir(parents=True, exist_ok=True)
-
+        self.tools_dir.mkdir(parents=True, exist_ok=True)
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
