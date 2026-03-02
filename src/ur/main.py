@@ -20,8 +20,20 @@ console = Console()
 
 
 def _configure_logging(settings: Settings) -> None:
-    """Configure root logger to write to data_dir/logs/ur.log."""
+    """Configure root logger to write to data_dir/logs/ur.log.
+
+    Idempotent: if a RotatingFileHandler for this log file already exists on
+    the root logger, the function returns immediately without adding a second
+    handler. This prevents log records being written multiple times when
+    _settings() is called more than once in the same process.
+    """
     log_file = settings.logs_dir / "ur.log"
+    if any(
+        isinstance(h, logging.handlers.RotatingFileHandler)
+        and getattr(h, "baseFilename", None) == str(log_file)
+        for h in logging.root.handlers
+    ):
+        return
     handler = logging.handlers.RotatingFileHandler(
         log_file, maxBytes=1_000_000, backupCount=3, encoding="utf-8"
     )

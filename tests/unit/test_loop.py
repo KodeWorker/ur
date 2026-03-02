@@ -276,10 +276,14 @@ async def test_run_loops_up_to_max_iterations():
     max_iter = 3
     session = AgentSession.new(task="loop", model=TEST_MODEL)
 
-    async for _ in run(session, client, max_iter, registry=registry):
-        pass
+    chunks = [c async for c in run(session, client, max_iter, registry=registry)]
 
     assert call_count == max_iter
+    # After exhaustion a content chunk informs the user
+    assert any(c.kind == "content" for c in chunks)
+    # And a final assistant message is recorded so history is accurate
+    assert session.messages[-1]["role"] == "assistant"
+    assert "maximum" in session.messages[-1]["content"]
 
 
 async def test_run_without_registry_stops_after_first_response():
@@ -292,6 +296,73 @@ async def test_run_without_registry_stops_after_first_response():
         pass
 
     client.stream.assert_called_once()
+
+
+# ── confirm_tool allow / deny ─────────────────────────────────────────────────
+
+
+async def test_run_confirm_tool_allowed_executes_tool():
+    """confirm_tool returning None (allowed) lets the tool execute normally."""
+    call_id = "call_allow"
+    tc_stream = _make_tool_call_stream(call_id, "shell", '{"command": "ls"}')
+    text_stream = _make_stream(["files: a.txt"])
+
+    client = MagicMock(spec=LLMClient)
+    client.stream = AsyncMock(side_effect=[tc_stream, text_stream])
+    registry = _make_registry("shell", "a.txt")
+    session = AgentSession.new(task="list", model=TEST_MODEL)
+
+    async def _allow(name: str, args: str) -> str | None:
+        return None  # allowed
+
+    chunks = [
+        c
+        async for c in run(
+            session, client, _MAX_ITER, registry=registry, confirm_tool=_allow
+        )
+    ]
+
+    assert any(c.kind == "tool_result" and "a.txt" in c.text for c in chunks)
+    tool_msgs = [m for m in session.messages if m["role"] == "tool"]
+    assert tool_msgs[0]["content"] == "a.txt"
+
+
+@pytest.mark.parametrize(
+    "denial_reason, expected_fragment",
+    [
+        ("", "Tool call denied by user."),
+        ("bad idea", "Tool call denied by user with bad idea"),
+    ],
+)
+async def test_run_confirm_tool_denied_records_denial(
+    denial_reason: str, expected_fragment: str
+) -> None:
+    """confirm_tool returning a string (denial) records the correct tool result."""
+    call_id = "call_deny"
+    tc_stream = _make_tool_call_stream(call_id, "shell", '{"command": "rm -rf /"}')
+    text_stream = _make_stream(["understood"])
+
+    client = MagicMock(spec=LLMClient)
+    client.stream = AsyncMock(side_effect=[tc_stream, text_stream])
+    registry = _make_registry("shell", "should not run")
+    session = AgentSession.new(task="deny test", model=TEST_MODEL)
+
+    async def _deny(name: str, args: str) -> str | None:
+        return denial_reason
+
+    chunks = [
+        c
+        async for c in run(
+            session, client, _MAX_ITER, registry=registry, confirm_tool=_deny
+        )
+    ]
+
+    tool_msgs = [m for m in session.messages if m["role"] == "tool"]
+    assert len(tool_msgs) == 1
+    assert tool_msgs[0]["content"] == expected_fragment
+    # tool_call chunk is still yielded so TUI can reset_reasoning
+    assert any(c.kind == "tool_call" for c in chunks)
+    assert any(c.kind == "tool_result" and expected_fragment in c.text for c in chunks)
 
 
 async def test_run_unknown_tool_returns_error_string():

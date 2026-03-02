@@ -80,7 +80,14 @@ async def run(
         else:
             # Final text response (or no registry) — record and stop
             session.add_assistant_message(stream.full_text)
-            break
+            return
+    # for-loop exhausted without a return — max_iterations reached
+    msg = (
+        f"(Agent reached the maximum of {max_iterations} iterations"
+        " without a final reply.)"
+    )
+    yield StreamChunk(kind="content", text=msg)
+    session.add_assistant_message(msg)
 
 
 async def _execute_tool(registry: ToolRegistry, tool_call: dict[str, Any]) -> str:
