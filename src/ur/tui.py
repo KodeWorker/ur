@@ -7,6 +7,7 @@ import logging
 from pathlib import Path
 from typing import Literal
 
+from rich.markup import escape
 from textual import work
 from textual.app import App, ComposeResult
 from textual.containers import ScrollableContainer, Vertical
@@ -85,7 +86,7 @@ class TurnWidget(Vertical):
 
     def compose(self) -> ComposeResult:
         yield Static(
-            f"[bold blue]you[/bold blue] › {self._user_text}",
+            f"[bold blue]you[/bold blue] › {escape(self._user_text)}",
             markup=True,
             classes="user-label",
         )
@@ -159,7 +160,7 @@ class TurnWidget(Vertical):
         """Append a red error line and reset the content segment."""
         self._active_content = None
         await self.mount(
-            Static(f"[red]Error:[/red] {text}", markup=True, classes="error")
+            Static(f"[red]Error:[/red] {escape(text)}", markup=True, classes="error")
         )
 
 
@@ -317,7 +318,8 @@ class UrApp(App[None]):
         self.title = "ur"
         self.sub_title = f"{self._model}  {self._session.id[:8]}"
         if self._mode == "run":
-            assert self._run_task is not None
+            if self._run_task is None:
+                raise RuntimeError("run mode requires a task string")
             await self._start_turn(self._run_task)
         else:
             self.query_one("#input-bar", Input).focus()
@@ -531,8 +533,9 @@ async def launch_chat(
     model = model_override or settings.model
     client = LLMClient(settings, model=model)
     session = AgentSession.new(task="", model=model)
+    # Workspace is created lazily by the file tools on first write; chat sessions
+    # that never touch the filesystem produce no directory.
     workspace_dir = settings.workspaces_dir / session.id
-    workspace_dir.mkdir(parents=True, exist_ok=True)
     registry = _make_registry(no_tools, settings, workspace_dir=workspace_dir)
 
     app = UrApp(

@@ -28,9 +28,11 @@ def _configure_logging(settings: Settings) -> None:
     handler.setFormatter(
         logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
     )
+    level = getattr(logging, settings.log_level.upper(), logging.WARNING)
+    handler.setLevel(level)
     logging.root.addHandler(handler)
     if not logging.root.level:
-        logging.root.setLevel(logging.WARNING)
+        logging.root.setLevel(level)
 
 
 def _settings() -> Settings:

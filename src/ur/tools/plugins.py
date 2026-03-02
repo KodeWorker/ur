@@ -69,9 +69,11 @@ def _load_one(registry: ToolRegistry, path: Path) -> None:
         module: ModuleType = importlib.util.module_from_spec(spec)
         sys.modules[module_name] = module
         spec.loader.exec_module(module)
-    except Exception:
+    except BaseException as exc:
         logger.warning("Plugin %s: import failed — skipped", path, exc_info=True)
         sys.modules.pop(module_name, None)
+        if not isinstance(exc, Exception):
+            raise
         return
 
     register_fn = getattr(module, "register", None)

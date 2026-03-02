@@ -32,7 +32,6 @@ tools = [
     "ddgs>=9.0",
     "httpx>=0.27",
     "aiofiles>=23.2",
-    "psutil>=5.9",
 ]
 sandbox = ["docker>=7.0"]
 sandbox-wasm = ["wasmtime>=20.0"]

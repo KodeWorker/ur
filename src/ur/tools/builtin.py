@@ -16,8 +16,15 @@ from .registry import ToolRegistry
 def _validate_url(url: str) -> None:
     """Raise ValueError if url is not a safe public http/https URL.
 
-    Blocks non-http/https schemes and private/loopback/link-local addresses
-    to prevent SSRF attacks against local services and cloud metadata endpoints.
+    Blocks non-http/https schemes and private/loopback/link-local/unspecified
+    IP addresses to prevent SSRF attacks against local services and cloud
+    metadata endpoints (e.g. http://169.254.169.254/).
+
+    Known limitation: hostnames are not DNS-resolved at validation time, so a
+    hostname that resolves to a private address (e.g. 169.254.169.254.nip.io)
+    bypasses IP checks. Common dynamic-DNS bypass suffixes (.nip.io, .xip.io,
+    .sslip.io) are blocked as a partial mitigation. For browser_get, Playwright
+    performs its own DNS resolution outside this guard.
     """
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https"):
@@ -25,12 +32,17 @@ def _validate_url(url: str) -> None:
     host = (parsed.hostname or "").lower()
     if not host or host in ("localhost", "ip6-localhost", "ip6-loopback"):
         raise ValueError(f"Blocked host: {host!r}")
+    _REBIND_SUFFIXES = (".nip.io", ".xip.io", ".sslip.io")
+    if any(host.endswith(s) for s in _REBIND_SUFFIXES):
+        raise ValueError(f"Blocked host: {host!r} (dynamic-DNS rebind suffix)")
     try:
         addr = ipaddress.ip_address(host)
     except ValueError:
         return  # hostname — allowed
-    if addr.is_loopback or addr.is_private or addr.is_link_local:
-        raise ValueError(f"Blocked address: {host} (private/loopback/link-local)")
+    if addr.is_loopback or addr.is_private or addr.is_link_local or addr.is_unspecified:
+        raise ValueError(
+            f"Blocked address: {host} (private/loopback/link-local/unspecified)"
+        )
 
 
 async def shell(
@@ -51,6 +63,7 @@ async def shell(
             stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
         except TimeoutError:
             proc.kill()
+            await proc.wait()
             return f"Error: command timed out after {timeout}s"
         output = stdout.decode(errors="replace")
         if len(output) > max_chars:
@@ -100,6 +113,7 @@ async def write_file(path: str, content: str, cwd: Path | None = None) -> str:
                 resolved.relative_to(cwd.resolve())
             except ValueError:
                 return "Error: path escapes workspace directory"
+        resolved.parent.mkdir(parents=True, exist_ok=True)
         async with aiofiles.open(resolved, "w") as f:
             await f.write(content)
         return f"Written {len(content)} bytes to {resolved}"
@@ -137,11 +151,20 @@ async def browser_get(url: str, max_chars: int = 4000, timeout: int = 30) -> str
         return f"Error: {e}"
 
 
+_HTTP_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (X11; Linux x86_64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/125.0.0.0 Safari/537.36"
+    )
+}
+
+
 async def http_get(url: str, max_chars: int = 4000, timeout: int = 10) -> str:
     """Fetch a URL and return the response body text."""
     try:
         _validate_url(url)
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(headers=_HTTP_HEADERS) as client:
             response = await client.get(url, timeout=timeout, follow_redirects=True)
             text = response.text
             if len(text) > max_chars:
