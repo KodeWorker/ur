@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from typing import Literal
 
 from textual import work
@@ -272,6 +273,7 @@ class UrApp(App[None]):
         client: LLMClient,
         session: AgentSession,
         registry: ToolRegistry | None,
+        workspace_dir: Path | None = None,
     ) -> None:
         super().__init__()
         self._mode = mode
@@ -281,6 +283,7 @@ class UrApp(App[None]):
         self._client = client
         self._session = session
         self._tool_registry = registry
+        self._workspace = workspace_dir
         self._current_turn: TurnWidget | None = None
 
     def compose(self) -> ComposeResult:
@@ -344,11 +347,18 @@ class UrApp(App[None]):
             scroll.scroll_end(animate=False)
             return result
 
+        system_prompt = (
+            f"Your workspace directory is {self._workspace}. "
+            "Use it as the working directory for files you create during this session."
+            if self._workspace
+            else None
+        )
         try:
             async for chunk in agent_run(
                 self._session,
                 self._client,
                 self._settings.max_iterations,
+                system_prompt=system_prompt,
                 registry=self._tool_registry,
                 confirm_tool=_confirm_tool if self._tool_registry is not None else None,
             ):
@@ -434,7 +444,9 @@ class UrApp(App[None]):
 # ── registry helper ───────────────────────────────────────────────────────────
 
 
-def _make_registry(no_tools: bool, settings: Settings) -> ToolRegistry | None:
+def _make_registry(
+    no_tools: bool, settings: Settings, workspace_dir: Path | None = None
+) -> ToolRegistry | None:
     if no_tools:
         return None
     try:
@@ -443,6 +455,7 @@ def _make_registry(no_tools: bool, settings: Settings) -> ToolRegistry | None:
         registry = create_default_registry(
             truncate_at=settings.tool_builtin_truncate_at,
             max_lines=settings.tool_builtin_max_lines,
+            workspace_dir=workspace_dir,
         )
     except ImportError:
         registry = ToolRegistry()
@@ -467,7 +480,9 @@ async def launch_run(
     model = model_override or settings.model
     client = LLMClient(settings, model=model)
     session = AgentSession.new(task=task, model=model)
-    registry = _make_registry(no_tools, settings)
+    workspace_dir = settings.workspaces_dir / session.id
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+    registry = _make_registry(no_tools, settings, workspace_dir=workspace_dir)
 
     app = UrApp(
         mode="run",
@@ -477,6 +492,7 @@ async def launch_run(
         client=client,
         session=session,
         registry=registry,
+        workspace_dir=workspace_dir,
     )
     await app.run_async()
 
@@ -494,7 +510,9 @@ async def launch_chat(
     model = model_override or settings.model
     client = LLMClient(settings, model=model)
     session = AgentSession.new(task="", model=model)
-    registry = _make_registry(no_tools, settings)
+    workspace_dir = settings.workspaces_dir / session.id
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+    registry = _make_registry(no_tools, settings, workspace_dir=workspace_dir)
 
     app = UrApp(
         mode="chat",
@@ -504,5 +522,6 @@ async def launch_chat(
         client=client,
         session=session,
         registry=registry,
+        workspace_dir=workspace_dir,
     )
     await app.run_async()

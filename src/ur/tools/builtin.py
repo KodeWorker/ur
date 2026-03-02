@@ -4,19 +4,26 @@ from __future__ import annotations
 
 import asyncio
 import functools
+from pathlib import Path
 
 import httpx
 
 from .registry import ToolRegistry
 
 
-async def shell(command: str, max_chars: int = 4000, timeout: int = 30) -> str:
+async def shell(
+    command: str,
+    max_chars: int = 4000,
+    timeout: int = 30,
+    cwd: Path | None = None,
+) -> str:
     """Run a shell command and return stdout+stderr."""
     try:
         proc = await asyncio.create_subprocess_shell(
             command,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
+            cwd=cwd,
         )
         try:
             stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
@@ -107,6 +114,7 @@ async def http_get(url: str, max_chars: int = 4000, timeout: int = 10) -> str:
 def create_default_registry(
     truncate_at: int = 4000,
     max_lines: int = 200,
+    workspace_dir: Path | None = None,
 ) -> ToolRegistry:
     """Return a ToolRegistry pre-populated with all built-in tools."""
     registry = ToolRegistry()
@@ -129,7 +137,7 @@ def create_default_registry(
             },
             "required": ["command"],
         },
-        fn=functools.partial(shell, max_chars=truncate_at),
+        fn=functools.partial(shell, max_chars=truncate_at, cwd=workspace_dir),
     )
 
     registry.register(
