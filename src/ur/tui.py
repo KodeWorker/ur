@@ -440,12 +440,17 @@ def _make_registry(no_tools: bool, settings: Settings) -> ToolRegistry | None:
     try:
         from .tools.builtin import create_default_registry
 
-        return create_default_registry(
+        registry = create_default_registry(
             truncate_at=settings.tool_builtin_truncate_at,
             max_lines=settings.tool_builtin_max_lines,
         )
     except ImportError:
-        return None
+        registry = ToolRegistry()
+
+    from .tools.plugins import load_plugins
+
+    load_plugins(registry, settings.tools_dir)
+    return registry
 
 
 # ── public entry points ───────────────────────────────────────────────────────

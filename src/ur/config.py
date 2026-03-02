@@ -34,6 +34,7 @@ class Settings(BaseSettings):
 
     tool_builtin_truncate_at: int = Field(default=4000)
     tool_builtin_max_lines: int = Field(default=200)
+    tools_dir: Path = Field(default_factory=lambda: Path.home() / ".ur" / "tools")
 
     @property
     def db_path(self) -> Path:

@@ -210,3 +210,97 @@ async def test_browser_get_handles_error(
 
     result = await browser_get("https://example.com")
     assert result.startswith("Error:")
+
+
+# ── Plugin loader ──────────────────────────────────────────────────────────────
+
+
+from pathlib import Path as _Path  # noqa: E402
+
+from ur.tools.plugins import load_plugins  # noqa: E402
+
+
+def test_load_plugins_missing_dir_does_not_raise(tmp_path: _Path) -> None:
+    registry = ToolRegistry()
+    load_plugins(registry, tmp_path / "nonexistent")
+    assert registry.as_tools_list() == []
+
+
+def test_load_plugins_registers_valid_plugin(tmp_path: _Path) -> None:
+    (tmp_path / "greet.py").write_text(
+        "from ur.tools.registry import ToolRegistry\n"
+        "async def _greet(name: str) -> str:\n"
+        "    return f'hello {name}'\n"
+        "def register(registry: ToolRegistry) -> None:\n"
+        "    registry.register(\n"
+        "        name='greet', description='Greet someone',\n"
+        "        parameters={'type': 'object',"
+        " 'properties': {'name': {'type': 'string'}},"
+        " 'required': ['name']},\n"
+        "        fn=_greet,\n"
+        "    )\n"
+    )
+    registry = ToolRegistry()
+    load_plugins(registry, tmp_path)
+    assert "greet" in registry
+
+
+def test_load_plugins_skips_syntax_error(tmp_path: _Path) -> None:
+    (tmp_path / "bad.py").write_text("def register(r): pass\ndef broken {{{{")
+    registry = ToolRegistry()
+    load_plugins(registry, tmp_path)  # must not raise
+    assert registry.as_tools_list() == []
+
+
+def test_load_plugins_skips_missing_register(tmp_path: _Path) -> None:
+    (tmp_path / "noregister.py").write_text("# no register fn\n")
+    registry = ToolRegistry()
+    load_plugins(registry, tmp_path)
+    assert registry.as_tools_list() == []
+
+
+def test_load_plugins_skips_raising_register(tmp_path: _Path) -> None:
+    (tmp_path / "exploding.py").write_text(
+        "def register(registry):\n    raise RuntimeError('boom')\n"
+    )
+    registry = ToolRegistry()
+    load_plugins(registry, tmp_path)  # must not raise
+    assert registry.as_tools_list() == []
+
+
+def test_load_plugins_alphabetical_last_writer_wins(tmp_path: _Path) -> None:
+    stub = (
+        "async def _fn() -> str:\n    return '{v}'\n"
+        "def register(registry):\n"
+        "    registry.register('same', 'from {v}',"
+        " {{'type': 'object', 'properties': {{}}}}, _fn)\n"
+    )
+    (tmp_path / "aaa.py").write_text(stub.format(v="a"))
+    (tmp_path / "zzz.py").write_text(stub.format(v="z"))
+    registry = ToolRegistry()
+    load_plugins(registry, tmp_path)
+    spec = registry.get("same")
+    assert spec is not None
+    assert spec.schema["function"]["description"] == "from z"
+
+
+def test_load_plugins_can_override_builtin(tmp_path: _Path) -> None:
+    async def _original(command: str) -> str:
+        return "original"
+
+    registry = ToolRegistry()
+    registry.register(
+        "shell", "original shell", {"type": "object", "properties": {}}, _original
+    )
+
+    (tmp_path / "override.py").write_text(
+        "async def _new(command: str) -> str:\n    return 'intercepted'\n"
+        "def register(registry):\n"
+        "    registry.register('shell', 'overridden shell',\n"
+        "        {'type': 'object',"
+        " 'properties': {'command': {'type': 'string'}}}, _new)\n"
+    )
+    load_plugins(registry, tmp_path)
+    spec = registry.get("shell")
+    assert spec is not None
+    assert spec.schema["function"]["description"] == "overridden shell"
