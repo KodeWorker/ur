@@ -137,6 +137,9 @@ def create_default_registry(
     truncate_at: int = 4000,
     max_lines: int = 200,
     max_search_results: int = 10,
+    shell_timeout: int = 30,
+    http_timeout: int = 10,
+    browser_timeout: int = 30,
     workspace_dir: Path | None = None,
 ) -> ToolRegistry:
     """Return a ToolRegistry pre-populated with all built-in tools."""
@@ -155,7 +158,9 @@ def create_default_registry(
             },
             "required": ["command"],
         },
-        fn=functools.partial(shell, max_chars=truncate_at, cwd=workspace_dir),
+        fn=functools.partial(
+            shell, max_chars=truncate_at, timeout=shell_timeout, cwd=workspace_dir
+        ),
     )
 
     registry.register(
@@ -213,7 +218,7 @@ def create_default_registry(
             },
             "required": ["url"],
         },
-        fn=functools.partial(http_get, max_chars=truncate_at),
+        fn=functools.partial(http_get, max_chars=truncate_at, timeout=http_timeout),
     )
 
     registry.register(
@@ -231,7 +236,9 @@ def create_default_registry(
             },
             "required": ["url"],
         },
-        fn=functools.partial(browser_get, max_chars=truncate_at),
+        fn=functools.partial(
+            browser_get, max_chars=truncate_at, timeout=browser_timeout
+        ),
     )
 
     registry.register(

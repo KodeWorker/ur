@@ -448,6 +448,10 @@ def _make_registry(
         registry = create_default_registry(
             truncate_at=settings.tool_builtin_truncate_at,
             max_lines=settings.tool_builtin_max_lines,
+            max_search_results=settings.tool_builtin_max_search_results,
+            shell_timeout=settings.tool_builtin_shell_timeout,
+            http_timeout=settings.tool_builtin_http_timeout,
+            browser_timeout=settings.tool_builtin_browser_timeout,
             workspace_dir=workspace_dir,
         )
     except ImportError:

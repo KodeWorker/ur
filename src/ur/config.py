@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     tool_builtin_truncate_at: int = Field(default=4000)
     tool_builtin_max_lines: int = Field(default=200)
     tool_builtin_max_search_results: int = Field(default=10)
+    tool_builtin_shell_timeout: int = Field(default=30)
+    tool_builtin_http_timeout: int = Field(default=10)
+    tool_builtin_browser_timeout: int = Field(default=30)
 
     @property
     def db_path(self) -> Path:
