@@ -150,6 +150,7 @@ The `[tools]` extra enables five built-in tools:
 | `write_file` | Write a file to disk |
 | `http_get` | Fetch a URL with a plain HTTP GET |
 | `browser_get` | Visit a URL with headless Chromium (JS rendered), return page as markdown |
+| `web_search` | Search the web and return titles, URLs, and snippets |
 
 After installing `[tools]`, download the Chromium binary once for `browser_get`:
 
