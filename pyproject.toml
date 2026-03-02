@@ -19,6 +19,7 @@ dependencies = [
     # Interface
     "typer>=0.12",
     "rich>=13.7",
+    "textual>=0.37",
     # Cross-platform utilities
     "platformdirs>=4.2",
     "python-dotenv>=1.0",
