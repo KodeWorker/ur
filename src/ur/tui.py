@@ -335,8 +335,10 @@ class UrApp(App[None]):
         content_acc = ""
 
         async def _confirm_tool(name: str, args: str) -> str | None:
+            # Mount inside the current turn so the confirm widget appears
+            # above the tool-call and result lines, not below them.
             widget = ToolConfirmWidget(name, args)
-            await scroll.mount(widget)
+            await turn.mount(widget)
             scroll.scroll_end(animate=False)
             result = await widget.wait_for_response()
             scroll.scroll_end(animate=False)
