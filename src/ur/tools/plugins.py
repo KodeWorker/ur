@@ -1,8 +1,7 @@
 """Plugin loader for user-defined tools.
 
 Drop a .py file in the tools directory (Settings.tools_dir, derived from
-data_dir) and
-define a top-level register() function:
+data_dir) and define a top-level register() function:
 
     from ur.tools.registry import ToolRegistry
 
@@ -24,6 +23,13 @@ define a top-level register() function:
 Tool functions must be async and return str.
 Plugins are loaded alphabetically after builtins; last writer wins on name
 collisions, so a plugin can intentionally override a builtin.
+
+SECURITY NOTE
+-------------
+Every .py file in tools_dir is executed unconditionally at startup with the
+full privileges of the running user.  Only place files you trust in that
+directory.  Never copy plugin files from untrusted sources without reviewing
+them first.
 """
 
 from __future__ import annotations
@@ -49,6 +55,7 @@ def load_plugins(registry: ToolRegistry, tools_dir: Path) -> None:
         return
 
     for path in sorted(tools_dir.glob("*.py")):
+        logger.debug("Loading plugin: %s", path)
         _load_one(registry, path)
 
 

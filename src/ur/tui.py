@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from pathlib import Path
 from typing import Literal
 
@@ -18,6 +19,8 @@ from .llm.client import LLMClient, Provider
 from .memory.db import init_db
 from .memory.session_store import save_session
 from .tools.registry import ToolRegistry
+
+logger = logging.getLogger(__name__)
 
 Mode = Literal["run", "chat"]
 
@@ -223,7 +226,9 @@ class ToolConfirmWidget(Vertical):
         label = (
             "[green]✓ allowed[/green]"
             if allowed
-            else f"[red]✗ denied[/red]: {reason}" if reason else "[red]✗ denied[/red]"
+            else f"[red]✗ denied[/red]: {reason}"
+            if reason
+            else "[red]✗ denied[/red]"
         )
         await self.mount(Static(label, classes="confirm-result"))
 
@@ -231,7 +236,8 @@ class ToolConfirmWidget(Vertical):
             self._future.set_result(result)
 
     async def wait_for_response(self) -> str | None:
-        assert self._future is not None, "wait_for_response called before on_mount"
+        if self._future is None:
+            raise RuntimeError("wait_for_response called before on_mount")
         return await self._future
 
 
@@ -455,6 +461,10 @@ def _make_registry(
             workspace_dir=workspace_dir,
         )
     except ImportError:
+        logger.warning(
+            "Built-in tools are unavailable — install the [tools] extra: "
+            "pip install 'ur[tools]'"
+        )
         registry = ToolRegistry()
 
     from .tools.plugins import load_plugins

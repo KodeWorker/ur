@@ -158,6 +158,12 @@ After installing `[tools]`, download the Chromium binary once for `browser_get`:
 uv run playwright install chromium
 ```
 
+### Custom plugins
+
+Drop a `.py` file in `<data_dir>/tools/` and define a `register(registry)` function to add custom tools. Plugins are loaded alphabetically after builtins; a plugin can override a builtin by using the same name.
+
+> **Security:** Every `.py` file in the tools directory is executed unconditionally at startup with the full privileges of the running user. Only place files you trust there — never copy plugin files from untrusted sources without reviewing them first.
+
 ## Development
 
 ```bash
