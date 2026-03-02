@@ -152,11 +152,6 @@ def create_default_registry(
             "type": "object",
             "properties": {
                 "command": {"type": "string", "description": "Shell command to run"},
-                "timeout": {
-                    "type": "integer",
-                    "description": "Timeout in seconds (default 30)",
-                    "default": 30,
-                },
             },
             "required": ["command"],
         },
@@ -215,11 +210,6 @@ def create_default_registry(
             "type": "object",
             "properties": {
                 "url": {"type": "string", "description": "URL to fetch"},
-                "timeout": {
-                    "type": "integer",
-                    "description": "Timeout in seconds (default 10)",
-                    "default": 10,
-                },
             },
             "required": ["url"],
         },
@@ -238,11 +228,6 @@ def create_default_registry(
             "type": "object",
             "properties": {
                 "url": {"type": "string", "description": "URL to visit"},
-                "timeout": {
-                    "type": "integer",
-                    "description": "Navigation timeout in seconds (default 30)",
-                    "default": 30,
-                },
             },
             "required": ["url"],
         },
