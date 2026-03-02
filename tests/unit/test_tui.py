@@ -258,7 +258,7 @@ async def test_urapp_run_mode_session_interrupted_on_ctrl_c(
 async def test_urapp_chat_mode_ctrl_d_interrupts_session(
     tmp_settings: Settings,
 ) -> None:
-    """Ctrl+C in chat mode marks session interrupted."""
+    """Ctrl+C in chat mode with no stream running marks session completed."""
     app, session = _make_urapp(tmp_settings, mode="chat")
 
     async def autopilot(pilot: object) -> None:
@@ -275,7 +275,7 @@ async def test_urapp_chat_mode_ctrl_d_interrupts_session(
             app.run_async(headless=True, auto_pilot=autopilot), timeout=10.0
         )
 
-    assert session.status == "interrupted"
+    assert session.status == "completed"
 
 
 async def test_urapp_chat_mode_turn_completes_successfully(
@@ -315,5 +315,5 @@ async def test_urapp_chat_mode_turn_completes_successfully(
         )
 
     assert turn_processed, "agent_run was called at least once"
-    # Chat sessions are interrupted on Ctrl+D, not completed
-    assert session.status == "interrupted"
+    # Quit after stream finished → completed (not interrupted)
+    assert session.status == "completed"
