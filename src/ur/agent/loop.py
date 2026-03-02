@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from typing import Any
 
 from ..llm.client import LLMClient
@@ -16,6 +16,7 @@ async def run(
     max_iterations: int,
     system_prompt: str | None = None,
     registry: ToolRegistry | None = None,
+    confirm_tool: Callable[[str, str], Awaitable[str | None]] | None = None,
 ) -> AsyncGenerator[StreamChunk, None]:
     """
     Core agentic loop. Yields tokens as they stream from the LLM.
@@ -51,6 +52,17 @@ async def run(
                 tc_name: str = (tc.get("function") or {}).get("name") or ""
                 tc_args: str = (tc.get("function") or {}).get("arguments") or ""
                 yield StreamChunk(kind="tool_call", text=f"{tc_name}({tc_args})")
+                if confirm_tool is not None:
+                    denial = await confirm_tool(tc_name, tc_args)
+                    if denial is not None:
+                        result = (
+                            f"Tool call denied by user with {denial}"
+                            if denial
+                            else "Tool call denied by user."
+                        )
+                        session.add_tool_result_message(tc_id, tc_name, result)
+                        yield StreamChunk(kind="tool_result", text=result)
+                        continue
                 result = await _execute_tool(registry, tc)
                 session.add_tool_result_message(tc_id, tc_name, result)
                 yield StreamChunk(kind="tool_result", text=result)
