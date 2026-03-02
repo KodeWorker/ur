@@ -69,6 +69,30 @@ def test_configure_logging_respects_log_level(tmp_settings: Settings) -> None:
             root.removeHandler(h)
 
 
+def test_configure_logging_is_idempotent(tmp_settings: Settings) -> None:
+    """Calling _configure_logging twice must not add a second handler."""
+    import logging
+
+    tmp_settings.ensure_dirs()
+    root = logging.getLogger()
+    before = list(root.handlers)
+    new_handlers: list[logging.Handler] = []
+    try:
+        _configure_logging(tmp_settings)
+        _configure_logging(tmp_settings)  # second call — must be a no-op
+        new_handlers = [h for h in root.handlers if h not in before]
+        rfh = [
+            h
+            for h in new_handlers
+            if isinstance(h, logging.handlers.RotatingFileHandler)
+        ]
+        assert len(rfh) == 1, "second call must not add a duplicate handler"
+    finally:
+        for h in new_handlers:
+            h.close()
+            root.removeHandler(h)
+
+
 # ── run / chat command delegation ─────────────────────────────────────────────
 
 

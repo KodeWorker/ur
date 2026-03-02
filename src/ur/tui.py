@@ -293,7 +293,6 @@ class UrApp(App[None]):
         client: LLMClient,
         session: AgentSession,
         registry: ToolRegistry | None,
-        workspace_dir: Path | None = None,
     ) -> None:
         super().__init__()
         self._mode = mode
@@ -514,7 +513,6 @@ async def launch_run(
         client=client,
         session=session,
         registry=registry,
-        workspace_dir=workspace_dir,
     )
     await app.run_async()
 
@@ -545,6 +543,5 @@ async def launch_chat(
         client=client,
         session=session,
         registry=registry,
-        workspace_dir=workspace_dir,
     )
     await app.run_async()

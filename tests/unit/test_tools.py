@@ -262,6 +262,96 @@ async def test_browser_get_handles_error(
     assert result.startswith("Error:")
 
 
+# ── http_get tests ────────────────────────────────────────────────────────────
+
+
+async def test_http_get_returns_body_on_success(
+    _require_tools: None, mocker: MockerFixture
+) -> None:
+    from ur.tools.builtin import http_get
+
+    mock_response = mocker.MagicMock()
+    mock_response.text = "hello world"
+    mock_response.raise_for_status = mocker.MagicMock()
+    mock_client = mocker.AsyncMock()
+    mock_client.get.return_value = mock_response
+    mock_client.__aenter__.return_value = mock_client
+    mock_client.__aexit__.return_value = None
+    mocker.patch("httpx.AsyncClient", return_value=mock_client)
+
+    result = await http_get("https://example.com")
+    assert result == "hello world"
+    mock_response.raise_for_status.assert_called_once()
+
+
+async def test_http_get_truncates_long_body(
+    _require_tools: None, mocker: MockerFixture
+) -> None:
+    from ur.tools.builtin import http_get
+
+    mock_response = mocker.MagicMock()
+    mock_response.text = "x" * 5000
+    mock_response.raise_for_status = mocker.MagicMock()
+    mock_client = mocker.AsyncMock()
+    mock_client.get.return_value = mock_response
+    mock_client.__aenter__.return_value = mock_client
+    mock_client.__aexit__.return_value = None
+    mocker.patch("httpx.AsyncClient", return_value=mock_client)
+
+    result = await http_get("https://example.com", max_chars=100)
+    assert "truncated" in result
+    assert len(result) < 5000
+
+
+async def test_http_get_blocked_url_returns_error(
+    _require_tools: None,
+) -> None:
+    from ur.tools.builtin import http_get
+
+    result = await http_get("http://192.168.1.1/")
+    assert result.startswith("Error:")
+
+
+async def test_http_get_network_error_returns_error(
+    _require_tools: None, mocker: MockerFixture
+) -> None:
+    import httpx as _httpx
+
+    from ur.tools.builtin import http_get
+
+    mock_client = mocker.AsyncMock()
+    mock_client.get.side_effect = _httpx.ConnectError("connection refused")
+    mock_client.__aenter__.return_value = mock_client
+    mock_client.__aexit__.return_value = None
+    mocker.patch("httpx.AsyncClient", return_value=mock_client)
+
+    result = await http_get("https://example.com")
+    assert result.startswith("Error:")
+
+
+async def test_http_get_http_error_returns_error(
+    _require_tools: None, mocker: MockerFixture
+) -> None:
+    import httpx as _httpx
+
+    from ur.tools.builtin import http_get
+
+    mock_response = mocker.MagicMock()
+    mock_response.raise_for_status.side_effect = _httpx.HTTPStatusError(
+        "404 Not Found",
+        request=mocker.MagicMock(),
+        response=mocker.MagicMock(),
+    )
+    mock_client = mocker.AsyncMock()
+    mock_client.get.return_value = mock_response
+    mock_client.__aenter__.return_value = mock_client
+    mock_client.__aexit__.return_value = None
+    mocker.patch("httpx.AsyncClient", return_value=mock_client)
+
+    result = await http_get("https://example.com")
+    assert result.startswith("Error:")
+
+
 # ── web_search tests (skipped if duckduckgo-search not installed) ─────────────
 
 
