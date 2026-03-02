@@ -37,8 +37,7 @@ async def shell(command: str, max_chars: int = 4000, timeout: int = 30) -> str:
 async def read_file(path: str, max_lines: int = 200) -> str:
     """Read a file and return its contents."""
     try:
-        import aiofiles  # type: ignore[import-untyped]
-
+        import aiofiles  # type: ignore[import-untyped] 
         async with aiofiles.open(path) as f:
             lines = await f.readlines()
         if len(lines) > max_lines:
@@ -53,11 +52,38 @@ async def read_file(path: str, max_lines: int = 200) -> str:
 async def write_file(path: str, content: str) -> str:
     """Write content to a file, overwriting any existing content."""
     try:
-        import aiofiles  # type: ignore[import-untyped]
-
+        import aiofiles
         async with aiofiles.open(path, "w") as f:
             await f.write(content)
         return f"Written {len(content)} bytes to {path}"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+async def browser_get(url: str, max_chars: int = 4000, timeout: int = 30) -> str:
+    """Visit a URL with a headless browser and return rendered page as markdown."""
+    try:
+        from markdownify import markdownify as to_md
+        from playwright.async_api import async_playwright
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            try:
+                page = await browser.new_page()
+                await page.goto(
+                    url,
+                    wait_until="domcontentloaded",
+                    timeout=timeout * 1000,
+                )
+                html = await page.content()
+                text = to_md(html, strip=["script", "style", "head"])
+                if len(text) > max_chars:
+                    text = (
+                        text[:max_chars]
+                        + f"\n... (truncated, {len(text) - max_chars} more chars)"
+                    )
+                return text or "(no content)"
+            finally:
+                await browser.close()
     except Exception as e:
         return f"Error: {e}"
 
@@ -166,6 +192,28 @@ def create_default_registry(
             "required": ["url"],
         },
         fn=functools.partial(http_get, max_chars=truncate_at),
+    )
+
+    registry.register(
+        name="browser_get",
+        description=(
+            "Visit a URL with a headless Chromium browser (JavaScript rendered) "
+            "and return the page as markdown with links preserved. "
+            f"Output truncated at {truncate_at} characters."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "URL to visit"},
+                "timeout": {
+                    "type": "integer",
+                    "description": "Navigation timeout in seconds (default 30)",
+                    "default": 30,
+                },
+            },
+            "required": ["url"],
+        },
+        fn=functools.partial(browser_get, max_chars=truncate_at),
     )
 
     return registry
