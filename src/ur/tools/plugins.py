@@ -60,6 +60,8 @@ def load_plugins(registry: ToolRegistry, tools_dir: Path) -> None:
 
 
 def _load_one(registry: ToolRegistry, path: Path) -> None:
+    # Module names are scoped to the filename stem. This is unique as long as
+    # only one plugins directory is scanned, which is the current design.
     module_name = f"ur._plugin.{path.stem}"
     try:
         spec = importlib.util.spec_from_file_location(module_name, path)

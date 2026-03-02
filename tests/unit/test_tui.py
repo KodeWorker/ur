@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 from tests.conftest import TEST_MODEL
 from ur.agent.models import StreamChunk
 from ur.agent.session import AgentSession
@@ -157,6 +159,53 @@ async def test_turn_widget_tool_call_resets_content_segment(
 
             # Two separate Markdown widgets: one before, one after the tool call
             assert len(turn.query(Markdown)) == 2
+
+
+# ── ToolConfirmWidget ────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "input_value, expected_result",
+    [
+        ("yes", None),
+        ("YES", None),
+        ("", ""),
+        ("not today", "not today"),
+    ],
+)
+async def test_tool_confirm_widget_resolves_future(
+    input_value: str,
+    expected_result: str | None,
+) -> None:
+    """ToolConfirmWidget resolves its future with the correct value for each input.
+
+    Tests the allow/deny logic in isolation by mocking DOM operations so the
+    widget does not need to be mounted in a running app.
+    """
+    import asyncio
+
+    from ur.tui import ToolConfirmWidget
+
+    widget = ToolConfirmWidget("shell", '{"command": "ls"}')
+    widget._future = asyncio.get_event_loop().create_future()
+
+    mock_event = MagicMock()
+    mock_event.stop = MagicMock()
+    mock_event.value = input_value
+    mock_event.input = MagicMock()
+    mock_event.input.remove = AsyncMock()
+
+    mock_prompt = MagicMock()
+    mock_prompt.remove = AsyncMock()
+
+    with (
+        patch.object(widget, "query_one", return_value=mock_prompt),
+        patch.object(widget, "mount", new_callable=AsyncMock),
+    ):
+        await widget.on_input_submitted(mock_event)
+
+    assert widget._future.done()
+    assert widget._future.result() == expected_result
 
 
 # ── UrApp lifecycle — run mode ────────────────────────────────────────────────

@@ -170,6 +170,7 @@ async def http_get(url: str, max_chars: int = 4000, timeout: int = 10) -> str:
         _validate_url(url)
         async with httpx.AsyncClient(headers=_HTTP_HEADERS) as client:
             response = await client.get(url, timeout=timeout, follow_redirects=False)
+            response.raise_for_status()
             text = response.text
             if len(text) > max_chars:
                 text = (
@@ -274,7 +275,8 @@ def create_default_registry(
             "Fetch a known URL and return the raw response body (HTML, JSON, text). "
             "Use when you already have a URL and the page does not require JavaScript. "
             f"Output truncated at {truncate_at} characters. "
-            "Redirects are not followed; use the Location header to follow manually."
+            "Redirects are not followed; use the Location header to follow manually. "
+            "Returns an error string for non-2xx responses."
         ),
         parameters={
             "type": "object",
@@ -323,7 +325,7 @@ def create_default_registry(
             },
             "required": ["query"],
         },
-        fn=functools.partial(web_search, max_results=max_search_results),
+        fn=lambda query: web_search(query, max_results=max_search_results),
     )
 
     return registry

@@ -61,13 +61,15 @@ async def run(
                             if denial
                             else "Tool call denied by user."
                         )
-                        session.add_tool_result_message(tc_id, tc_name, result)
+                        # Yield chunks before recording the session message so
+                        # that the transcript order matches the TUI render order.
                         # Always yield tool_call even on denial so the TUI calls
                         # reset_reasoning(); without it, subsequent reasoning
                         # would append to the previous segment.
                         tc_text = f"{tc_name}({tc_args})"
                         yield StreamChunk(kind="tool_call", text=tc_text)
                         yield StreamChunk(kind="tool_result", text=result)
+                        session.add_tool_result_message(tc_id, tc_name, result)
                         continue
                 yield StreamChunk(kind="tool_call", text=f"{tc_name}({tc_args})")
                 result = await _execute_tool(registry, tc)
