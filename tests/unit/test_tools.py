@@ -7,6 +7,50 @@ from pytest_mock import MockerFixture
 
 from ur.tools.registry import ToolRegistry
 
+# ── _validate_url ──────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "file:///etc/passwd",
+        "ftp://example.com/file",
+        "javascript:alert(1)",
+        "http://localhost/",
+        "http://ip6-localhost/",
+        "http://127.0.0.1/",
+        "http://0.0.0.0/",
+        "http://::1/",
+        "http://192.168.1.1/",
+        "http://10.0.0.1/",
+        "http://172.16.0.1/",
+        "http://169.254.169.254/",
+        "http://evil.169.254.169.254.nip.io/",
+        "http://evil.xip.io/",
+        "http://evil.sslip.io/",
+    ],
+)
+def test_validate_url_blocks(url: str) -> None:
+    from ur.tools.builtin import _validate_url
+
+    with pytest.raises(ValueError):
+        _validate_url(url)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://example.com/",
+        "http://example.com/path?q=1",
+        "https://api.github.com/repos",
+    ],
+)
+def test_validate_url_allows(url: str) -> None:
+    from ur.tools.builtin import _validate_url
+
+    _validate_url(url)  # should not raise
+
+
 # ── ToolRegistry ──────────────────────────────────────────────────────────────
 
 
@@ -103,8 +147,7 @@ async def test_builtin_shell_handles_error(_require_tools: None) -> None:
     from ur.tools.builtin import shell
 
     result = await shell("exit 1")
-    # Should not raise — returns output or empty
-    assert isinstance(result, str)
+    assert result == "(no output)"
 
 
 async def test_builtin_read_file_missing_path(_require_tools: None) -> None:

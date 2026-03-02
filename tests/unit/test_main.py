@@ -6,6 +6,7 @@ commands delegate to tui.launch_run / tui.launch_chat.
 
 from __future__ import annotations
 
+import logging.handlers
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -14,9 +15,58 @@ import typer
 from tests.conftest import TEST_MODEL
 from ur.agent.session import AgentSession
 from ur.config import Settings
-from ur.main import _history
+from ur.main import _configure_logging, _history
 from ur.memory.db import init_db
 from ur.memory.session_store import save_session
+
+# ── _configure_logging ────────────────────────────────────────────────────────
+
+
+def test_configure_logging_creates_log_file(tmp_settings: Settings) -> None:
+    """_configure_logging attaches a RotatingFileHandler writing to logs_dir."""
+    import logging
+
+    tmp_settings.ensure_dirs()
+    root = logging.getLogger()
+    before = list(root.handlers)
+    new_handlers: list[logging.Handler] = []
+    try:
+        _configure_logging(tmp_settings)
+        new_handlers = [h for h in root.handlers if h not in before]
+        assert any(
+            isinstance(h, logging.handlers.RotatingFileHandler) for h in new_handlers
+        )
+        log_file = tmp_settings.logs_dir / "ur.log"
+        logging.getLogger("ur.test").warning("ping")
+        assert log_file.exists()
+    finally:
+        for h in new_handlers:
+            h.close()
+            root.removeHandler(h)
+
+
+def test_configure_logging_respects_log_level(tmp_settings: Settings) -> None:
+    """Handler level is set from settings.log_level."""
+    import logging
+
+    tmp_settings.log_level = "DEBUG"
+    tmp_settings.ensure_dirs()
+    root = logging.getLogger()
+    before = list(root.handlers)
+    new_handlers: list[logging.Handler] = []
+    try:
+        _configure_logging(tmp_settings)
+        new_handlers = [h for h in root.handlers if h not in before]
+        fh = next(
+            h
+            for h in new_handlers
+            if isinstance(h, logging.handlers.RotatingFileHandler)
+        )
+        assert fh.level == logging.DEBUG
+    finally:
+        for h in new_handlers:
+            h.close()
+            root.removeHandler(h)
 
 
 # ── run / chat command delegation ─────────────────────────────────────────────

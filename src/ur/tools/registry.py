@@ -12,7 +12,12 @@ class ToolSpec:
 
 
 class ToolRegistry:
-    """Registry mapping tool names to async callables and their JSON schemas."""
+    """Registry mapping tool names to async callables and their JSON schemas.
+
+    Public interface: register, get, as_tools_list, __contains__.
+    Tool dispatch (calling the function) is handled by loop._execute_tool,
+    which owns the I/O and error-handling concerns.
+    """
 
     def __init__(self) -> None:
         self._tools: dict[str, ToolSpec] = {}
