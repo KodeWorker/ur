@@ -34,7 +34,6 @@ class Settings(BaseSettings):
 
     tool_builtin_truncate_at: int = Field(default=4000)
     tool_builtin_max_lines: int = Field(default=200)
-    tools_dir: Path = Field(default_factory=lambda: Path.home() / ".ur" / "tools")
 
     @property
     def db_path(self) -> Path:
@@ -47,6 +46,10 @@ class Settings(BaseSettings):
     @property
     def logs_dir(self) -> Path:
         return self.data_dir / "logs"
+
+    @property
+    def tools_dir(self) -> Path:
+        return self.data_dir / "tools"
 
     def ensure_dirs(self) -> None:
         self.data_dir.mkdir(parents=True, exist_ok=True)

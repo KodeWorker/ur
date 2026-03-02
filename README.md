@@ -9,7 +9,7 @@ Agent assisted workflow — a local-first, cross-platform Python sandbox for AI 
 - **Local-first** — everything runs on your machine, no cloud infra required
 - **Cross-platform** — Windows, Mac, Linux
 - **Provider-agnostic** — Google Gemini or any hosted Ollama models
-- **Extensible** — drop a `.py` file in `~/.ur/tools/` to add a custom tool
+- **Extensible** — drop a `.py` file in `<data_dir>/tools/` to add a custom tool
 
 ## Requirements
 
@@ -46,7 +46,7 @@ cp .env.example .env
 | `UR_MODEL` | `gemini/gemini-2.0-flash` | LLM model to use |
 | `UR_OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
 | `UR_MAX_ITERATIONS` | `20` | Agent loop iteration cap |
-| `UR_DATA_DIR` | platform data dir | Override data/db location |
+| `UR_DATA_DIR` | platform data dir | Override data/db/tools location |
 
 **Platform data directories** (auto-detected):
 

@@ -11,7 +11,7 @@ custom tool" but the feature was not implemented. This plan delivers it.
 
 | File | Change |
 |------|--------|
-| `src/ur/config.py` | Add `tools_dir: Path` field (env: `UR_TOOLS_DIR`) |
+| `src/ur/config.py` | Add `tools_dir` property (derived from `data_dir`) |
 | `src/ur/tools/plugins.py` | New module — plugin loader |
 | `src/ur/tui.py` | Call `load_plugins()` in `_make_registry()` |
 | `tests/unit/test_tools.py` | Seven new plugin loader tests |
@@ -61,9 +61,8 @@ def register(registry: ToolRegistry) -> None:
 
 ## Configuration
 
-| Setting | Default | Env override |
-|---------|---------|--------------|
-| `tools_dir` | `~/.ur/tools/` | `UR_TOOLS_DIR` |
+`tools_dir` is a read-only property on `Settings`, returning `data_dir / "tools"`.
+Override the base with `UR_DATA_DIR` to relocate everything including plugins.
 
 ---
 

@@ -1,6 +1,7 @@
 """Plugin loader for user-defined tools.
 
-Drop a .py file in ~/.ur/tools/ (or the directory set by UR_TOOLS_DIR) and
+Drop a .py file in the tools directory (Settings.tools_dir, derived from
+data_dir) and
 define a top-level register() function:
 
     from ur.tools.registry import ToolRegistry
