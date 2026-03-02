@@ -195,6 +195,6 @@ Provider-specific tests are guarded with skip markers that activate based on `UR
 
 - **Phase 1** (done) — LLM loop, streaming CLI, SQLite sessions
 - **Phase 2** (done) — tool suite: filesystem, code execution, HTTP, browser
-- **Phase 3** — full audit trail, token cost display, `ur history <id>`
+- **Phase 3** — token cost display, context window management (sliding-window truncation), `ur history <id>` audit trail
 - **Phase 4** — Docker sandbox, REST API, OpenTelemetry tracing
 - **Phase 5** — long-term memory (ChromaDB), multi-task queue, multi-agent seams
