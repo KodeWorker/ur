@@ -347,18 +347,11 @@ class UrApp(App[None]):
             scroll.scroll_end(animate=False)
             return result
 
-        system_prompt = (
-            f"Your workspace directory is {self._workspace}. "
-            "Use it as the working directory for files you create during this session."
-            if self._workspace
-            else None
-        )
         try:
             async for chunk in agent_run(
                 self._session,
                 self._client,
                 self._settings.max_iterations,
-                system_prompt=system_prompt,
                 registry=self._tool_registry,
                 confirm_tool=_confirm_tool if self._tool_registry is not None else None,
             ):

@@ -41,11 +41,13 @@ async def shell(
         return f"Error: {e}"
 
 
-async def read_file(path: str, max_lines: int = 200) -> str:
+async def read_file(path: str, max_lines: int = 200, cwd: Path | None = None) -> str:
     """Read a file and return its contents."""
     try:
-        import aiofiles  # type: ignore[import-untyped] 
-        async with aiofiles.open(path) as f:
+        import aiofiles  # type: ignore[import-untyped]
+        p = Path(path)
+        resolved = (cwd / p) if (cwd and not p.is_absolute()) else p
+        async with aiofiles.open(resolved) as f:
             lines = await f.readlines()
         if len(lines) > max_lines:
             head = lines[:max_lines]
@@ -56,13 +58,15 @@ async def read_file(path: str, max_lines: int = 200) -> str:
         return f"Error: {e}"
 
 
-async def write_file(path: str, content: str) -> str:
+async def write_file(path: str, content: str, cwd: Path | None = None) -> str:
     """Write content to a file, overwriting any existing content."""
     try:
         import aiofiles
-        async with aiofiles.open(path, "w") as f:
+        p = Path(path)
+        resolved = (cwd / p) if (cwd and not p.is_absolute()) else p
+        async with aiofiles.open(resolved, "w") as f:
             await f.write(content)
-        return f"Written {len(content)} bytes to {path}"
+        return f"Written {len(content)} bytes to {resolved}"
     except Exception as e:
         return f"Error: {e}"
 
@@ -161,7 +165,7 @@ def create_default_registry(
             },
             "required": ["path"],
         },
-        fn=functools.partial(read_file, max_lines=max_lines),
+        fn=functools.partial(read_file, max_lines=max_lines, cwd=workspace_dir),
     )
 
     registry.register(
@@ -178,7 +182,7 @@ def create_default_registry(
             },
             "required": ["path", "content"],
         },
-        fn=write_file,
+        fn=functools.partial(write_file, cwd=workspace_dir),
     )
 
     registry.register(
