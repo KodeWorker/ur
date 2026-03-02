@@ -148,6 +148,7 @@ async def test_turn_widget_tool_call_resets_content_segment(
             turn = TurnWidget("hello")
             await app.query_one("#scroll").mount(turn)
             await pilot.pause()
+            await pilot.pause()  # second pause ensures TurnWidget is fully attached
 
             await turn.append_content("before tool")
             await turn.add_tool_call("shell(ls)")
