@@ -4,11 +4,33 @@ from __future__ import annotations
 
 import asyncio
 import functools
+import ipaddress
 from pathlib import Path
+from urllib.parse import urlparse
 
 import httpx
 
 from .registry import ToolRegistry
+
+
+def _validate_url(url: str) -> None:
+    """Raise ValueError if url is not a safe public http/https URL.
+
+    Blocks non-http/https schemes and private/loopback/link-local addresses
+    to prevent SSRF attacks against local services and cloud metadata endpoints.
+    """
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError(f"Only http/https URLs are allowed (got {parsed.scheme!r})")
+    host = (parsed.hostname or "").lower()
+    if not host or host in ("localhost", "ip6-localhost", "ip6-loopback"):
+        raise ValueError(f"Blocked host: {host!r}")
+    try:
+        addr = ipaddress.ip_address(host)
+    except ValueError:
+        return  # hostname — allowed
+    if addr.is_loopback or addr.is_private or addr.is_link_local:
+        raise ValueError(f"Blocked address: {host} (private/loopback/link-local)")
 
 
 async def shell(
@@ -45,8 +67,15 @@ async def read_file(path: str, max_lines: int = 200, cwd: Path | None = None) ->
     """Read a file and return its contents."""
     try:
         import aiofiles  # type: ignore[import-untyped]
+
         p = Path(path)
         resolved = (cwd / p) if (cwd and not p.is_absolute()) else p
+        resolved = resolved.resolve()
+        if cwd is not None:
+            try:
+                resolved.relative_to(cwd.resolve())
+            except ValueError:
+                return "Error: path escapes workspace directory"
         async with aiofiles.open(resolved) as f:
             lines = await f.readlines()
         if len(lines) > max_lines:
@@ -62,8 +91,15 @@ async def write_file(path: str, content: str, cwd: Path | None = None) -> str:
     """Write content to a file, overwriting any existing content."""
     try:
         import aiofiles
+
         p = Path(path)
         resolved = (cwd / p) if (cwd and not p.is_absolute()) else p
+        resolved = resolved.resolve()
+        if cwd is not None:
+            try:
+                resolved.relative_to(cwd.resolve())
+            except ValueError:
+                return "Error: path escapes workspace directory"
         async with aiofiles.open(resolved, "w") as f:
             await f.write(content)
         return f"Written {len(content)} bytes to {resolved}"
@@ -74,8 +110,10 @@ async def write_file(path: str, content: str, cwd: Path | None = None) -> str:
 async def browser_get(url: str, max_chars: int = 4000, timeout: int = 30) -> str:
     """Visit a URL with a headless browser and return rendered page as markdown."""
     try:
+        _validate_url(url)
         from markdownify import markdownify as to_md
         from playwright.async_api import async_playwright
+
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             try:
@@ -102,6 +140,7 @@ async def browser_get(url: str, max_chars: int = 4000, timeout: int = 30) -> str
 async def http_get(url: str, max_chars: int = 4000, timeout: int = 10) -> str:
     """Fetch a URL and return the response body text."""
     try:
+        _validate_url(url)
         async with httpx.AsyncClient() as client:
             response = await client.get(url, timeout=timeout, follow_redirects=True)
             text = response.text
@@ -120,7 +159,10 @@ async def web_search(query: str, max_results: int = 10) -> str:
     try:
         from ddgs import DDGS
 
-        results = list(DDGS().text(query, max_results=max_results))
+        loop = asyncio.get_running_loop()
+        results = await loop.run_in_executor(
+            None, lambda: list(DDGS().text(query, max_results=max_results))
+        )
         if not results:
             return "No results found."
         output = []
@@ -132,6 +174,7 @@ async def web_search(query: str, max_results: int = 10) -> str:
         return "\n\n".join(output)
     except Exception as e:
         return f"Error: {e}"
+
 
 def create_default_registry(
     truncate_at: int = 4000,
@@ -166,8 +209,7 @@ def create_default_registry(
     registry.register(
         name="read_file",
         description=(
-            "Read a file and return its contents. "
-            f"Truncated at max_lines lines (default {max_lines})."
+            f"Read a file and return its contents. Truncated at {max_lines} lines."
         ),
         parameters={
             "type": "object",
@@ -176,15 +218,10 @@ def create_default_registry(
                     "type": "string",
                     "description": "Absolute or relative file path",
                 },
-                "max_lines": {
-                    "type": "integer",
-                    "description": "Maximum lines to return (default 200)",
-                    "default": 200,
-                },
             },
             "required": ["path"],
         },
-        fn=functools.partial(read_file, max_lines=max_lines, cwd=workspace_dir),
+        fn=lambda path: read_file(path, max_lines=max_lines, cwd=workspace_dir),
     )
 
     registry.register(
@@ -227,7 +264,9 @@ def create_default_registry(
             "Fetch a known URL using a headless Chromium browser and return the "
             "fully rendered page as markdown (links preserved). "
             "Use when you already have a URL and the page requires JavaScript. "
-            f"Output truncated at {truncate_at} characters."
+            f"Output truncated at {truncate_at} characters. "
+            "Note: spawns a new Chromium process per call (1-3 s cold-start); "
+            "prefer http_get for pages that do not require JavaScript."
         ),
         parameters={
             "type": "object",

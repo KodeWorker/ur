@@ -5,14 +5,11 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-
 from tests.conftest import TEST_MODEL
 from ur.agent.models import StreamChunk
 from ur.agent.session import AgentSession
 from ur.config import Settings
 from ur.tui import TurnWidget, UrApp
-
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -32,7 +29,7 @@ def _make_agent_raising(exc: BaseException):
 
     async def _stub(*args, **kwargs):  # type: ignore[no-untyped-def]
         raise exc
-        yield  # make Python treat this as an async generator  # noqa: unreachable
+        yield  # make Python treat this as an async generator  # noqa: RET508
 
     return _stub
 
@@ -133,7 +130,7 @@ async def test_turn_widget_append_content_mounts_markdown(
 async def test_turn_widget_tool_call_resets_content_segment(
     tmp_settings: Settings,
 ) -> None:
-    """add_tool_call resets _active_content so the next content gets a fresh Markdown."""
+    """add_tool_call resets _active_content so next content gets a fresh Markdown."""
     from textual.widgets import Markdown
 
     session = AgentSession.new(task="t", model=TEST_MODEL)
@@ -281,7 +278,7 @@ async def test_urapp_chat_mode_ctrl_d_interrupts_session(
 async def test_urapp_chat_mode_turn_completes_successfully(
     tmp_settings: Settings,
 ) -> None:
-    """A submitted chat message is processed and session.complete() not called (session stays running)."""
+    """Chat message is processed; session.complete() not called (stays running)."""
     content = StreamChunk(kind="content", text="response text")
     app, session = _make_urapp(tmp_settings, mode="chat")
 

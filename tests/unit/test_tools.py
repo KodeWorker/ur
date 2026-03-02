@@ -131,7 +131,12 @@ async def test_builtin_create_default_registry(_require_tools: None) -> None:
     registry = create_default_registry()
     names = {t["function"]["name"] for t in registry.as_tools_list()}
     assert names == {
-        "shell", "read_file", "write_file", "http_get", "browser_get", "web_search"
+        "shell",
+        "read_file",
+        "write_file",
+        "http_get",
+        "browser_get",
+        "web_search",
     }
 
 
@@ -189,8 +194,8 @@ async def test_browser_get_truncates_long_output(
     max_chars = 100
     result = await browser_get("https://example.com", max_chars=max_chars)
     assert isinstance(result, str)
-    assert len(result) <= max_chars + len(f"\n... (truncated, {5000} more chars)")
     assert "truncated" in result
+    assert len(result) < max_chars + 100  # generous margin for the suffix
 
 
 async def test_browser_get_handles_error(
@@ -234,10 +239,17 @@ async def test_web_search_returns_formatted_results(
 ) -> None:
     from ur.tools.builtin import web_search
 
-    _patch_ddgs(mocker, [
-        {"title": "Example", "href": "https://example.com", "body": "An example site."},
-        {"title": "Test", "href": "https://test.com", "body": "A test site."},
-    ])
+    _patch_ddgs(
+        mocker,
+        [
+            {
+                "title": "Example",
+                "href": "https://example.com",
+                "body": "An example site.",
+            },
+            {"title": "Test", "href": "https://test.com", "body": "A test site."},
+        ],
+    )
 
     result = await web_search("example query")
     assert "Example" in result

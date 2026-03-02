@@ -150,12 +150,19 @@ The `[tools]` extra enables five built-in tools:
 | `write_file` | Write a file to disk |
 | `http_get` | Fetch a URL with a plain HTTP GET |
 | `browser_get` | Visit a URL with headless Chromium (JS rendered), return page as markdown |
+| `web_search` | Search the web and return titles, URLs, and snippets |
 
 After installing `[tools]`, download the Chromium binary once for `browser_get`:
 
 ```bash
 uv run playwright install chromium
 ```
+
+### Custom plugins
+
+Drop a `.py` file in `<data_dir>/tools/` and define a `register(registry)` function to add custom tools. Plugins are loaded alphabetically after builtins; a plugin can override a builtin by using the same name.
+
+> **Security:** Every `.py` file in the tools directory is executed unconditionally at startup with the full privileges of the running user. Only place files you trust there — never copy plugin files from untrusted sources without reviewing them first.
 
 ## Development
 

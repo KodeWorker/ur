@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import logging
+import logging.handlers
 
 import aiosqlite
 import typer
@@ -17,9 +19,24 @@ app = typer.Typer(name="ur", help="Agent assisted workflow", no_args_is_help=Tru
 console = Console()
 
 
+def _configure_logging(settings: Settings) -> None:
+    """Configure root logger to write to data_dir/logs/ur.log."""
+    log_file = settings.logs_dir / "ur.log"
+    handler = logging.handlers.RotatingFileHandler(
+        log_file, maxBytes=1_000_000, backupCount=3, encoding="utf-8"
+    )
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
+    )
+    logging.root.addHandler(handler)
+    if not logging.root.level:
+        logging.root.setLevel(logging.WARNING)
+
+
 def _settings() -> Settings:
     s = get_settings()
     s.ensure_dirs()
+    _configure_logging(s)
     return s
 
 

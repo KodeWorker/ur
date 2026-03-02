@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from pathlib import Path
 from typing import Literal
 
@@ -18,6 +19,8 @@ from .llm.client import LLMClient, Provider
 from .memory.db import init_db
 from .memory.session_store import save_session
 from .tools.registry import ToolRegistry
+
+logger = logging.getLogger(__name__)
 
 Mode = Literal["run", "chat"]
 
@@ -57,9 +60,14 @@ class TurnWidget(Vertical):
         margin: 0;
         padding: 0;
     }
-    TurnWidget > Static.tool-call,
-    TurnWidget > Static.tool-result {
+    TurnWidget > Collapsible.tool-call {
         height: auto;
+        background: $panel;
+    }
+    TurnWidget Collapsible.tool-call CollapsibleTitle {
+        color: $warning;
+    }
+    TurnWidget Collapsible.tool-call Static.tool-result-text {
         color: $text-disabled;
     }
     TurnWidget > Static.error {
@@ -73,6 +81,7 @@ class TurnWidget(Vertical):
         self._user_text = user_text
         self._active_content: Markdown | None = None
         self._active_reasoning: Static | None = None
+        self._active_tool_result: Static | None = None
 
     def compose(self) -> ComposeResult:
         yield Static(
@@ -121,23 +130,30 @@ class TurnWidget(Vertical):
             self._active_content.update(text)
 
     async def add_tool_call(self, text: str) -> None:
-        """Append a dim tool-call line and reset the content segment.
+        """Mount a Collapsible for this tool round-trip and reset the content segment.
 
-        Resetting _active_content means the next append_content call
-        will mount a fresh Markdown below this Static, preserving the
-        correct visual order: content → tool-call → new content.
+        The Collapsible title shows the call; add_tool_result fills its body.
+        Resetting _active_content means the next append_content call mounts a
+        fresh Markdown below this widget, preserving the correct visual order:
+        content → tool collapsible → new content.
         """
         self._active_content = None
+        result_static = Static("", classes="tool-result-text")
+        self._active_tool_result = result_static
         await self.mount(
-            Static(f"[dim]⚙ {text}[/dim]", markup=True, classes="tool-call")
+            Collapsible(
+                result_static,
+                title=f"⚙ {text}",
+                collapsed=True,
+                classes="tool-call",
+            )
         )
 
     async def add_tool_result(self, text: str) -> None:
-        """Append a dim tool-result preview (first line, ≤120 chars)."""
-        preview = text.split("\n")[0][:120]
-        await self.mount(
-            Static(f"[dim]🤖 {preview}[/dim]", markup=True, classes="tool-result")
-        )
+        """Fill the body of the current tool Collapsible with the result."""
+        if self._active_tool_result is not None:
+            self._active_tool_result.update(text)
+            self._active_tool_result = None
 
     async def add_error(self, text: str) -> None:
         """Append a red error line and reset the content segment."""
@@ -221,9 +237,11 @@ class ToolConfirmWidget(Vertical):
         await self.query_one(".confirm-prompt").remove()
         await event.input.remove()
         label = (
-            "[green]✓ allowed[/green]"
+            "[green]✓ 🤖 allowed[/green]"
             if allowed
-            else f"[red]✗ denied[/red]: {reason}" if reason else "[red]✗ denied[/red]"
+            else f"[red]✗ 🤖 denied[/red]: {reason}"
+            if reason
+            else "[red]✗ 🤖 denied[/red]"
         )
         await self.mount(Static(label, classes="confirm-result"))
 
@@ -231,7 +249,8 @@ class ToolConfirmWidget(Vertical):
             self._future.set_result(result)
 
     async def wait_for_response(self) -> str | None:
-        assert self._future is not None, "wait_for_response called before on_mount"
+        if self._future is None:
+            raise RuntimeError("wait_for_response called before on_mount")
         return await self._future
 
 
@@ -364,14 +383,15 @@ class UrApp(App[None]):
                     reasoning_acc = ""
                     content_acc += chunk.text
                     await turn.append_content(content_acc)
+                    self.call_after_refresh(scroll.scroll_end, animate=False)
                 elif chunk.kind == "tool_call":
                     turn.reset_reasoning()
                     content_acc = ""
                     reasoning_acc = ""
                     await turn.add_tool_call(chunk.text)
+                    self.call_after_refresh(scroll.scroll_end, animate=False)
                 elif chunk.kind == "tool_result":
                     await turn.add_tool_result(chunk.text)
-                scroll.scroll_end(animate=False)
             if self._mode == "run":
                 self._session.complete()
         except Exception as e:
@@ -455,6 +475,10 @@ def _make_registry(
             workspace_dir=workspace_dir,
         )
     except ImportError:
+        logger.warning(
+            "Built-in tools are unavailable — install the [tools] extra: "
+            "pip install 'ur[tools]'"
+        )
         registry = ToolRegistry()
 
     from .tools.plugins import load_plugins
