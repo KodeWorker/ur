@@ -207,7 +207,8 @@ def create_default_registry(
     registry.register(
         name="http_get",
         description=(
-            "Fetch a URL with an HTTP GET request and return the response body text. "
+            "Fetch a known URL and return the raw response body (HTML, JSON, text). "
+            "Use when you already have a URL and the page does not require JavaScript. "
             f"Output truncated at {truncate_at} characters."
         ),
         parameters={
@@ -228,8 +229,9 @@ def create_default_registry(
     registry.register(
         name="browser_get",
         description=(
-            "Visit a URL with a headless Chromium browser (JavaScript rendered) "
-            "and return the page as markdown with links preserved. "
+            "Fetch a known URL using a headless Chromium browser and return the "
+            "fully rendered page as markdown (links preserved). "
+            "Use when you already have a URL and the page requires JavaScript. "
             f"Output truncated at {truncate_at} characters."
         ),
         parameters={
@@ -250,8 +252,10 @@ def create_default_registry(
     registry.register(
         name="web_search",
         description=(
-            "Perform a web search and return the top results. "
-            f"Truncated at {max_search_results} results (default {max_search_results})."
+            "Search the web to discover URLs and summaries when you do not already "
+            "have a URL. Returns titles, URLs, and snippets — not full page content. "
+            "Follow up with http_get or browser_get to read the actual page. "
+            f"Returns up to {max_search_results} results."
         ),
         parameters={
             "type": "object",
