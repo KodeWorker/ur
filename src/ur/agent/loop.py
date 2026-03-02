@@ -51,7 +51,8 @@ async def run(
                 tc_id: str = tc.get("id") or ""
                 tc_name: str = (tc.get("function") or {}).get("name") or ""
                 tc_args: str = (tc.get("function") or {}).get("arguments") or ""
-                yield StreamChunk(kind="tool_call", text=f"{tc_name}({tc_args})")
+                # Confirm before showing the tool-call line so the widget
+                # appears above it in the chat, not below.
                 if confirm_tool is not None:
                     denial = await confirm_tool(tc_name, tc_args)
                     if denial is not None:
@@ -61,8 +62,14 @@ async def run(
                             else "Tool call denied by user."
                         )
                         session.add_tool_result_message(tc_id, tc_name, result)
+                        # Always yield tool_call even on denial so the TUI calls
+                        # reset_reasoning(); without it, subsequent reasoning
+                        # would append to the previous segment.
+                        tc_text = f"{tc_name}({tc_args})"
+                        yield StreamChunk(kind="tool_call", text=tc_text)
                         yield StreamChunk(kind="tool_result", text=result)
                         continue
+                yield StreamChunk(kind="tool_call", text=f"{tc_name}({tc_args})")
                 result = await _execute_tool(registry, tc)
                 session.add_tool_result_message(tc_id, tc_name, result)
                 yield StreamChunk(kind="tool_result", text=result)
