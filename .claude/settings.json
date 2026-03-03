@@ -3,7 +3,6 @@
     "allow": [
       "Bash(cat:*)",
       "Bash(ls:*)",
-      "Bash(uv run:*)",
       "Bash(gh issue:*)",
       "Bash(gh api:*)",
       "Bash(gh:*)",
