@@ -36,6 +36,9 @@ CREATE INDEX IF NOT EXISTS idx_messages_session_id ON messages(session_id);
 async def init_db(db_path: Path) -> None:
     db_path.parent.mkdir(parents=True, exist_ok=True)
     async with aiosqlite.connect(db_path) as db:
+        # foreign_keys is a connection-level flag (not transaction-scoped) so it
+        # survives the implicit COMMIT that executescript issues before running DDL.
+        # journal_mode=WAL is a persistent database property written at this point.
         await db.execute("PRAGMA foreign_keys = ON")
         await db.execute("PRAGMA journal_mode = WAL")
         await db.executescript(SCHEMA)

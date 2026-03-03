@@ -143,11 +143,24 @@ async def test_builtin_shell_returns_output(_require_tools: None) -> None:
     assert "hello" in result
 
 
-async def test_builtin_shell_handles_error(_require_tools: None) -> None:
+async def test_builtin_shell_no_output_on_silent_failure(_require_tools: None) -> None:
     from ur.tools.builtin import shell
 
     result = await shell("exit 1")
     assert result == "(no output)"
+
+
+async def test_builtin_shell_returns_error_on_exception(
+    _require_tools: None, mocker: MockerFixture
+) -> None:
+    from ur.tools.builtin import shell
+
+    mocker.patch(
+        "ur.tools.builtin.asyncio.create_subprocess_shell",
+        side_effect=OSError("permission denied"),
+    )
+    result = await shell("echo hi")
+    assert result.startswith("Error:")
 
 
 async def test_builtin_read_file_missing_path(_require_tools: None) -> None:

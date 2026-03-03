@@ -66,6 +66,7 @@ async def save_session(session: AgentSession, db_path: Path) -> None:
                  total_input_tokens, total_output_tokens)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
+                model                = excluded.model,
                 status               = excluded.status,
                 total_input_tokens   = excluded.total_input_tokens,
                 total_output_tokens  = excluded.total_output_tokens

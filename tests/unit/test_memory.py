@@ -85,6 +85,18 @@ async def test_save_upserts_on_repeated_calls(initialized_db):
     assert rows[0]["total_input_tokens"] == 5
 
 
+async def test_save_upserts_model_on_change(initialized_db):
+    session = AgentSession.new(task="t", model=TEST_MODEL)
+    await save_session(session, initialized_db)
+
+    session.model = "ollama/llama3.2"
+    await save_session(session, initialized_db)
+
+    rows = await list_sessions(initialized_db)
+    assert len(rows) == 1
+    assert rows[0]["model"] == "ollama/llama3.2"
+
+
 async def test_list_sessions_ordered_newest_first(initialized_db):
     s1 = AgentSession.new(task="first", model=TEST_MODEL)
     s2 = AgentSession(
