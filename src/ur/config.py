@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     # Use model names like "ollama/llama3.2" or "ollama_chat/qwen2.5"
     ollama_base_url: str = Field(default="http://localhost:11434")
 
-    tool_builtin_truncate_at: int = Field(default=4000)
+    tool_builtin_truncate_at: int = Field(default=20000)
     tool_builtin_max_lines: int = Field(default=200)
     tool_builtin_max_search_results: int = Field(default=10)
     tool_builtin_shell_timeout: int = Field(default=30)

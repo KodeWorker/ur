@@ -150,13 +150,25 @@ async def test_turn_widget_tool_call_resets_content_segment(
             turn = TurnWidget("hello")
             await app.query_one("#scroll").mount(turn)
             await pilot.pause()
-            await pilot.pause()  # second pause ensures TurnWidget is fully attached
 
-            await turn.append_content("before tool")
-            await turn.add_tool_call("shell(ls)")
-            await turn.append_content("after tool")
-            await pilot.pause()
+            # Run the three mounts as a separate task, mirroring how _stream_turn
+            # works as a @work worker; pilot.pause() pumps the event loop between
+            # each mount so Textual can process the DOM changes.
+            completed: asyncio.Event = asyncio.Event()
 
+            async def _sequence() -> None:
+                await turn.append_content("before tool")
+                await turn.add_tool_call("shell(ls)")
+                await turn.append_content("after tool")
+                completed.set()
+
+            asyncio.ensure_future(_sequence())
+            for _ in range(20):
+                await pilot.pause()
+                if completed.is_set():
+                    break
+
+            assert completed.is_set(), "mount sequence did not complete"
             # Two separate Markdown widgets: one before, one after the tool call
             assert len(turn.query(Markdown)) == 2
 

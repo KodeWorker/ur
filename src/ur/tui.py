@@ -10,8 +10,18 @@ from typing import Literal
 from rich.markup import escape
 from textual import work
 from textual.app import App, ComposeResult
-from textual.containers import ScrollableContainer, Vertical
-from textual.widgets import Collapsible, Footer, Header, Input, Markdown, Static
+from textual.containers import Horizontal, ScrollableContainer, Vertical
+from textual.widgets import (
+    Button,
+    Collapsible,
+    Footer,
+    Header,
+    Input,
+    Markdown,
+    SelectionList,
+    Static,
+)
+from textual.widgets.selection_list import Selection
 
 from .agent.loop import run as agent_run
 from .agent.session import AgentSession
@@ -255,6 +265,102 @@ class ToolConfirmWidget(Vertical):
         return await self._future
 
 
+# ── ToolSettingsWidget ────────────────────────────────────────────────────────
+
+
+class ToolSettingsWidget(Vertical):
+    """Inline tool-settings panel rendered as a chat message in the scroll pane.
+
+    Shows a checklist of all registered tools with their current enabled state.
+    Keyboard: Space to toggle, Tab to reach Confirm/Cancel, Enter/Space to activate,
+    Escape to cancel from anywhere in the widget.
+    """
+
+    BINDINGS = [
+        ("escape", "cancel", "Cancel"),
+        ("ctrl+enter", "confirm", "Confirm"),
+    ]
+
+    DEFAULT_CSS = """
+    ToolSettingsWidget {
+        height: auto;
+        margin-bottom: 1;
+        padding: 0 1;
+        border-left: thick $accent;
+    }
+    ToolSettingsWidget .settings-title {
+        text-style: bold;
+        color: $accent;
+        height: auto;
+        margin-bottom: 1;
+    }
+    ToolSettingsWidget SelectionList {
+        height: auto;
+        max-height: 12;
+        border: none;
+        padding: 0;
+    }
+    ToolSettingsWidget .settings-buttons {
+        height: 3;
+        margin-top: 1;
+    }
+    ToolSettingsWidget Button {
+        margin-right: 1;
+    }
+    """
+
+    def __init__(self, registry: ToolRegistry) -> None:
+        super().__init__()
+        self._registry = registry
+        self._future: asyncio.Future[None] | None = None
+
+    def compose(self) -> ComposeResult:
+        yield Static("configure tools", classes="settings-title", markup=False)
+        selections = [
+            Selection(name, name, self._registry.is_enabled(name))
+            for name in self._registry.names()
+        ]
+        yield SelectionList(*selections, id="tool-checklist")
+        with Horizontal(classes="settings-buttons"):
+            yield Button("Confirm", variant="primary", id="btn-confirm")
+            yield Button("Cancel", variant="default", id="btn-cancel")
+
+    def on_mount(self) -> None:
+        self._future = asyncio.get_running_loop().create_future()
+        self.query_one("#tool-checklist", SelectionList).focus()
+
+    def _apply(self) -> None:
+        selected: set[str] = set(
+            self.query_one("#tool-checklist", SelectionList).selected
+        )
+        for name in self._registry.names():
+            if name in selected:
+                self._registry.enable(name)
+            else:
+                self._registry.disable(name)
+
+    def _close(self) -> None:
+        if self._future is not None and not self._future.done():
+            self._future.set_result(None)
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "btn-confirm":
+            self._apply()
+        self._close()
+
+    def action_confirm(self) -> None:
+        self._apply()
+        self._close()
+
+    def action_cancel(self) -> None:
+        self._close()
+
+    async def wait_for_close(self) -> None:
+        if self._future is None:
+            raise RuntimeError("wait_for_close called before on_mount")
+        await self._future
+
+
 # ── UrApp ─────────────────────────────────────────────────────────────────────
 
 
@@ -281,7 +387,8 @@ class UrApp(App[None]):
 
     BINDINGS = [
         ("ctrl+c", "request_quit", "Quit"),
-        ("ctrl+d", "request_quit", "Quit"),
+        ("ctrl+t", "tool_settings", "Tools"),
+        ("ctrl+x", "cancel_stream", "Stop"),
     ]
 
     def __init__(
@@ -303,6 +410,7 @@ class UrApp(App[None]):
         self._session = session
         self._tool_registry = registry
         self._current_turn: TurnWidget | None = None
+        self._settings_open = False
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
@@ -404,15 +512,15 @@ class UrApp(App[None]):
         finally:
             await save_session(self._session, self._settings.db_path)
             self._update_status()
+            if self._mode == "chat":
+                input_widget = self.query_one("#input-bar", Input)
+                input_widget.disabled = False
+                input_widget.focus()
 
         # Only reached on normal completion or caught Exception (not BaseException)
         if self._mode == "run":
             await asyncio.sleep(0.1)  # let Textual render the final frame
             self.exit()
-        else:
-            input_widget = self.query_one("#input-bar", Input)
-            input_widget.disabled = False
-            input_widget.focus()
 
     def _show_provider_hint(self, e: Exception) -> None:
         """Write a provider-specific hint to the status bar."""
@@ -433,6 +541,51 @@ class UrApp(App[None]):
         self.query_one("#status", Static).update(
             f"tokens in={usage.input_tokens} out={usage.output_tokens}"
         )
+
+    def check_action(
+        self, action: str, parameters: tuple[object, ...]
+    ) -> bool | None:
+        if action == "tool_settings" and self._tool_registry is None:
+            return False
+        if action == "cancel_stream" and not any(w.is_running for w in self.workers):
+            return False
+        return True
+
+    def action_cancel_stream(self) -> None:
+        """Ctrl+X: cancel the running agent stream."""
+        if any(w.is_running for w in self.workers):
+            self.workers.cancel_all()
+
+    def action_tool_settings(self) -> None:
+        """Ctrl+T: open the tool enable/disable panel (blocked while streaming)."""
+        if self._tool_registry is None or self._settings_open:
+            return
+        if any(w.is_running for w in self.workers):
+            return
+        self._settings_open = True
+        self._run_tool_settings()
+
+    @work
+    async def _run_tool_settings(self) -> None:
+        """Worker: mount the settings panel, await close, then restore input."""
+        assert self._tool_registry is not None
+        if self._mode == "chat":
+            self.query_one("#input-bar", Input).disabled = True
+
+        scroll = self.query_one("#scroll", ScrollableContainer)
+        widget = ToolSettingsWidget(self._tool_registry)
+        await scroll.mount(widget)
+        scroll.scroll_end(animate=False)
+
+        try:
+            await widget.wait_for_close()
+        finally:
+            await widget.remove()
+            self._settings_open = False
+            if self._mode == "chat":
+                input_widget = self.query_one("#input-bar", Input)
+                input_widget.disabled = False
+                input_widget.focus()
 
     async def action_quit(self) -> None:
         """Textual's built-in quit (command palette, default binding) — delegate."""
