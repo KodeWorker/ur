@@ -44,7 +44,9 @@ async def run(
         if stream.has_tool_calls and registry is not None:
             # Record the assistant turn that requested tool calls
             session.add_assistant_tool_call_message(
-                stream.tool_calls, content=stream.full_text or None
+                stream.tool_calls,
+                content=stream.full_text or None,
+                reasoning=stream.reasoning_text or None,
             )
             # Execute each requested tool and record results
             for tc in stream.tool_calls:
@@ -81,7 +83,9 @@ async def run(
                 messages = [{"role": "system", "content": system_prompt}, *messages]
         else:
             # Final text response (or no registry) — record and stop
-            session.add_assistant_message(stream.full_text)
+            session.add_assistant_message(
+                stream.full_text, reasoning=stream.reasoning_text or None
+            )
             return
     # for-loop exhausted without a return — max_iterations reached
     msg = (
@@ -98,7 +102,7 @@ async def _execute_tool(registry: ToolRegistry, tool_call: dict[str, Any]) -> st
     name: str = fn_info.get("name") or ""
     args_str: str = fn_info.get("arguments") or "{}"
     spec = registry.get(name)
-    if spec is None:
+    if spec is None or not registry.is_enabled(name):
         return f"Error: unknown tool '{name}'"
     try:
         args: dict[str, Any] = json.loads(args_str)

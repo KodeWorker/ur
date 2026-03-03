@@ -27,7 +27,7 @@ class ToolRegistry:
         return list(self._tools)
 
     def enable(self, name: str) -> None:
-        """Re-enable a previously disabled tool."""
+        """Re-enable a previously disabled tool. No-op if name is unknown."""
         self._disabled.discard(name)
 
     def disable(self, name: str) -> None:

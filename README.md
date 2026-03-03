@@ -43,10 +43,16 @@ cp .env.example .env
 | Environment variable | Default | Description |
 |---|---|---|
 | `GEMINI_API_KEY` | — | Gemini API key |
-| `UR_MODEL` | `gemini/gemini-2.0-flash` | LLM model to use |
+| `UR_MODEL` | `gemini/gemini-2.5-flash-lite` | LLM model to use |
 | `UR_OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
 | `UR_MAX_ITERATIONS` | `20` | Agent loop iteration cap |
 | `UR_DATA_DIR` | platform data dir | Override data/db/tools location |
+| `UR_TOOL_BUILTIN_TRUNCATE_AT` | `20000` | Max chars returned by shell/http/browser tools |
+| `UR_TOOL_BUILTIN_MAX_LINES` | `200` | Max lines returned by `read_file` |
+| `UR_TOOL_BUILTIN_MAX_SEARCH_RESULTS` | `10` | Max results returned by `web_search` |
+| `UR_TOOL_BUILTIN_SHELL_TIMEOUT` | `30` | Timeout in seconds for `shell` |
+| `UR_TOOL_BUILTIN_HTTP_TIMEOUT` | `10` | Timeout in seconds for `http_get` |
+| `UR_TOOL_BUILTIN_BROWSER_TIMEOUT` | `30` | Timeout in seconds for `browser_get` |
 
 **Platform data directories** (auto-detected):
 
@@ -126,7 +132,7 @@ Supported model prefixes: `ollama/` (generate API) and `ollama_chat/` (chat API)
 
 | Tier | Backend | Default | Requires |
 |---|---|---|---|
-| 1 | subprocess + psutil | yes | nothing |
+| 1 | subprocess | yes | nothing |
 | 2 | Docker / Podman | `--sandbox docker` | Docker daemon |
 | 3 | WASM (wasmtime) | future | `pip install ur[sandbox-wasm]` |
 

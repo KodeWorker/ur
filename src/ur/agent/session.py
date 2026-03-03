@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Literal
 
-from .models import Message, UsageStats
+from .models import AssistantMessage, Message, UsageStats
 
 
 def _now_iso() -> str:
@@ -36,22 +36,31 @@ class AgentSession:
             {"role": "user", "content": content, "created_at": _now_iso()}
         )
 
-    def add_assistant_message(self, content: str) -> None:
-        self.messages.append(
-            {"role": "assistant", "content": content, "created_at": _now_iso()}
+    def add_assistant_message(
+        self, content: str, reasoning: str | None = None
+    ) -> None:
+        msg = AssistantMessage(
+            role="assistant", content=content, created_at=_now_iso()
         )
+        if reasoning:
+            msg["reasoning"] = reasoning
+        self.messages.append(msg)
 
     def add_assistant_tool_call_message(
-        self, tool_calls: list[dict[str, Any]], content: str | None = None
+        self,
+        tool_calls: list[dict[str, Any]],
+        content: str | None = None,
+        reasoning: str | None = None,
     ) -> None:
-        self.messages.append(
-            {
-                "role": "assistant",
-                "tool_calls": tool_calls,
-                "content": content,
-                "created_at": _now_iso(),
-            }
+        msg = AssistantMessage(
+            role="assistant",
+            tool_calls=tool_calls,
+            content=content,
+            created_at=_now_iso(),
         )
+        if reasoning:
+            msg["reasoning"] = reasoning
+        self.messages.append(msg)
 
     def add_tool_result_message(
         self, tool_call_id: str, name: str, content: str

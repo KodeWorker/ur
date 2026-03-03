@@ -22,6 +22,7 @@ from textual.widgets import (
     Static,
 )
 from textual.widgets.selection_list import Selection
+from textual.worker import Worker
 
 from .agent.loop import run as agent_run
 from .agent.session import AgentSession
@@ -274,6 +275,10 @@ class ToolSettingsWidget(Vertical):
     Shows a checklist of all registered tools with their current enabled state.
     Keyboard: Space to toggle, Tab to reach Confirm/Cancel, Enter/Space to activate,
     Escape to cancel from anywhere in the widget.
+
+    Note: the ctrl+enter binding requires kitty keyboard protocol support and will
+    not fire in many terminal emulators (tmux, xterm, SSH). Use Tab to reach the
+    Confirm button and press Enter/Space as a fully portable alternative.
     """
 
     BINDINGS = [
@@ -448,7 +453,7 @@ class UrApp(App[None]):
         scroll.scroll_end(animate=False)
         self._stream_turn(turn)
 
-    @work(exclusive=True)
+    @work(name="stream_turn", exclusive=True)
     async def _stream_turn(self, turn: TurnWidget) -> None:
         """Stream agent chunks into *turn*, updating the TUI as each arrives.
 
@@ -516,11 +521,8 @@ class UrApp(App[None]):
                 input_widget = self.query_one("#input-bar", Input)
                 input_widget.disabled = False
                 input_widget.focus()
-
-        # Only reached on normal completion or caught Exception (not BaseException)
-        if self._mode == "run":
-            await asyncio.sleep(0.1)  # let Textual render the final frame
-            self.exit()
+            elif self._mode == "run":
+                self.call_after_refresh(self.exit)
 
     def _show_provider_hint(self, e: Exception) -> None:
         """Write a provider-specific hint to the status bar."""
@@ -542,19 +544,28 @@ class UrApp(App[None]):
             f"tokens in={usage.input_tokens} out={usage.output_tokens}"
         )
 
+    def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
+        self.refresh_bindings()
+
     def check_action(
         self, action: str, parameters: tuple[object, ...]
     ) -> bool | None:
-        if action == "tool_settings" and self._tool_registry is None:
-            return False
-        if action == "cancel_stream" and not any(w.is_running for w in self.workers):
+        streaming = any(
+            w.name == "stream_turn" and w.is_running for w in self.workers
+        )
+        if action == "tool_settings":
+            if self._tool_registry is None or self._settings_open or streaming:
+                return False
+        if action == "cancel_stream" and not streaming:
             return False
         return True
 
     def action_cancel_stream(self) -> None:
         """Ctrl+X: cancel the running agent stream."""
-        if any(w.is_running for w in self.workers):
-            self.workers.cancel_all()
+        for w in self.workers:
+            if w.name == "stream_turn" and w.is_running:
+                w.cancel()
+                break
 
     def action_tool_settings(self) -> None:
         """Ctrl+T: open the tool enable/disable panel (blocked while streaming)."""
