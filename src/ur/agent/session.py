@@ -23,6 +23,26 @@ class AgentSession:
     model: str = ""
 
     @classmethod
+    def resume(
+        cls,
+        *,
+        id: str,
+        task: str,
+        model: str,
+        created_at: datetime,
+        messages: list[Message],
+        input_tokens: int,
+        output_tokens: int,
+    ) -> AgentSession:
+        """Reconstruct a session from stored data for continuation."""
+        session = cls(id=id, task=task, model=model, created_at=created_at)
+        session.messages = list(messages)
+        session.usage = UsageStats(
+            input_tokens=input_tokens, output_tokens=output_tokens
+        )
+        return session
+
+    @classmethod
     def new(cls, task: str, model: str) -> AgentSession:
         session = cls(task=task, model=model)
         if task:

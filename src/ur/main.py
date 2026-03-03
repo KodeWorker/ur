@@ -13,7 +13,7 @@ from rich.table import Table
 
 from .config import Settings, get_settings
 from .memory.db import get_db, init_db
-from .memory.session_store import get_session_messages, list_sessions
+from .memory.session_store import get_session_messages, list_sessions, load_session
 
 app = typer.Typer(name="ur", help="Agent assisted workflow", no_args_is_help=True)
 console = Console()
@@ -76,11 +76,51 @@ def run(
 def chat(
     model: str | None = typer.Option(None, "--model", "-m", help="Override LLM model"),
     no_tools: bool = typer.Option(False, "--no-tools", help="Disable built-in tools"),
+    continue_id: str | None = typer.Option(
+        None, "--continue", "-c", help="Resume a previous session by ID prefix"
+    ),
 ) -> None:
     """Start an interactive multi-turn chat session."""
+    asyncio.run(_chat(_settings(), model, no_tools=no_tools, continue_id=continue_id))
+
+
+async def _chat(
+    settings: Settings,
+    model_override: str | None,
+    *,
+    no_tools: bool,
+    continue_id: str | None,
+) -> None:
     from .tui import launch_chat
 
-    asyncio.run(launch_chat(_settings(), model, no_tools=no_tools))
+    resume_session = None
+    if continue_id is not None:
+        await init_db(settings.db_path)
+        async with get_db(settings.db_path) as db:
+            cursor = await db.execute(
+                "SELECT id FROM sessions"
+                " WHERE SUBSTR(id, 1, LENGTH(?)) = ?"
+                " ORDER BY created_at DESC LIMIT 2",
+                (continue_id, continue_id),
+            )
+            rows: list[aiosqlite.Row] = await cursor.fetchall()  # type: ignore[assignment]
+        if not rows:
+            console.print(f"[red]No session matching '{continue_id}'[/red]")
+            raise typer.Exit(1)
+        if len(rows) > 1:
+            console.print(
+                f"[red]Ambiguous prefix '{continue_id}'"
+                " — matches multiple sessions[/red]"
+            )
+            raise typer.Exit(1)
+        resume_session = await load_session(rows[0]["id"], settings.db_path)
+        if resume_session is None:
+            console.print(f"[red]Failed to load session '{continue_id}'[/red]")
+            raise typer.Exit(1)
+
+    await launch_chat(
+        settings, model_override, no_tools=no_tools, resume_session=resume_session
+    )
 
 
 # ── history ───────────────────────────────────────────────────────────────────

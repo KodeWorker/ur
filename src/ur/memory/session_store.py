@@ -14,13 +14,14 @@ from .db import get_db
 
 def _serialize_message(
     msg: Message,
-) -> tuple[str, str | None, str | None, str | None]:
+) -> tuple[str, str | None, str | None, str | None, str | None]:
     content = json.dumps(msg.get("content"))
     tool_calls_raw = msg.get("tool_calls")
     tool_calls = json.dumps(tool_calls_raw) if tool_calls_raw is not None else None
     tool_call_id = cast(str | None, msg.get("tool_call_id"))
     name = cast(str | None, msg.get("name"))
-    return content, tool_calls, tool_call_id, name
+    reasoning = cast(str | None, msg.get("reasoning"))
+    return content, tool_calls, tool_call_id, name, reasoning
 
 
 def _deserialize_message(
@@ -45,7 +46,7 @@ def _deserialize_message(
             ) from exc
 
     # Drop None-valued optional fields to keep clean OpenAI wire format
-    for key in ("tool_call_id", "name"):
+    for key in ("tool_call_id", "name", "reasoning"):
         if d.get(key) is None:
             d.pop(key, None)
 
@@ -82,13 +83,13 @@ async def save_session(session: AgentSession, db_path: Path) -> None:
         # Clear and re-insert messages so repeated saves stay idempotent
         await db.execute("DELETE FROM messages WHERE session_id = ?", (session.id,))
         for msg in session.messages:
-            content, tool_calls, tool_call_id, name = _serialize_message(msg)
+            content, tool_calls, tool_call_id, name, reasoning = _serialize_message(msg)
             created_at = msg.get("created_at", datetime.now(UTC).isoformat())
             await db.execute(
                 "INSERT INTO messages"
                 " (session_id, role, content,"
-                " tool_calls, tool_call_id, name, created_at)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                " tool_calls, tool_call_id, name, reasoning, created_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     session.id,
                     msg["role"],
@@ -96,6 +97,7 @@ async def save_session(session: AgentSession, db_path: Path) -> None:
                     tool_calls,
                     tool_call_id,
                     name,
+                    reasoning,
                     created_at,
                 ),
             )
@@ -111,12 +113,37 @@ async def list_sessions(db_path: Path, limit: int = 20) -> list[dict[str, Any]]:
         return [dict(row) for row in rows]
 
 
+async def load_session(session_id: str, db_path: Path) -> AgentSession | None:
+    """Load a session from the DB for resumption. Returns None if not found."""
+    async with get_db(db_path) as db:
+        cursor = await db.execute(
+            "SELECT id, task, model, created_at,"
+            " total_input_tokens, total_output_tokens"
+            " FROM sessions WHERE id = ?",
+            (session_id,),
+        )
+        row = await cursor.fetchone()
+    if row is None:
+        return None
+    messages = await get_session_messages(session_id, db_path)
+    return AgentSession.resume(
+        id=row["id"],
+        task=row["task"] or "",
+        model=row["model"],
+        created_at=datetime.fromisoformat(row["created_at"]),
+        messages=messages,  # type: ignore[arg-type]
+        input_tokens=row["total_input_tokens"] or 0,
+        output_tokens=row["total_output_tokens"] or 0,
+    )
+
+
 async def get_session_messages(
     session_id: str, db_path: Path, *, with_metadata: bool = False
 ) -> list[dict[str, Any]]:
     async with get_db(db_path) as db:
         cursor = await db.execute(
-            "SELECT role, content, tool_calls, tool_call_id, name, created_at"
+            "SELECT role, content, tool_calls, tool_call_id,"
+            " name, reasoning, created_at"
             " FROM messages WHERE session_id = ? ORDER BY id",
             (session_id,),
         )

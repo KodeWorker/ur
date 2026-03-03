@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS messages (
     tool_calls   TEXT,
     tool_call_id TEXT,
     name         TEXT,
+    reasoning    TEXT,
     created_at   TEXT NOT NULL
 );
 
@@ -38,6 +39,11 @@ async def init_db(db_path: Path) -> None:
         await db.execute("PRAGMA foreign_keys = ON")
         await db.execute("PRAGMA journal_mode = WAL")
         await db.executescript(SCHEMA)
+        # Migrate existing databases: add reasoning column if absent
+        try:
+            await db.execute("ALTER TABLE messages ADD COLUMN reasoning TEXT")
+        except aiosqlite.OperationalError:
+            pass  # Column already exists
         await db.commit()
 
 

@@ -484,7 +484,48 @@ class UrApp(App[None]):
                 raise RuntimeError("run mode requires a task string")
             await self._start_turn(self._run_task)
         else:
+            if self._session.messages:
+                await self._render_history()
             self.query_one("#input-bar", Input).focus()
+
+    async def _render_history(self) -> None:
+        """Render prior session messages as read-only TurnWidgets."""
+        scroll = self.query_one("#scroll", ScrollableContainer)
+        # Pre-index tool results by tool_call_id for correct interleaving
+        tool_results: dict[str, str] = {}
+        for msg in self._session.messages:
+            if msg.get("role") == "tool":
+                tc_id = str(msg.get("tool_call_id") or "")
+                content = msg.get("content", "")
+                if isinstance(content, str):
+                    tool_results[tc_id] = content
+
+        turn: TurnWidget | None = None
+        for msg in self._session.messages:
+            role = msg.get("role")
+            if role == "user":
+                content = msg.get("content", "")
+                if isinstance(content, str):
+                    turn = TurnWidget(content)
+                    await scroll.mount(turn)
+            elif role == "assistant" and turn is not None:
+                reasoning = msg.get("reasoning")
+                if reasoning and isinstance(reasoning, str):
+                    await turn.append_reasoning(reasoning)
+                    turn.reset_reasoning()
+                content = msg.get("content")
+                if content and isinstance(content, str):
+                    await turn.append_content(content)
+                tool_calls_raw = msg.get("tool_calls")
+                for tc in (tool_calls_raw if isinstance(tool_calls_raw, list) else []):
+                    fn = tc.get("function") or {}
+                    tc_name = fn.get("name", "?")
+                    tc_args = fn.get("arguments", "")
+                    tc_id = str(tc.get("id") or "")
+                    await turn.add_tool_call(f"{tc_name}({tc_args})")
+                    await turn.add_tool_result(tool_results.get(tc_id, ""))
+            # "tool" role messages handled above via tool_results index
+        scroll.scroll_end(animate=False)
 
     async def on_input_submitted(self, event: Input.Submitted) -> None:
         text = event.value.strip()
@@ -739,12 +780,20 @@ async def launch_chat(
     settings: Settings,
     model_override: str | None = None,
     no_tools: bool = False,
+    resume_session: AgentSession | None = None,
 ) -> None:
     """Entry point for `ur chat`."""
     await init_db(settings.db_path)
     model = model_override or settings.model
     client = LLMClient(settings, model=model)
-    session = AgentSession.new(task="", model=model)
+    if resume_session is not None:
+        session = resume_session
+        # Use the model from the resumed session unless overridden
+        if model_override is None:
+            model = session.model
+            client = LLMClient(settings, model=model)
+    else:
+        session = AgentSession.new(task="", model=model)
     # Workspace is created lazily by the file tools on first write; chat sessions
     # that never touch the filesystem produce no directory.
     workspace_dir = settings.workspaces_dir / session.id
