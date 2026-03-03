@@ -6,13 +6,19 @@ import asyncio
 import functools
 import ipaddress
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 import httpx
 
 from .registry import ToolRegistry
 
 _DNS_REBIND_SUFFIXES = (".nip.io", ".xip.io", ".sslip.io")
+
+
+_EXTRA_PRIVATE_NETWORKS = (
+    ipaddress.ip_network("169.254.0.0/16"),  # link-local / cloud metadata
+    ipaddress.ip_network("100.64.0.0/10"),  # CGNAT (RFC 6598)
+)
 
 
 def _validate_url(url: str) -> None:
@@ -31,7 +37,13 @@ def _validate_url(url: str) -> None:
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https"):
         raise ValueError(f"Only http/https URLs are allowed (got {parsed.scheme!r})")
-    host = (parsed.hostname or "").lower()
+    # Percent-decode and IDNA-normalise the host to defeat encoding bypasses
+    raw_host = parsed.hostname or ""
+    host = unquote(raw_host).lower()
+    try:
+        host = host.encode("idna").decode("ascii")
+    except (UnicodeError, UnicodeDecodeError):
+        pass  # non-IDNA hostname — keep as-is
     if not host or host in ("localhost", "ip6-localhost", "ip6-loopback"):
         raise ValueError(f"Blocked host: {host!r}")
     if any(host.endswith(s) for s in _DNS_REBIND_SUFFIXES):
@@ -44,6 +56,8 @@ def _validate_url(url: str) -> None:
         raise ValueError(
             f"Blocked address: {host} (private/loopback/link-local/unspecified)"
         )
+    if any(addr in net for net in _EXTRA_PRIVATE_NETWORKS):
+        raise ValueError(f"Blocked address: {host} (reserved range)")
 
 
 async def shell(
@@ -83,6 +97,8 @@ async def read_file(path: str, max_lines: int = 200, cwd: Path | None = None) ->
         import aiofiles  # type: ignore[import-untyped]
 
         p = Path(path)
+        if cwd is None and p.is_absolute():
+            return "Error: absolute paths are not allowed without a workspace directory"
         resolved = (cwd / p) if (cwd and not p.is_absolute()) else p
         resolved = resolved.resolve()
         if cwd is not None:
@@ -110,6 +126,8 @@ async def write_file(path: str, content: str, cwd: Path | None = None) -> str:
         import aiofiles
 
         p = Path(path)
+        if cwd is None and p.is_absolute():
+            return "Error: absolute paths are not allowed without a workspace directory"
         resolved = (cwd / p) if (cwd and not p.is_absolute()) else p
         resolved = resolved.resolve()
         if cwd is not None:
@@ -141,6 +159,7 @@ async def browser_get(url: str, max_chars: int = 20000, timeout: int = 30) -> st
                     wait_until="domcontentloaded",
                     timeout=timeout * 1000,
                 )
+                _validate_url(page.url)
                 html = await page.content()
                 text = to_md(html, strip=["script", "style", "head"])
                 if len(text) > max_chars:

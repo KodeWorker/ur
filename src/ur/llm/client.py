@@ -109,6 +109,7 @@ class CompletionStream:
 
     def __init__(self, response: litellm.CustomStreamWrapper) -> None:
         self._response = response
+        self._consumed: bool = False
         self.full_text: str = ""  # content tokens → message["content"]
         self.reasoning_text: str = ""  # thinking tokens → message["reasoning"]
         self.usage: UsageStats = UsageStats()
@@ -122,6 +123,9 @@ class CompletionStream:
         return self._iter()
 
     async def _iter(self) -> AsyncGenerator[StreamChunk, None]:
+        if self._consumed:
+            raise RuntimeError("CompletionStream has already been iterated")
+        self._consumed = True
         tool_calls_acc: dict[int, dict[str, Any]] = {}
 
         async for chunk in self._response:
