@@ -196,7 +196,7 @@ class TurnWidget(Vertical):
         """
         self._active_content = None
         self._tool_call_text = text
-        result_static = Static("", classes="tool-result-text")
+        result_static = Static("", classes="tool-result-text", markup=False)
         self._active_tool_result = result_static
         collapsible = Collapsible(
             result_static,
@@ -219,8 +219,17 @@ class TurnWidget(Vertical):
         self._maybe_stop_spinner()
 
     async def add_error(self, text: str) -> None:
-        """Append a red error line and reset the content segment."""
+        """Append a red error line and reset all active segments.
+
+        Closes any in-flight tool collapsible (stopped spinner, final title)
+        so the widget is left in a clean state if the stream aborts mid tool-call.
+        """
         self._active_content = None
+        if self._active_tool_collapsible is not None:
+            self._active_tool_collapsible.title = f"⚙ {self._tool_call_text}"
+            self._active_tool_collapsible = None
+        self._active_tool_result = None
+        self.reset_reasoning()
         await self.mount(
             Static(f"[red]Error:[/red] {escape(text)}", markup=True, classes="error")
         )
