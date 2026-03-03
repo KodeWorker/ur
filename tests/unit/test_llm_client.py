@@ -188,27 +188,35 @@ async def test_llm_client_returns_completion_stream(tmp_settings):
 
 
 @skip_if_not_ollama
-async def test_ollama_model_passes_api_base(tmp_settings):
+async def test_ollama_model_passes_base_url_to_async_client(tmp_settings):
     tmp_settings.model = "ollama/llama3.2"
     tmp_settings.ollama_base_url = "http://my-server:11434"
 
-    with patch("ur.llm.client.litellm.acompletion", new_callable=AsyncMock) as mock_ac:
-        mock_ac.return_value = MockStreamWrapper([make_chunk("hi")])
+    mock_response = AsyncMock()
+    mock_response.__aiter__ = AsyncMock(return_value=iter([]))
+    mock_client_instance = AsyncMock()
+    mock_client_instance.chat.return_value = mock_response
+
+    with patch("ur.llm.client.ollama.AsyncClient", return_value=mock_client_instance) as mock_cls:
         await LLMClient(tmp_settings).stream([])
 
-    assert mock_ac.call_args.kwargs["api_base"] == "http://my-server:11434"
+    mock_cls.assert_called_once_with(host="http://my-server:11434")
 
 
 @skip_if_not_ollama
-async def test_ollama_chat_model_passes_api_base(tmp_settings):
+async def test_ollama_chat_model_passes_base_url_to_async_client(tmp_settings):
     tmp_settings.model = "ollama_chat/qwen2.5"
     tmp_settings.ollama_base_url = "http://my-server:11434"
 
-    with patch("ur.llm.client.litellm.acompletion", new_callable=AsyncMock) as mock_ac:
-        mock_ac.return_value = MockStreamWrapper([make_chunk("hi")])
+    mock_response = AsyncMock()
+    mock_response.__aiter__ = AsyncMock(return_value=iter([]))
+    mock_client_instance = AsyncMock()
+    mock_client_instance.chat.return_value = mock_response
+
+    with patch("ur.llm.client.ollama.AsyncClient", return_value=mock_client_instance) as mock_cls:
         await LLMClient(tmp_settings).stream([])
 
-    assert mock_ac.call_args.kwargs["api_base"] == "http://my-server:11434"
+    mock_cls.assert_called_once_with(host="http://my-server:11434")
 
 
 @skip_if_not_gemini

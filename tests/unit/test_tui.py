@@ -210,7 +210,7 @@ async def test_tool_confirm_widget_resolves_future(
     from ur.tui import ToolConfirmWidget
 
     widget = ToolConfirmWidget("shell", '{"command": "ls"}')
-    widget._future = asyncio.get_event_loop().create_future()
+    widget._future = asyncio.get_running_loop().create_future()
 
     mock_event = MagicMock()
     mock_event.stop = MagicMock()
