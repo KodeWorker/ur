@@ -24,6 +24,13 @@ Tool functions must be async and return str.
 Plugins are loaded alphabetically after builtins; last writer wins on name
 collisions, so a plugin can intentionally override a builtin.
 
+TUI NOTE
+--------
+Tool-call collapsible titles in the TUI are rendered as "tool_name(args_json)"
+and truncated to _TOOL_CALL_TITLE_MAX_LEN characters (currently 120) defined
+in tui.py.  Keep tool names short and consider using concise argument names so
+the title remains readable even at the truncation boundary.
+
 SECURITY NOTE
 -------------
 Every .py file in tools_dir is executed unconditionally at startup with the

@@ -37,6 +37,8 @@ logger = logging.getLogger(__name__)
 
 Mode = Literal["run", "chat"]
 
+_TOOL_CALL_TITLE_MAX_LEN = 120  # chars; keeps collapsible titles readable
+
 
 # ── TurnWidget ────────────────────────────────────────────────────────────────
 
@@ -195,7 +197,10 @@ class TurnWidget(Vertical):
         content → tool collapsible → new content.
         """
         self._active_content = None
-        self._tool_call_text = text
+        self._tool_call_text = (
+            text if len(text) <= _TOOL_CALL_TITLE_MAX_LEN
+            else text[: _TOOL_CALL_TITLE_MAX_LEN - 3] + "..."
+        )
         result_static = Static("", classes="tool-result-text", markup=False)
         self._active_tool_result = result_static
         collapsible = Collapsible(
@@ -797,10 +802,13 @@ async def launch_chat(
     client = LLMClient(settings, model=model)
     if resume_session is not None:
         session = resume_session
-        # Use the model from the resumed session unless overridden
         if model_override is None:
+            # Use the model recorded in the resumed session
             model = session.model
             client = LLMClient(settings, model=model)
+        else:
+            # Reflect the active override in the session record
+            session.model = model
     else:
         session = AgentSession.new(task="", model=model)
     # Workspace is created lazily by the file tools on first write; chat sessions

@@ -61,6 +61,7 @@ class Settings(BaseSettings):
         self.logs_dir.mkdir(parents=True, exist_ok=True)
         self.tools_dir.mkdir(parents=True, exist_ok=True)
 
+
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     return Settings()
