@@ -5,12 +5,13 @@ from __future__ import annotations
 import asyncio
 import logging
 from pathlib import Path
-from typing import Literal
+from typing import ClassVar, Literal
 
 from rich.markup import escape
 from textual import work
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, ScrollableContainer, Vertical
+from textual.timer import Timer
 from textual.widgets import (
     Button,
     Collapsible,
@@ -50,7 +51,15 @@ class TurnWidget(Vertical):
     Each reasoning segment (before the first tool call, between tool calls,
     after the last tool call) gets its own collapsed Collapsible so the user
     can expand each one independently.
+
+    While a reasoning or tool-call collapsible is still receiving data its
+    title animates with a braille spinner; the spinner stops and the title
+    reverts to its static form once the segment is complete.
     """
+
+    _SPINNER: ClassVar[tuple[str, ...]] = (
+        "⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷",
+    )
 
     DEFAULT_CSS = """
     TurnWidget {
@@ -94,6 +103,12 @@ class TurnWidget(Vertical):
         self._active_content: Markdown | None = None
         self._active_reasoning: Static | None = None
         self._active_tool_result: Static | None = None
+        # spinner state
+        self._active_reasoning_collapsible: Collapsible | None = None
+        self._active_tool_collapsible: Collapsible | None = None
+        self._tool_call_text: str = ""
+        self._spinner_frame: int = 0
+        self._spinner_timer: Timer | None = None
 
     def compose(self) -> ComposeResult:
         yield Static(
@@ -101,6 +116,29 @@ class TurnWidget(Vertical):
             markup=True,
             classes="user-label",
         )
+
+    # ── spinner ────────────────────────────────────────────────────────────────
+
+    def _maybe_start_spinner(self) -> None:
+        if self._spinner_timer is None:
+            self._spinner_timer = self.set_interval(0.1, self._tick_spinner)
+
+    def _maybe_stop_spinner(self) -> None:
+        if (
+            self._active_reasoning_collapsible is None
+            and self._active_tool_collapsible is None
+            and self._spinner_timer is not None
+        ):
+            self._spinner_timer.stop()
+            self._spinner_timer = None
+
+    def _tick_spinner(self) -> None:
+        frame = self._SPINNER[self._spinner_frame % len(self._SPINNER)]
+        self._spinner_frame += 1
+        if self._active_reasoning_collapsible is not None:
+            self._active_reasoning_collapsible.title = f"reasoning {frame}"
+        if self._active_tool_collapsible is not None:
+            self._active_tool_collapsible.title = f"⚙ {self._tool_call_text} {frame}"
 
     # ── streaming update methods ───────────────────────────────────────────────
 
@@ -114,8 +152,11 @@ class TurnWidget(Vertical):
         """
         if self._active_reasoning is None:
             static = Static("", classes="reasoning-text")
-            await self.mount(Collapsible(static, title="reasoning", collapsed=True))
+            collapsible = Collapsible(static, title="reasoning", collapsed=True)
+            self._active_reasoning_collapsible = collapsible
+            await self.mount(collapsible)
             self._active_reasoning = static
+            self._maybe_start_spinner()
         self._active_reasoning.update(text)
 
     def reset_reasoning(self) -> None:
@@ -124,6 +165,10 @@ class TurnWidget(Vertical):
         The next append_reasoning call will mount a new Collapsible so that
         reasoning before/between/after tool calls each gets its own toggle.
         """
+        if self._active_reasoning_collapsible is not None:
+            self._active_reasoning_collapsible.title = "reasoning"
+            self._active_reasoning_collapsible = None
+        self._maybe_stop_spinner()
         self._active_reasoning = None
 
     async def append_content(self, text: str) -> None:
@@ -150,22 +195,28 @@ class TurnWidget(Vertical):
         content → tool collapsible → new content.
         """
         self._active_content = None
+        self._tool_call_text = text
         result_static = Static("", classes="tool-result-text")
         self._active_tool_result = result_static
-        await self.mount(
-            Collapsible(
-                result_static,
-                title=f"⚙ {text}",
-                collapsed=True,
-                classes="tool-call",
-            )
+        collapsible = Collapsible(
+            result_static,
+            title=f"⚙ {text}",
+            collapsed=True,
+            classes="tool-call",
         )
+        self._active_tool_collapsible = collapsible
+        await self.mount(collapsible)
+        self._maybe_start_spinner()
 
     async def add_tool_result(self, text: str) -> None:
         """Fill the body of the current tool Collapsible with the result."""
         if self._active_tool_result is not None:
             self._active_tool_result.update(text)
             self._active_tool_result = None
+        if self._active_tool_collapsible is not None:
+            self._active_tool_collapsible.title = f"⚙ {self._tool_call_text}"
+            self._active_tool_collapsible = None
+        self._maybe_stop_spinner()
 
     async def add_error(self, text: str) -> None:
         """Append a red error line and reset the content segment."""
