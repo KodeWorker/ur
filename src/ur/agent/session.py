@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Literal
 
-from .models import Message, UsageStats
+from .models import AssistantMessage, Message, UsageStats
 
 
 def _now_iso() -> str:
@@ -23,6 +23,26 @@ class AgentSession:
     model: str = ""
 
     @classmethod
+    def resume(
+        cls,
+        *,
+        id: str,
+        task: str,
+        model: str,
+        created_at: datetime,
+        messages: list[Message],
+        input_tokens: int,
+        output_tokens: int,
+    ) -> AgentSession:
+        """Reconstruct a session from stored data for continuation."""
+        session = cls(id=id, task=task, model=model, created_at=created_at)
+        session.messages = list(messages)
+        session.usage = UsageStats(
+            input_tokens=input_tokens, output_tokens=output_tokens
+        )
+        return session
+
+    @classmethod
     def new(cls, task: str, model: str) -> AgentSession:
         session = cls(task=task, model=model)
         if task:
@@ -36,22 +56,31 @@ class AgentSession:
             {"role": "user", "content": content, "created_at": _now_iso()}
         )
 
-    def add_assistant_message(self, content: str) -> None:
-        self.messages.append(
-            {"role": "assistant", "content": content, "created_at": _now_iso()}
+    def add_assistant_message(
+        self, content: str, reasoning: str | None = None
+    ) -> None:
+        msg = AssistantMessage(
+            role="assistant", content=content, created_at=_now_iso()
         )
+        if reasoning:
+            msg["reasoning"] = reasoning
+        self.messages.append(msg)
 
     def add_assistant_tool_call_message(
-        self, tool_calls: list[dict[str, Any]], content: str | None = None
+        self,
+        tool_calls: list[dict[str, Any]],
+        content: str | None = None,
+        reasoning: str | None = None,
     ) -> None:
-        self.messages.append(
-            {
-                "role": "assistant",
-                "tool_calls": tool_calls,
-                "content": content,
-                "created_at": _now_iso(),
-            }
+        msg = AssistantMessage(
+            role="assistant",
+            tool_calls=tool_calls,
+            content=content,
+            created_at=_now_iso(),
         )
+        if reasoning:
+            msg["reasoning"] = reasoning
+        self.messages.append(msg)
 
     def add_tool_result_message(
         self, tool_call_id: str, name: str, content: str

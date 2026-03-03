@@ -5,13 +5,25 @@ from __future__ import annotations
 import asyncio
 import logging
 from pathlib import Path
-from typing import Literal
+from typing import ClassVar, Literal
 
 from rich.markup import escape
 from textual import work
 from textual.app import App, ComposeResult
-from textual.containers import ScrollableContainer, Vertical
-from textual.widgets import Collapsible, Footer, Header, Input, Markdown, Static
+from textual.containers import Horizontal, ScrollableContainer, Vertical
+from textual.timer import Timer
+from textual.widgets import (
+    Button,
+    Collapsible,
+    Footer,
+    Header,
+    Input,
+    Markdown,
+    SelectionList,
+    Static,
+)
+from textual.widgets.selection_list import Selection
+from textual.worker import Worker
 
 from .agent.loop import run as agent_run
 from .agent.session import AgentSession
@@ -39,7 +51,15 @@ class TurnWidget(Vertical):
     Each reasoning segment (before the first tool call, between tool calls,
     after the last tool call) gets its own collapsed Collapsible so the user
     can expand each one independently.
+
+    While a reasoning or tool-call collapsible is still receiving data its
+    title animates with a braille spinner; the spinner stops and the title
+    reverts to its static form once the segment is complete.
     """
+
+    _SPINNER: ClassVar[tuple[str, ...]] = (
+        "⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷",
+    )
 
     DEFAULT_CSS = """
     TurnWidget {
@@ -83,6 +103,12 @@ class TurnWidget(Vertical):
         self._active_content: Markdown | None = None
         self._active_reasoning: Static | None = None
         self._active_tool_result: Static | None = None
+        # spinner state
+        self._active_reasoning_collapsible: Collapsible | None = None
+        self._active_tool_collapsible: Collapsible | None = None
+        self._tool_call_text: str = ""
+        self._spinner_frame: int = 0
+        self._spinner_timer: Timer | None = None
 
     def compose(self) -> ComposeResult:
         yield Static(
@@ -90,6 +116,29 @@ class TurnWidget(Vertical):
             markup=True,
             classes="user-label",
         )
+
+    # ── spinner ────────────────────────────────────────────────────────────────
+
+    def _maybe_start_spinner(self) -> None:
+        if self._spinner_timer is None:
+            self._spinner_timer = self.set_interval(0.1, self._tick_spinner)
+
+    def _maybe_stop_spinner(self) -> None:
+        if (
+            self._active_reasoning_collapsible is None
+            and self._active_tool_collapsible is None
+            and self._spinner_timer is not None
+        ):
+            self._spinner_timer.stop()
+            self._spinner_timer = None
+
+    def _tick_spinner(self) -> None:
+        frame = self._SPINNER[self._spinner_frame % len(self._SPINNER)]
+        self._spinner_frame += 1
+        if self._active_reasoning_collapsible is not None:
+            self._active_reasoning_collapsible.title = f"reasoning {frame}"
+        if self._active_tool_collapsible is not None:
+            self._active_tool_collapsible.title = f"⚙ {self._tool_call_text} {frame}"
 
     # ── streaming update methods ───────────────────────────────────────────────
 
@@ -103,8 +152,11 @@ class TurnWidget(Vertical):
         """
         if self._active_reasoning is None:
             static = Static("", classes="reasoning-text")
-            await self.mount(Collapsible(static, title="reasoning", collapsed=True))
+            collapsible = Collapsible(static, title="reasoning", collapsed=True)
+            self._active_reasoning_collapsible = collapsible
+            await self.mount(collapsible)
             self._active_reasoning = static
+            self._maybe_start_spinner()
         self._active_reasoning.update(text)
 
     def reset_reasoning(self) -> None:
@@ -113,6 +165,10 @@ class TurnWidget(Vertical):
         The next append_reasoning call will mount a new Collapsible so that
         reasoning before/between/after tool calls each gets its own toggle.
         """
+        if self._active_reasoning_collapsible is not None:
+            self._active_reasoning_collapsible.title = "reasoning"
+            self._active_reasoning_collapsible = None
+        self._maybe_stop_spinner()
         self._active_reasoning = None
 
     async def append_content(self, text: str) -> None:
@@ -139,22 +195,28 @@ class TurnWidget(Vertical):
         content → tool collapsible → new content.
         """
         self._active_content = None
+        self._tool_call_text = text
         result_static = Static("", classes="tool-result-text")
         self._active_tool_result = result_static
-        await self.mount(
-            Collapsible(
-                result_static,
-                title=f"⚙ {text}",
-                collapsed=True,
-                classes="tool-call",
-            )
+        collapsible = Collapsible(
+            result_static,
+            title=f"⚙ {text}",
+            collapsed=True,
+            classes="tool-call",
         )
+        self._active_tool_collapsible = collapsible
+        await self.mount(collapsible)
+        self._maybe_start_spinner()
 
     async def add_tool_result(self, text: str) -> None:
         """Fill the body of the current tool Collapsible with the result."""
         if self._active_tool_result is not None:
             self._active_tool_result.update(text)
             self._active_tool_result = None
+        if self._active_tool_collapsible is not None:
+            self._active_tool_collapsible.title = f"⚙ {self._tool_call_text}"
+            self._active_tool_collapsible = None
+        self._maybe_stop_spinner()
 
     async def add_error(self, text: str) -> None:
         """Append a red error line and reset the content segment."""
@@ -255,6 +317,106 @@ class ToolConfirmWidget(Vertical):
         return await self._future
 
 
+# ── ToolSettingsWidget ────────────────────────────────────────────────────────
+
+
+class ToolSettingsWidget(Vertical):
+    """Inline tool-settings panel rendered as a chat message in the scroll pane.
+
+    Shows a checklist of all registered tools with their current enabled state.
+    Keyboard: Space to toggle, Tab to reach Confirm/Cancel, Enter/Space to activate,
+    Escape to cancel from anywhere in the widget.
+
+    Note: the ctrl+enter binding requires kitty keyboard protocol support and will
+    not fire in many terminal emulators (tmux, xterm, SSH). Use Tab to reach the
+    Confirm button and press Enter/Space as a fully portable alternative.
+    """
+
+    BINDINGS = [
+        ("escape", "cancel", "Cancel"),
+        ("ctrl+enter", "confirm", "Confirm"),
+    ]
+
+    DEFAULT_CSS = """
+    ToolSettingsWidget {
+        height: auto;
+        margin-bottom: 1;
+        padding: 0 1;
+        border-left: thick $accent;
+    }
+    ToolSettingsWidget .settings-title {
+        text-style: bold;
+        color: $accent;
+        height: auto;
+        margin-bottom: 1;
+    }
+    ToolSettingsWidget SelectionList {
+        height: auto;
+        max-height: 12;
+        border: none;
+        padding: 0;
+    }
+    ToolSettingsWidget .settings-buttons {
+        height: 3;
+        margin-top: 1;
+    }
+    ToolSettingsWidget Button {
+        margin-right: 1;
+    }
+    """
+
+    def __init__(self, registry: ToolRegistry) -> None:
+        super().__init__()
+        self._registry = registry
+        self._future: asyncio.Future[None] | None = None
+
+    def compose(self) -> ComposeResult:
+        yield Static("configure tools", classes="settings-title", markup=False)
+        selections = [
+            Selection(name, name, self._registry.is_enabled(name))
+            for name in self._registry.names()
+        ]
+        yield SelectionList(*selections, id="tool-checklist")
+        with Horizontal(classes="settings-buttons"):
+            yield Button("Confirm", variant="primary", id="btn-confirm")
+            yield Button("Cancel", variant="default", id="btn-cancel")
+
+    def on_mount(self) -> None:
+        self._future = asyncio.get_running_loop().create_future()
+        self.query_one("#tool-checklist", SelectionList).focus()
+
+    def _apply(self) -> None:
+        selected: set[str] = set(
+            self.query_one("#tool-checklist", SelectionList).selected
+        )
+        for name in self._registry.names():
+            if name in selected:
+                self._registry.enable(name)
+            else:
+                self._registry.disable(name)
+
+    def _close(self) -> None:
+        if self._future is not None and not self._future.done():
+            self._future.set_result(None)
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "btn-confirm":
+            self._apply()
+        self._close()
+
+    def action_confirm(self) -> None:
+        self._apply()
+        self._close()
+
+    def action_cancel(self) -> None:
+        self._close()
+
+    async def wait_for_close(self) -> None:
+        if self._future is None:
+            raise RuntimeError("wait_for_close called before on_mount")
+        await self._future
+
+
 # ── UrApp ─────────────────────────────────────────────────────────────────────
 
 
@@ -281,7 +443,8 @@ class UrApp(App[None]):
 
     BINDINGS = [
         ("ctrl+c", "request_quit", "Quit"),
-        ("ctrl+d", "request_quit", "Quit"),
+        ("ctrl+t", "tool_settings", "Tools"),
+        ("ctrl+x", "cancel_stream", "Stop"),
     ]
 
     def __init__(
@@ -303,6 +466,7 @@ class UrApp(App[None]):
         self._session = session
         self._tool_registry = registry
         self._current_turn: TurnWidget | None = None
+        self._settings_open = False
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
@@ -320,7 +484,48 @@ class UrApp(App[None]):
                 raise RuntimeError("run mode requires a task string")
             await self._start_turn(self._run_task)
         else:
+            if self._session.messages:
+                await self._render_history()
             self.query_one("#input-bar", Input).focus()
+
+    async def _render_history(self) -> None:
+        """Render prior session messages as read-only TurnWidgets."""
+        scroll = self.query_one("#scroll", ScrollableContainer)
+        # Pre-index tool results by tool_call_id for correct interleaving
+        tool_results: dict[str, str] = {}
+        for msg in self._session.messages:
+            if msg.get("role") == "tool":
+                tc_id = str(msg.get("tool_call_id") or "")
+                content = msg.get("content", "")
+                if isinstance(content, str):
+                    tool_results[tc_id] = content
+
+        turn: TurnWidget | None = None
+        for msg in self._session.messages:
+            role = msg.get("role")
+            if role == "user":
+                content = msg.get("content", "")
+                if isinstance(content, str):
+                    turn = TurnWidget(content)
+                    await scroll.mount(turn)
+            elif role == "assistant" and turn is not None:
+                reasoning = msg.get("reasoning")
+                if reasoning and isinstance(reasoning, str):
+                    await turn.append_reasoning(reasoning)
+                    turn.reset_reasoning()
+                content = msg.get("content")
+                if content and isinstance(content, str):
+                    await turn.append_content(content)
+                tool_calls_raw = msg.get("tool_calls")
+                for tc in (tool_calls_raw if isinstance(tool_calls_raw, list) else []):
+                    fn = tc.get("function") or {}
+                    tc_name = fn.get("name", "?")
+                    tc_args = fn.get("arguments", "")
+                    tc_id = str(tc.get("id") or "")
+                    await turn.add_tool_call(f"{tc_name}({tc_args})")
+                    await turn.add_tool_result(tool_results.get(tc_id, ""))
+            # "tool" role messages handled above via tool_results index
+        scroll.scroll_end(animate=False)
 
     async def on_input_submitted(self, event: Input.Submitted) -> None:
         text = event.value.strip()
@@ -340,7 +545,7 @@ class UrApp(App[None]):
         scroll.scroll_end(animate=False)
         self._stream_turn(turn)
 
-    @work(exclusive=True)
+    @work(name="stream_turn", exclusive=True)
     async def _stream_turn(self, turn: TurnWidget) -> None:
         """Stream agent chunks into *turn*, updating the TUI as each arrives.
 
@@ -404,15 +609,12 @@ class UrApp(App[None]):
         finally:
             await save_session(self._session, self._settings.db_path)
             self._update_status()
-
-        # Only reached on normal completion or caught Exception (not BaseException)
-        if self._mode == "run":
-            await asyncio.sleep(0.1)  # let Textual render the final frame
-            self.exit()
-        else:
-            input_widget = self.query_one("#input-bar", Input)
-            input_widget.disabled = False
-            input_widget.focus()
+            if self._mode == "chat":
+                input_widget = self.query_one("#input-bar", Input)
+                input_widget.disabled = False
+                input_widget.focus()
+            elif self._mode == "run":
+                self.call_after_refresh(self.exit)
 
     def _show_provider_hint(self, e: Exception) -> None:
         """Write a provider-specific hint to the status bar."""
@@ -433,6 +635,60 @@ class UrApp(App[None]):
         self.query_one("#status", Static).update(
             f"tokens in={usage.input_tokens} out={usage.output_tokens}"
         )
+
+    def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
+        self.refresh_bindings()
+
+    def check_action(
+        self, action: str, parameters: tuple[object, ...]
+    ) -> bool | None:
+        streaming = any(
+            w.name == "stream_turn" and w.is_running for w in self.workers
+        )
+        if action == "tool_settings":
+            if self._tool_registry is None or self._settings_open or streaming:
+                return False
+        if action == "cancel_stream" and not streaming:
+            return False
+        return True
+
+    def action_cancel_stream(self) -> None:
+        """Ctrl+X: cancel the running agent stream."""
+        for w in self.workers:
+            if w.name == "stream_turn" and w.is_running:
+                w.cancel()
+                break
+
+    def action_tool_settings(self) -> None:
+        """Ctrl+T: open the tool enable/disable panel (blocked while streaming)."""
+        if self._tool_registry is None or self._settings_open:
+            return
+        if any(w.is_running for w in self.workers):
+            return
+        self._settings_open = True
+        self._run_tool_settings()
+
+    @work
+    async def _run_tool_settings(self) -> None:
+        """Worker: mount the settings panel, await close, then restore input."""
+        assert self._tool_registry is not None
+        if self._mode == "chat":
+            self.query_one("#input-bar", Input).disabled = True
+
+        scroll = self.query_one("#scroll", ScrollableContainer)
+        widget = ToolSettingsWidget(self._tool_registry)
+        await scroll.mount(widget)
+        scroll.scroll_end(animate=False)
+
+        try:
+            await widget.wait_for_close()
+        finally:
+            await widget.remove()
+            self._settings_open = False
+            if self._mode == "chat":
+                input_widget = self.query_one("#input-bar", Input)
+                input_widget.disabled = False
+                input_widget.focus()
 
     async def action_quit(self) -> None:
         """Textual's built-in quit (command palette, default binding) — delegate."""
@@ -524,12 +780,20 @@ async def launch_chat(
     settings: Settings,
     model_override: str | None = None,
     no_tools: bool = False,
+    resume_session: AgentSession | None = None,
 ) -> None:
     """Entry point for `ur chat`."""
     await init_db(settings.db_path)
     model = model_override or settings.model
     client = LLMClient(settings, model=model)
-    session = AgentSession.new(task="", model=model)
+    if resume_session is not None:
+        session = resume_session
+        # Use the model from the resumed session unless overridden
+        if model_override is None:
+            model = session.model
+            client = LLMClient(settings, model=model)
+    else:
+        session = AgentSession.new(task="", model=model)
     # Workspace is created lazily by the file tools on first write; chat sessions
     # that never touch the filesystem produce no directory.
     workspace_dir = settings.workspaces_dir / session.id

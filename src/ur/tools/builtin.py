@@ -48,7 +48,7 @@ def _validate_url(url: str) -> None:
 
 async def shell(
     command: str,
-    max_chars: int = 4000,
+    max_chars: int = 20000,
     timeout: int = 30,
     cwd: Path | None = None,
 ) -> str:
@@ -125,7 +125,7 @@ async def write_file(path: str, content: str, cwd: Path | None = None) -> str:
         return f"Error: {e}"
 
 
-async def browser_get(url: str, max_chars: int = 4000, timeout: int = 30) -> str:
+async def browser_get(url: str, max_chars: int = 20000, timeout: int = 30) -> str:
     """Visit a URL with a headless browser and return rendered page as markdown."""
     try:
         _validate_url(url)
@@ -164,7 +164,7 @@ _HTTP_HEADERS = {
 }
 
 
-async def http_get(url: str, max_chars: int = 4000, timeout: int = 10) -> str:
+async def http_get(url: str, max_chars: int = 20000, timeout: int = 10) -> str:
     """Fetch a URL and return the response body text."""
     try:
         _validate_url(url)
@@ -205,7 +205,7 @@ async def web_search(query: str, max_results: int = 10) -> str:
 
 
 def create_default_registry(
-    truncate_at: int = 4000,
+    truncate_at: int = 20000,
     max_lines: int = 200,
     max_search_results: int = 10,
     shell_timeout: int = 30,

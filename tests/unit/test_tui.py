@@ -61,14 +61,23 @@ def _make_urapp(
 # We use a simple App with just a ScrollableContainer so that on_mount
 # doesn't start any agent worker (avoiding the double-shutdown issue that
 # occurs when UrApp in run-mode calls self.exit() inside run_test()).
+#
+# Note: Textual calls all on_<event> handlers in the class hierarchy, so
+# UrApp.on_mount fires even when _ScaffoldApp.on_mount is defined.  We
+# suppress the side-effects by overriding _start_turn as a no-op so that
+# UrApp.on_mount does not mount a TurnWidget or start a stream worker.
 
 
 class _ScaffoldApp(UrApp):
-    """UrApp variant that suppresses the automatic agent turn in on_mount."""
+    """UrApp variant that suppresses the automatic agent turn on startup."""
 
     async def on_mount(self) -> None:
-        # Skip UrApp's on_mount; just set metadata
+        # Set test metadata only; UrApp.on_mount also fires (Textual MRO) but
+        # its _start_turn call is intercepted below.
         self.title = "test"
+
+    async def _start_turn(self, user_text: str) -> None:
+        """No-op: scaffold tests drive TurnWidget methods directly."""
 
 
 async def test_turn_widget_append_reasoning_updates_static(
@@ -150,13 +159,27 @@ async def test_turn_widget_tool_call_resets_content_segment(
             turn = TurnWidget("hello")
             await app.query_one("#scroll").mount(turn)
             await pilot.pause()
-            await pilot.pause()  # second pause ensures TurnWidget is fully attached
 
-            await turn.append_content("before tool")
-            await turn.add_tool_call("shell(ls)")
-            await turn.append_content("after tool")
-            await pilot.pause()
+            # Run the three mounts as a separate task, mirroring how _stream_turn
+            # works as a @work worker; pilot.pause() pumps the event loop between
+            # each mount so Textual can process the DOM changes.
+            completed: asyncio.Event = asyncio.Event()
 
+            async def _sequence() -> None:
+                await turn.append_content("before tool")
+                await turn.add_tool_call("shell(ls)")
+                await turn.append_content("after tool")
+                completed.set()
+
+            task = asyncio.create_task(_sequence())
+            for _ in range(20):
+                await pilot.pause()
+                if completed.is_set():
+                    break
+
+            if task.done() and task.exception():
+                raise task.exception()
+            assert completed.is_set(), "mount sequence did not complete"
             # Two separate Markdown widgets: one before, one after the tool call
             assert len(turn.query(Markdown)) == 2
 

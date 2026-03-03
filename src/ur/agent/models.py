@@ -14,6 +14,7 @@ class AssistantMessage(TypedDict):
     role: Literal["assistant"]
     content: str | list[Any] | None
     tool_calls: NotRequired[list[Any]]
+    reasoning: NotRequired[str]
     created_at: NotRequired[str]
 
 

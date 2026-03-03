@@ -66,7 +66,7 @@ class LLMClient:
         return Provider.OTHER
 
     # Keys that are internal metadata and must never be sent to the LLM API
-    _INTERNAL_KEYS: ClassVar[frozenset[str]] = frozenset({"created_at"})
+    _INTERNAL_KEYS: ClassVar[frozenset[str]] = frozenset({"created_at", "reasoning"})
 
     async def stream(
         self,
@@ -109,8 +109,8 @@ class CompletionStream:
 
     def __init__(self, response: litellm.CustomStreamWrapper) -> None:
         self._response = response
-        self.full_text: str = ""  # content only — stored in session messages
-        self.reasoning_text: str = ""  # thinking tokens — display only
+        self.full_text: str = ""  # content tokens → message["content"]
+        self.reasoning_text: str = ""  # thinking tokens → message["reasoning"]
         self.usage: UsageStats = UsageStats()
         self.tool_calls: list[dict[str, Any]] = []
 
