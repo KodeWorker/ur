@@ -66,7 +66,7 @@ class LLMClient:
         return Provider.OTHER
 
     # Keys that are internal metadata and must never be sent to the LLM API
-    _INTERNAL_KEYS: ClassVar[frozenset[str]] = frozenset({"created_at"})
+    _INTERNAL_KEYS: ClassVar[frozenset[str]] = frozenset({"created_at", "reasoning"})
 
     async def stream(
         self,
