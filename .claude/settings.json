@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      // file system
+      "Bash(cat:*)",
+      "Bash(ls:*)",
+      // python
+      "Bash(uv run:*)",
+      // github
+      "Bash(gh issue:*)",
+      "Bash(gh api:*)",
+      "Bash(gh:*)",
+      // git
+      "Bash(git:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git status:*)"
+    ]
+  }
+}
