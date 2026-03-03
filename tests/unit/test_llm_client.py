@@ -197,7 +197,8 @@ async def test_ollama_model_passes_base_url_to_async_client(tmp_settings):
     mock_client_instance = AsyncMock()
     mock_client_instance.chat.return_value = mock_response
 
-    with patch("ur.llm.client.ollama.AsyncClient", return_value=mock_client_instance) as mock_cls:
+    patch_target = "ur.llm.client.ollama.AsyncClient"
+    with patch(patch_target, return_value=mock_client_instance) as mock_cls:
         await LLMClient(tmp_settings).stream([])
 
     mock_cls.assert_called_once_with(host="http://my-server:11434")
@@ -213,7 +214,8 @@ async def test_ollama_chat_model_passes_base_url_to_async_client(tmp_settings):
     mock_client_instance = AsyncMock()
     mock_client_instance.chat.return_value = mock_response
 
-    with patch("ur.llm.client.ollama.AsyncClient", return_value=mock_client_instance) as mock_cls:
+    patch_target = "ur.llm.client.ollama.AsyncClient"
+    with patch(patch_target, return_value=mock_client_instance) as mock_cls:
         await LLMClient(tmp_settings).stream([])
 
     mock_cls.assert_called_once_with(host="http://my-server:11434")

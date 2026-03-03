@@ -169,6 +169,9 @@ class OllamaCompletionStream(CompletionStream):
     """Wraps an ollama async streaming response with native tool-call support."""
 
     def __init__(self, response: AsyncIterator[ollama.ChatResponse]) -> None:
+        # super().__init__() is intentionally skipped: CompletionStream.__init__
+        # requires a litellm.CustomStreamWrapper which does not apply here.
+        # All instance attributes are initialised explicitly below.
         self._ollama_response = response
         self.full_text = ""
         self.reasoning_text = ""

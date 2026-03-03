@@ -205,7 +205,7 @@ class TurnWidget(Vertical):
         self._active_tool_result = result_static
         collapsible = Collapsible(
             result_static,
-            title=f"⚙ {text}",
+            title=f"⚙ {self._tool_call_text}",
             collapsed=True,
             classes="tool-call",
         )
@@ -621,7 +621,10 @@ class UrApp(App[None]):
             self._session.interrupt()
             raise
         finally:
-            await save_session(self._session, self._settings.db_path)
+            try:
+                await save_session(self._session, self._settings.db_path)
+            except Exception:
+                logger.exception("save_session failed; session data may be lost")
             self._update_status()
             if self._mode == "chat":
                 input_widget = self.query_one("#input-bar", Input)
@@ -798,22 +801,18 @@ async def launch_chat(
 ) -> None:
     """Entry point for `ur chat`."""
     await init_db(settings.db_path)
-    model = model_override or settings.model
-    client = LLMClient(settings, model=model)
     if resume_session is not None:
         session = resume_session
-        if model_override is None:
-            # Use the model recorded in the resumed session
-            model = session.model
-            client = LLMClient(settings, model=model)
-        else:
+        if model_override is not None:
             # Reflect the active override in the session record
-            session.model = model
+            session.model = model_override
+        model = session.model
     else:
+        model = model_override or settings.model
         session = AgentSession.new(task="", model=model)
-    # Workspace is created lazily by the file tools on first write; chat sessions
-    # that never touch the filesystem produce no directory.
+    client = LLMClient(settings, model=model)
     workspace_dir = settings.workspaces_dir / session.id
+    workspace_dir.mkdir(parents=True, exist_ok=True)
     registry = _make_registry(no_tools, settings, workspace_dir=workspace_dir)
 
     app = UrApp(
