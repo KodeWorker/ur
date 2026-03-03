@@ -1,5 +1,5 @@
 ---
-name: reviewer-skill-py
+name: reviewer-skill
 description: A skill for reviewing code and providing feedback
 agent: code-reviewer
 disable-model-invocation: true
@@ -22,6 +22,7 @@ allowed-tools: Read, Grep, Bash
 12. Githube milestones should be created for each feedback, and issues should be created for each specific point of feedback within those milestones.
 13. Each GitHub issue should be linked to the corresponding milestone to ensure proper organization and tracking of feedback. Each issue title should start with [<severity>] to indicate the severity level of the issue (e.g., [High], [Medium], [Low]).
 14. github issue should include a clear description of the issue, steps to reproduce (if applicable), and any relevant code snippets or references to the codebase.
-15. Ensure that the created GitHub issues are well-organized and categorized appropriately for easy tracking and resolution by the development team.
-16. after fixing the code, make a pull request and link it to the corresponding GitHub issue to facilitate the review and merging process. And the pull request should have a verification section for user to confirm that the issue has been resolved and the code changes are satisfactory.
-17. Do not run unit tests or integration tests. Leave them to the user to run and verify the code changes.
+15. Github issues should be created in one single batch after the code review is complete, rather than creating issues incrementally as feedback is identified. This allows for a more comprehensive and organized presentation of feedback to the user.
+16. Ensure that the created GitHub issues are well-organized and categorized appropriately for easy tracking and resolution by the development team.
+17. after fixing the code, make a pull request and link it to the corresponding GitHub issue to facilitate the review and merging process. And the pull request should have a verification section for user to confirm that the issue has been resolved and the code changes are satisfactory.
+18. Do not run unit tests or integration tests. Leave them to the user to run and verify the code changes.
