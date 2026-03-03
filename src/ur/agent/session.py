@@ -33,6 +33,7 @@ class AgentSession:
         messages: list[Message],
         input_tokens: int,
         output_tokens: int,
+        status: Literal["running", "completed", "failed", "interrupted"] = "running",
     ) -> AgentSession:
         """Reconstruct a session from stored data for continuation."""
         session = cls(id=id, task=task, model=model, created_at=created_at)
@@ -40,6 +41,7 @@ class AgentSession:
         session.usage = UsageStats(
             input_tokens=input_tokens, output_tokens=output_tokens
         )
+        session.status = status
         return session
 
     @classmethod
@@ -56,12 +58,8 @@ class AgentSession:
             {"role": "user", "content": content, "created_at": _now_iso()}
         )
 
-    def add_assistant_message(
-        self, content: str, reasoning: str | None = None
-    ) -> None:
-        msg = AssistantMessage(
-            role="assistant", content=content, created_at=_now_iso()
-        )
+    def add_assistant_message(self, content: str, reasoning: str | None = None) -> None:
+        msg = AssistantMessage(role="assistant", content=content, created_at=_now_iso())
         if reasoning:
             msg["reasoning"] = reasoning
         self.messages.append(msg)

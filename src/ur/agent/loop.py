@@ -106,6 +106,9 @@ async def _execute_tool(registry: ToolRegistry, tool_call: dict[str, Any]) -> st
         return f"Error: unknown tool '{name}'"
     try:
         args: dict[str, Any] = json.loads(args_str)
+    except json.JSONDecodeError as e:
+        return f"Error: invalid tool arguments (JSON): {e}"
+    try:
         result = await spec.fn(**args)
         return str(result)
     except Exception as e:

@@ -173,11 +173,10 @@ async def test_builtin_read_file_missing_path(_require_tools: None) -> None:
 async def test_builtin_write_then_read_file(tmp_path, _require_tools: None) -> None:
     from ur.tools.builtin import read_file, write_file
 
-    path = str(tmp_path / "test.txt")
-    write_result = await write_file(path, "hello from test")
+    write_result = await write_file("test.txt", "hello from test", cwd=tmp_path)
     assert "Written" in write_result
 
-    read_result = await read_file(path)
+    read_result = await read_file("test.txt", cwd=tmp_path)
     assert "hello from test" in read_result
 
 
@@ -205,9 +204,12 @@ def _require_browser() -> None:
     pytest.importorskip("markdownify", reason="requires markdownify")
 
 
-def _make_playwright_mocks(mocker: MockerFixture, html: str) -> None:
+def _make_playwright_mocks(
+    mocker: MockerFixture, html: str, url: str = "https://example.com"
+) -> None:
     """Patch playwright.async_api.async_playwright with a stub returning ``html``."""
     mock_page = mocker.AsyncMock()
+    mock_page.url = url  # plain string — page.url is a sync property in Playwright
     mock_page.content.return_value = html
     mock_browser = mocker.AsyncMock()
     mock_browser.new_page.return_value = mock_page
