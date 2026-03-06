@@ -76,6 +76,7 @@ Subdirs: `workspace/`, `database/`, `tools/`, `log/`, `keys/`
 - `Database` is lazy — file is not opened until the first call to `init_schema()` or `drop_all()`.
 - `clean --database` drops all tables; the database file itself is kept.
 - Memory uses two storage layers: SQLite for structured data (sessions, messages, persona), flat-file for vector embeddings (long-term semantic memory). No external vector DB or sqlite extensions.
+- Database encryption: AES-256-GCM symmetric encryption on message content at rest. `ur` loads `$root/keys/secret.key` at startup if present; operates in plaintext if absent. Message transport security is delegated to the LLM server (reverse proxy + TLS).
 - `tools/` supports custom plugin loading from `$root/tools/`.
 - Sandbox tiers control what tools agents are allowed to use at runtime.
 - `--allow-all` flag bypasses sandbox restrictions for trusted use.

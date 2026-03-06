@@ -18,11 +18,13 @@ src/ur/cli/command.hpp              cmd_init / cmd_clean declarations
 src/ur/cli/context.hpp              Context struct + make_context()
 src/ur/memory/workspace.cpp/.hpp    init_workspace / remove_workspace
 src/ur/memory/database.cpp/.hpp     Database — lazy open, init_schema, drop_all
+src/ur/memory/crypto.cpp/.hpp       AES-256-GCM encrypt / decrypt for message content
 third_party/sqlite3/sqlite3.c       SQLite amalgamation (bundled)
 third_party/sqlite3/sqlite3.h
 tests/unit/CMakeLists.txt
 tests/unit/test_workspace.cpp
 tests/unit/test_database.cpp
+tests/unit/test_crypto.cpp
 ```
 
 ## CMake Structure
@@ -84,14 +86,29 @@ CREATE TABLE IF NOT EXISTS persona (
 
 ## Interfaces
 
+### `memory/crypto.hpp`
+```cpp
+namespace ur {
+    // Returns empty string if key_path does not exist (encryption disabled).
+    std::string load_key(const std::filesystem::path& key_path);
+
+    // AES-256-GCM encrypt / decrypt. Throw on failure.
+    // Ciphertext includes a prepended 12-byte random IV.
+    std::string encrypt(const std::string& plaintext, const std::string& key);
+    std::string decrypt(const std::string& ciphertext, const std::string& key);
+}
+```
+
 ### `cli/context.hpp`
 ```cpp
 namespace ur {
     struct Context {
-        Paths    paths;
-        Database db;    // lazy — file not opened until first db call
+        Paths       paths;
+        Database    db;          // lazy — file not opened until first db call
+        std::string enc_key;     // empty = encryption disabled
     };
-    Context make_context();  // resolve_paths() + Database(path), no I/O
+    // resolve_paths() + load_key() + Database(path). No LLM or DB I/O.
+    Context make_context();
 }
 ```
 
@@ -100,16 +117,20 @@ namespace ur {
 namespace ur {
     class Database {
     public:
-        explicit Database(std::filesystem::path path); // stores path, no open
+        // key: empty string disables encryption.
+        explicit Database(std::filesystem::path path, std::string key = {});
         ~Database();
         void init_schema(); // lazy open + CREATE TABLE IF NOT EXISTS
         void drop_all();    // lazy open + DROP TABLE for all three tables
     private:
         std::filesystem::path path_;
-        sqlite3* handle_ = nullptr;
+        std::string           key_;  // AES-256-GCM key; empty = plaintext
+        sqlite3*              handle_ = nullptr;
     };
 }
 ```
+
+Encryption is transparent to callers — `Database` encrypts `content` / `value` columns on write and decrypts on read using `key_` if set.
 
 ### `memory/workspace.hpp`
 ```cpp
@@ -155,4 +176,5 @@ ur clean --workspace
 - [ ] `ur init` creates all five workspace subdirs and the SQLite DB
 - [ ] `ur init` is idempotent (safe to run twice)
 - [ ] `ur clean` removes database and workspace contents
+- [ ] `make_context()` loads `$root/keys/secret.key` if present; `enc_key` is empty otherwise
 - [ ] All unit tests pass via `ctest --test-dir build`

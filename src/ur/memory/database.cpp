@@ -1,18 +1,34 @@
 #include "database.hpp"
 
+#include "crypto.hpp"
+
 #include <sqlite3.h>
 #include <stdexcept>
 #include <string>
 
 namespace ur {
 
-Database::Database(std::filesystem::path path) : path_(std::move(path)) {}
+// Encrypt content if key_ is set; return as-is otherwise.
+// Use before every write of a message content or persona value.
+// Decrypt content if key_ is set; return as-is otherwise.
+// Use after every read of a message content or persona value.
+
+Database::Database(std::filesystem::path path, std::string key)
+    : path_(std::move(path)), key_(std::move(key)) {}
 
 Database::~Database() {
   // TODO: close handle_ with sqlite3_close() if it is not nullptr.
 }
 
 bool Database::is_open() const { return handle_ != nullptr; }
+
+std::string Database::enc(const std::string &str) const {
+  return key_.empty() ? str : encrypt(str, key_);
+}
+
+std::string Database::dec(const std::string &str) const {
+  return key_.empty() ? str : decrypt(str, key_);
+}
 
 void Database::open() {
   // TODO: call sqlite3_open() on path_.string().
@@ -25,6 +41,9 @@ void Database::init_schema() {
     open();
 
   // TODO: execute the following SQL via sqlite3_exec():
+  // Note: when binding message.content or persona.value on INSERT/UPDATE,
+  //       wrap the value with enc(). When reading those columns on SELECT,
+  //       wrap with dec(). Schema creation itself needs no encryption.
   //
   // CREATE TABLE IF NOT EXISTS session (
   //     id         TEXT PRIMARY KEY,

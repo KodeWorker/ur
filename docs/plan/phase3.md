@@ -91,5 +91,5 @@ Design rules:
 - [ ] `ur chat` enters the loop and responds to input
 - [ ] `--continue=<id>` resumes a previous session with full history
 - [ ] Messages are persisted after each turn (crash-safe)
-- [ ] `ur history` lists sessions; `ur history <id>` shows messages
-- [ ] `ur persona` shows accumulated key/value pairs
+- [ ] `ur history` lists sessions; `ur history <id>` shows messages (decrypted transparently if key loaded)
+- [ ] `ur persona` shows accumulated key/value pairs (decrypted transparently if key loaded)

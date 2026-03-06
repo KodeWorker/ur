@@ -1,7 +1,7 @@
 #pragma once
 
 #include <filesystem>
-#include <memory>
+#include <string>
 
 // Forward-declare sqlite3 to avoid exposing it in the public header.
 struct sqlite3;
@@ -10,8 +10,10 @@ namespace ur {
 
 class Database {
 public:
-  // Stores the path — does NOT open the file.
-  explicit Database(std::filesystem::path path);
+  // Stores the path and optional encryption key — does NOT open the file.
+  // key: raw bytes of the AES-256-GCM key loaded from keys/secret.key.
+  //      Empty string disables encryption (plaintext mode).
+  explicit Database(std::filesystem::path path, std::string key = {});
 
   ~Database();
 
@@ -36,7 +38,13 @@ private:
   // Throws std::runtime_error on failure.
   void open();
 
+  // Encrypt str if key_ is set; return str unchanged otherwise.
+  std::string enc(const std::string &str) const;
+  // Decrypt str if key_ is set; return str unchanged otherwise.
+  std::string dec(const std::string &str) const;
+
   std::filesystem::path path_;
+  std::string key_; // empty = plaintext mode
   sqlite3 *handle_ = nullptr;
 };
 

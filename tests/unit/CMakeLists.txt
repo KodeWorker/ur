@@ -10,3 +10,4 @@ endfunction()
 
 ur_test(test_workspace)
 ur_test(test_database)
+ur_test(test_crypto)

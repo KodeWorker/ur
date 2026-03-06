@@ -3,6 +3,8 @@
 #include "memory/database.hpp"
 #include "memory/workspace.hpp"
 
+#include <string>
+
 namespace ur {
 
 // Shared runtime state passed to every command.
@@ -10,10 +12,11 @@ namespace ur {
 struct Context {
   Paths paths;
   Database db;
+  std::string enc_key; // raw key bytes; empty = encryption disabled
 };
 
-// Resolve paths and wire up the Database object.
-// Does not touch the filesystem or open the database.
+// Resolve paths, attempt to load $root/keys/secret.key, wire up Database.
+// Does not open the database file.
 Context make_context();
 
 } // namespace ur
