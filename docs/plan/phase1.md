@@ -13,10 +13,13 @@
 ```
 CMakeLists.txt                      project root, C++17, fetches GoogleTest
 src/ur/CMakeLists.txt
-src/ur/main.cpp                     CLI entry point, argument dispatch
-src/ur/cli/command.hpp              Command interface / dispatch table
-src/ur/memory/workspace.cpp/.hpp    Create and remove workspace dirs
-src/ur/memory/database.cpp/.hpp     Open/create SQLite DB, run schema migrations
+src/ur/main.cpp                     CLI entry point, constructs Context, dispatches commands
+src/ur/cli/command.hpp              cmd_init / cmd_clean declarations
+src/ur/cli/context.hpp              Context struct + make_context()
+src/ur/memory/workspace.cpp/.hpp    init_workspace / remove_workspace
+src/ur/memory/database.cpp/.hpp     Database — lazy open, init_schema, drop_all
+third_party/sqlite3/sqlite3.c       SQLite amalgamation (bundled)
+third_party/sqlite3/sqlite3.h
 tests/unit/CMakeLists.txt
 tests/unit/test_workspace.cpp
 tests/unit/test_database.cpp
@@ -30,13 +33,16 @@ cmake_minimum_required(VERSION 3.20)
 project(ur CXX)
 set(CMAKE_CXX_STANDARD 17)
 
-add_subdirectory(src/ur)
+add_subdirectory(third_party/sqlite3)   # sqlite3 static lib
+add_subdirectory(src/ur)                # ur_lib + ur binary
 add_subdirectory(tests/unit)
 
 # fetch GoogleTest for tests
 include(FetchContent)
 FetchContent_Declare(googletest ...)
 ```
+
+`ur_lib` (STATIC) contains all sources except `main.cpp`. Both the `ur` binary and unit tests link against `ur_lib`.
 
 ## Workspace Paths
 
@@ -76,6 +82,60 @@ CREATE TABLE IF NOT EXISTS persona (
 );
 ```
 
+## Interfaces
+
+### `cli/context.hpp`
+```cpp
+namespace ur {
+    struct Context {
+        Paths    paths;
+        Database db;    // lazy — file not opened until first db call
+    };
+    Context make_context();  // resolve_paths() + Database(path), no I/O
+}
+```
+
+### `memory/database.hpp`
+```cpp
+namespace ur {
+    class Database {
+    public:
+        explicit Database(std::filesystem::path path); // stores path, no open
+        ~Database();
+        void init_schema(); // lazy open + CREATE TABLE IF NOT EXISTS
+        void drop_all();    // lazy open + DROP TABLE for all three tables
+    private:
+        std::filesystem::path path_;
+        sqlite3* handle_ = nullptr;
+    };
+}
+```
+
+### `memory/workspace.hpp`
+```cpp
+namespace ur {
+    struct Paths {
+        std::filesystem::path root;
+        std::filesystem::path workspace;
+        std::filesystem::path database;
+        std::filesystem::path tools;
+        std::filesystem::path log;
+        std::filesystem::path keys;
+    };
+    Paths resolve_paths();                  // platform-specific root
+    void  init_workspace(const Paths&);     // create all subdirs (idempotent)
+    void  remove_workspace(const Paths&);   // remove workspace/ subdir contents
+}
+```
+
+### `cli/command.hpp`
+```cpp
+namespace ur {
+    int cmd_init(Context&, int argc, char** argv);
+    int cmd_clean(Context&, int argc, char** argv);
+}
+```
+
 ## CLI Argument Parsing
 
 Keep it simple in Phase 1 — no external library needed.
@@ -86,6 +146,8 @@ ur clean
 ur clean --database
 ur clean --workspace
 ```
+
+`ur clean` with no flag removes both workspace and database (drops all tables).
 
 ## Acceptance Criteria
 
