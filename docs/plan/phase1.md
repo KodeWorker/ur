@@ -5,7 +5,7 @@
 ## Deliverables
 
 - `ur init` — creates workspace dirs and initialises SQLite schema
-- `ur clean [--database|workspace|all]` — removes selected workspace artifacts
+- `ur clean [--database|workspace]` — removes selected workspace artifacts
 - All three tables exist in the database after `init`
 
 ## Source Files to Create
@@ -85,7 +85,6 @@ ur init
 ur clean
 ur clean --database
 ur clean --workspace
-ur clean --all        (default)
 ```
 
 ## Acceptance Criteria
@@ -93,5 +92,5 @@ ur clean --all        (default)
 - [ ] `cmake -B build && cmake --build build` succeeds with zero warnings
 - [ ] `ur init` creates all five workspace subdirs and the SQLite DB
 - [ ] `ur init` is idempotent (safe to run twice)
-- [ ] `ur clean --all` removes database and workspace contents
+- [ ] `ur clean` removes database and workspace contents
 - [ ] All unit tests pass via `ctest --test-dir build`
