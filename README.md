@@ -11,7 +11,7 @@ Your agent sandbox — secured, efficient, local hosted, for you only
 - C++17 compiler (GCC 9+, Clang 10+, or MSVC 2019+)
 - CMake 3.20+
 - SQLite3
-- [llama.cpp](https://github.com/ggerganov/llama.cpp)
+- An OpenAI-compatible LLM server (e.g. llama.cpp server, Ollama) — managed and run independently
 - Docker (optional — required for sandbox tier 2)
 
 For development only: GoogleTest (fetched automatically by CMake).
@@ -19,7 +19,7 @@ For development only: GoogleTest (fetched automatically by CMake).
 ## Build from Source
 
 ```shell
-git clone --recurse-submodules <repo>
+git clone <repo>
 cd ur
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j$(nproc)
@@ -93,9 +93,20 @@ $root/keys         # API keys and credentials
 
 ## Providers
 
-### llama.cpp (default)
+`ur` connects to any OpenAI-compatible LLM server over HTTP. The server is started and managed independently — `ur` does not embed or depend on any inference library.
 
-Runs inference locally using GGUF model files. Specify the model with `--model=llama.cpp/<model-name>`.
+Configure the endpoint via environment variables:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `UR_LLM_BASE_URL` | Base URL of the OpenAI-compatible server | `http://localhost:8080` |
+| `UR_LLM_API_KEY` | API key (leave empty for local servers) | _(empty)_ |
+
+Specify the model name with `--model=<name>`, which is passed directly to the server.
+
+Examples:
+- llama.cpp server: `UR_LLM_BASE_URL=http://localhost:8080 ur run "hello"`
+- Ollama: `UR_LLM_BASE_URL=http://localhost:11434 ur run --model=mistral "hello"`
 
 ## Architecture
 
@@ -129,6 +140,22 @@ Drop shared libraries or scripts into `$root/tools/`. They are loaded at agent s
 
 ## Development
 
+### Pre-commit hooks
+
+Install and enable the hooks before committing:
+
+```shell
+uv run pre-commit install
+```
+
+To run manually against all files:
+
+```shell
+uv run pre-commit run --all-files
+```
+
+Hooks: `clang-format` (C++ formatting), `cmake-format`/`cmake-lint` (CMake), and standard checks (whitespace, EOF, line endings).
+
 ### Test organisation
 
 One test file per source module under `tests/unit/`. Tests are registered with CMake and run via:
@@ -147,7 +174,7 @@ ctest --test-dir build
 Implement `ur init` and `ur clean`, establish workspace directory layout, SQLite schema creation.
 
 **Phase 2** — Single-turn inference:
-Integrate llama.cpp, implement `ur run` for one-shot requests, basic session and message persistence.
+Implement `ur run` for one-shot requests via an OpenAI-compatible HTTP provider, basic session and message persistence.
 
 **Phase 3** — Multi-turn chat and persona:
 Implement `ur chat` with context manager and `--continue`, `ur history`, and `ur persona`; persona is updated by the agent over time.
