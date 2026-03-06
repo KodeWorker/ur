@@ -61,6 +61,20 @@ Subdirs: `workspace/`, `database/`, `tools/`, `log/`, `keys/`
 
 **Database schema**: three tables — `session`, `message`, `persona`.
 
+## Commits
+
+Commits are managed via `uv run pre-commit`. Hooks run automatically on `git commit`.
+
+- Never skip hooks with `--no-verify`
+- If a hook fails, fix the issue and recommit — do not amend the previous commit
+- Run `uv run pre-commit run --all-files` to check before committing
+
+## Agent Cowork Guidelines
+
+- Agent is for: research, planning, documentation, unit tests, suggestion and review
+- Implement one thing at a time
+- Do not outsource thinking
+
 ## Key Design Decisions
 
 - `llm/` uses an abstraction layer so providers (llama.cpp, etc.) are swappable.
