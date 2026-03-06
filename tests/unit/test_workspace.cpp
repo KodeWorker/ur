@@ -28,4 +28,4 @@ TEST(WorkspaceTest, RemoveWorkspaceClearsContents) {
   //       call remove_workspace(), assert the file no longer exists.
 }
 
-} // namespace
+}  // namespace

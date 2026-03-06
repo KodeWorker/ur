@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
@@ -11,14 +11,36 @@ repos:
         args: [--maxkb=500]
       - id: check-merge-conflict
 
-  - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v19.1.0
-    hooks:
-      - id: clang-format
-        types_or: [c++, c]
-
   - repo: https://github.com/cheshirekow/cmake-format-precommit
     rev: v0.6.13
     hooks:
       - id: cmake-format
       - id: cmake-lint
+
+  - repo: https://github.com/pocc/pre-commit-hooks
+    rev: v1.3.5
+    hooks:
+      - id: clang-format
+        args: [--style=file]
+      # - id: clang-tidy # after build, so that it can use the compile_commands.json
+      #   args: [--build-path=build]
+      # - id: uncrustify # conflicts with clang-format
+      #   args: [-c=.uncrustify.cfg]
+      - id: cppcheck
+        args:
+          - --suppress=missingIncludeSystem
+          - --suppress=missingInclude
+          - --suppress=unusedStructMember
+          - --suppress=unmatchedSuppression
+          - --suppress=unusedFunction
+          - --suppress=syntaxError
+          - --suppress=constParameterReference
+      # - id: include-what-you-use # after build, so that it can use the compile_commands.json
+      #   args: [-p=build]
+
+  - repo: https://github.com/cpplint/cpplint
+    rev: 2.0.2
+    hooks:
+      - id: cpplint
+        args:
+          - --filter=-whitespace/line_length,-whitespace/parens,-legal/copyright,-build/c++17,-readability/todo,-build/include_subdir

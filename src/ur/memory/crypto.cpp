@@ -5,19 +5,19 @@
 
 #include <fstream>
 #include <stdexcept>
+#include <string>
 
 namespace ur {
 
-std::string load_key(const std::filesystem::path &key_path) {
-  if (!std::filesystem::exists(key_path))
-    return {};
+std::string load_key(const std::filesystem::path& key_path) {
+  if (!std::filesystem::exists(key_path)) return {};
 
   // TODO: open key_path in binary mode, read all bytes, return as string.
   //       Throw std::runtime_error if the file cannot be opened.
   throw std::runtime_error("load_key: not implemented");
 }
 
-std::string encrypt(const std::string &plaintext, const std::string &key) {
+std::string encrypt(const std::string& plaintext, const std::string& key) {
   // TODO: implement AES-256-GCM encryption using OpenSSL EVP API.
   //
   // Steps:
@@ -33,7 +33,7 @@ std::string encrypt(const std::string &plaintext, const std::string &key) {
   throw std::runtime_error("encrypt: not implemented");
 }
 
-std::string decrypt(const std::string &ciphertext, const std::string &key) {
+std::string decrypt(const std::string& ciphertext, const std::string& key) {
   // TODO: implement AES-256-GCM decryption using OpenSSL EVP API.
   //
   // Steps:
@@ -49,4 +49,4 @@ std::string decrypt(const std::string &ciphertext, const std::string &key) {
   throw std::runtime_error("decrypt: not implemented");
 }
 
-} // namespace ur
+}  // namespace ur

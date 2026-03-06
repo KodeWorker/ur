@@ -32,4 +32,4 @@ TEST(DatabaseTest, DropAllRemovesAllTables) {
   //       and assert no tables remain.
 }
 
-} // namespace
+}  // namespace

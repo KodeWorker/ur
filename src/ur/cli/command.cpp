@@ -5,7 +5,7 @@
 
 namespace ur {
 
-int cmd_init(Context &ctx, int /*argc*/, char ** /*argv*/) {
+int cmd_init(Context& ctx, int /*argc*/, char** /*argv*/) {
   // TODO:
   // 1. init_workspace(ctx.paths)  — create all five subdirectories
   // 2. ctx.db.init_schema()       — lazy-open DB and create tables
@@ -16,7 +16,7 @@ int cmd_init(Context &ctx, int /*argc*/, char ** /*argv*/) {
   return 1;
 }
 
-int cmd_clean(Context &ctx, int argc, char **argv) {
+int cmd_clean(Context& ctx, int argc, char** argv) {
   // Parse the optional flag from argv[2]:
   //   --workspace : remove workspace contents only
   //   --database  : drop all database tables only
@@ -34,4 +34,4 @@ int cmd_clean(Context &ctx, int argc, char **argv) {
   return 1;
 }
 
-} // namespace ur
+}  // namespace ur

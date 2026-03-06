@@ -9,7 +9,7 @@ struct sqlite3;
 namespace ur {
 
 class Database {
-public:
+ public:
   // Stores the path and optional encryption key — does NOT open the file.
   // key: raw bytes of the AES-256-GCM key loaded from keys/secret.key.
   //      Empty string disables encryption (plaintext mode).
@@ -18,10 +18,10 @@ public:
   ~Database();
 
   // Non-copyable, movable.
-  Database(const Database &) = delete;
-  Database &operator=(const Database &) = delete;
-  Database(Database &&) = default;
-  Database &operator=(Database &&) = default;
+  Database(const Database&) = delete;
+  Database& operator=(const Database&) = delete;
+  Database(Database&&) = default;
+  Database& operator=(Database&&) = default;
 
   // Lazily opens the database file, then creates all three tables if they
   // do not already exist. Safe to call multiple times (idempotent).
@@ -33,19 +33,20 @@ public:
 
   bool is_open() const;
 
-private:
+ private:
   // Opens the file at path_ if not already open.
   // Throws std::runtime_error on failure.
   void open();
 
   // Encrypt str if key_ is set; return str unchanged otherwise.
-  std::string enc(const std::string &str) const;
+  std::string enc(const std::string& str) const;
   // Decrypt str if key_ is set; return str unchanged otherwise.
-  std::string dec(const std::string &str) const;
+  std::string dec(const std::string& str) const;
 
   std::filesystem::path path_;
-  std::string key_; // empty = plaintext mode
-  sqlite3 *handle_ = nullptr;
+  // cppcheck-suppress unusedStructMember
+  std::string key_;  // empty = plaintext mode
+  sqlite3* handle_ = nullptr;
 };
 
-} // namespace ur
+}  // namespace ur

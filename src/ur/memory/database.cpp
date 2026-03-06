@@ -1,10 +1,12 @@
 #include "database.hpp"
 
-#include "crypto.hpp"
-
 #include <sqlite3.h>
+
 #include <stdexcept>
 #include <string>
+#include <utility>
+
+#include "crypto.hpp"
 
 namespace ur {
 
@@ -22,11 +24,11 @@ Database::~Database() {
 
 bool Database::is_open() const { return handle_ != nullptr; }
 
-std::string Database::enc(const std::string &str) const {
+std::string Database::enc(const std::string& str) const {
   return key_.empty() ? str : encrypt(str, key_);
 }
 
-std::string Database::dec(const std::string &str) const {
+std::string Database::dec(const std::string& str) const {
   return key_.empty() ? str : decrypt(str, key_);
 }
 
@@ -37,8 +39,7 @@ void Database::open() {
 }
 
 void Database::init_schema() {
-  if (!is_open())
-    open();
+  if (!is_open()) open();
 
   // TODO: execute the following SQL via sqlite3_exec():
   // Note: when binding message.content or persona.value on INSERT/UPDATE,
@@ -72,8 +73,7 @@ void Database::init_schema() {
 }
 
 void Database::drop_all() {
-  if (!is_open())
-    open();
+  if (!is_open()) open();
 
   // TODO: execute the following SQL via sqlite3_exec():
   //
@@ -86,4 +86,4 @@ void Database::drop_all() {
   throw std::runtime_error("Database::drop_all: not implemented");
 }
 
-} // namespace ur
+}  // namespace ur

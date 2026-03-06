@@ -30,4 +30,4 @@ TEST(CryptoTest, EncryptProducesUniqueIVEachCall) {
   //       assert the two ciphertexts differ (different random IVs).
 }
 
-} // namespace
+}  // namespace

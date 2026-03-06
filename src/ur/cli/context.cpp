@@ -1,5 +1,7 @@
 #include "context.hpp"
 
+#include <string>
+
 #include "memory/crypto.hpp"
 
 namespace ur {
@@ -11,4 +13,4 @@ Context make_context() {
   return Context{paths, Database(paths.database / "ur.db", enc_key), enc_key};
 }
 
-} // namespace ur
+}  // namespace ur

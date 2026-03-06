@@ -13,7 +13,7 @@ static void print_usage() {
       << "  clean [--database|--workspace]  remove workspace artifacts\n";
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   if (argc < 2) {
     print_usage();
     return 1;
@@ -28,10 +28,8 @@ int main(int argc, char **argv) {
 
   ur::Context ctx = ur::make_context();
 
-  if (cmd == "init")
-    return ur::cmd_init(ctx, argc, argv);
-  if (cmd == "clean")
-    return ur::cmd_clean(ctx, argc, argv);
+  if (cmd == "init") return ur::cmd_init(ctx, argc, argv);
+  if (cmd == "clean") return ur::cmd_clean(ctx, argc, argv);
 
   std::cerr << "ur: unknown command '" << cmd << "'\n";
   print_usage();
