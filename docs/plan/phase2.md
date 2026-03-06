@@ -6,7 +6,7 @@
 
 ## Deliverables
 
-- `ur run <prompt> [--model=llama.cpp/<name>] [--system-prompt=...] [--allow-all]`
+- `ur run <prompt> [--model=<name>] [--system-prompt=...] [--allow-all]`
 - Response printed to stdout
 - Session + messages written to database
 
@@ -51,7 +51,7 @@ The provider is stateless — no local model files or library linkage required.
 3. Build `messages` vector: optional system message + user message
 4. Instantiate provider via registry
 5. Call `provider.complete(messages)`
-6. Insert user message and assistant message into DB
+6. Insert user message and assistant message into DB (content encrypted if key loaded)
 7. Print response to stdout
 
 ## Model Identifier Format
@@ -64,6 +64,7 @@ Default: omit `--model` and the server's default model is used.
 
 - [ ] `ur run "hello"` completes and prints a response
 - [ ] Session and both messages appear in the database afterward
+- [ ] Message content is encrypted at rest when `$root/keys/secret.key` is present
 - [ ] `--system-prompt=file.txt` loads the file and prepends as a system message
 - [ ] Unreachable server exits with a clear error message
 - [ ] `UR_LLM_BASE_URL` overrides the default endpoint

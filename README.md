@@ -10,9 +10,14 @@ Your agent sandbox — secured, efficient, local hosted, for you only
 
 - C++17 compiler (GCC 9+, Clang 10+, or MSVC 2019+)
 - CMake 3.20+
-- SQLite3
+- OpenSSL 3+
+  - Linux: `libssl-dev` (Debian/Ubuntu), `openssl-devel` (Fedora)
+  - macOS: `brew install openssl`
+  - Windows: `vcpkg install openssl` — pass `-DCMAKE_TOOLCHAIN_FILE=<vcpkg-root>/scripts/buildsystems/vcpkg.cmake` to CMake
 - An OpenAI-compatible LLM server (e.g. llama.cpp server, Ollama) — managed and run independently
 - Docker (optional — required for sandbox tier 2)
+
+SQLite is bundled as an amalgamation — no system install required.
 
 For development only: GoogleTest (fetched automatically by CMake).
 
@@ -108,20 +113,55 @@ Examples:
 - llama.cpp server: `UR_LLM_BASE_URL=http://localhost:8080 ur run "hello"`
 - Ollama: `UR_LLM_BASE_URL=http://localhost:11434 ur run --model=mistral "hello"`
 
+## Security
+
+### Database encryption
+
+`ur` supports symmetric encryption (AES-256-GCM) for messages stored in the local SQLite database. Encryption is optional — if no key file is present, `ur` operates in plaintext mode.
+
+Generate a 256-bit key and store it in the workspace:
+
+```shell
+# Linux
+openssl rand -base64 32 > ~/.local/share/ur/keys/secret.key
+chmod 600 ~/.local/share/ur/keys/secret.key
+
+# macOS
+openssl rand -base64 32 > ~/Library/Application\ Support/ur/keys/secret.key
+chmod 600 ~/Library/Application\ Support/ur/keys/secret.key
+```
+
+`ur` checks for `$root/keys/secret.key` at startup. If found, message content is encrypted before being written to the database and decrypted on read. The key never leaves the local machine.
+
+### Message transport security
+
+Messages sent to and received from the LLM server are not encrypted by `ur`. Secure the transport at the LLM server layer — configure a reverse proxy (e.g. nginx, Caddy) with TLS in front of the LLM server.
+
 ## Architecture
 
 ```
 .
+├── third_party/sqlite3/    SQLite amalgamation (bundled)
 ├── docs/
-│   ├── devlog/         Daily development notes
-│   └── plans/          Feature implementation plans
-├── src/ur/             Agent implementation
-│   ├── agent/          Orchestration, tool calling, turn management
-│   ├── llm/            Provider abstraction layer
-│   ├── memory/         Session and persona persistence (SQLite)
-│   └── tools/          Tool plugin system
-└── tests/unit/         Unit tests, one file per source module
+│   ├── devlog/             Daily development notes
+│   └── plan/               Phase specs (phase1–5)
+├── src/ur/
+│   ├── cli/                Argument dispatch, Context struct, TUI
+│   ├── agent/              Orchestration, tool calling, turn management
+│   ├── llm/                OpenAI-compatible HTTP provider abstraction
+│   ├── memory/             Workspace, SQLite database, flat-file vector store
+│   └── tools/              Tool plugin system
+└── tests/unit/             Unit tests, one file per source module
 ```
+
+### Memory storage
+
+`ur` uses two storage layers:
+
+| Layer | Backend | Used for |
+|-------|---------|----------|
+| Structured | SQLite (`$root/database/ur.db`) | Sessions, messages, persona key-value pairs |
+| Semantic | Flat-file (`$root/database/memory.bin`) | Vector embeddings for long-term memory |
 
 ### Sandbox tiers
 
@@ -177,10 +217,10 @@ Implement `ur init` and `ur clean`, establish workspace directory layout, SQLite
 Implement `ur run` for one-shot requests via an OpenAI-compatible HTTP provider, basic session and message persistence.
 
 **Phase 3** — Multi-turn chat and persona:
-Implement `ur chat` with context manager and `--continue`, `ur history`, and `ur persona`; persona is updated by the agent over time.
+Implement `ur chat` with context manager and `--continue`, `ur history`, and `ur persona`; persona key-value pairs persisted in SQLite; flat-file vector store established for future long-term memory.
 
 **Phase 4** — Tool system and sandbox tier 1:
 Tool plugin loading from `$root/tools/`, workspace-constrained sandbox, tool-calling loop in the agent.
 
-**Phase 5** — Docker sandbox and extended providers:
-Sandbox tier 2 (Docker runner), additional LLM provider support, TUI polish.
+**Phase 5** — Docker sandbox and streaming TUI:
+Sandbox tier 2 (Docker runner), streaming token output, TUI polish.
