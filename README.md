@@ -1,106 +1,101 @@
 # ur
 
-Agent assisted workflow — a local-first, cross-platform Python sandbox for AI agents.
+Your agent sandbox — secured, efficient, local hosted, for you only
 
 ## Overview
 
-`ur` gives an AI agent a safe place to work. It handles the LLM loop, conversation history, and a growing set of tools (code execution, browser automation, file ops, HTTP) so you can focus on the task, not the plumbing.
+`ur` is a CLI tool for running LLM-powered agents on your own machine. It manages conversation sessions, persists a user persona built up over time, and controls what tools an agent is allowed to use via a sandboxed plugin system.
 
-- **Local-first** — everything runs on your machine, no cloud infra required
-- **Cross-platform** — Windows, Mac, Linux
-- **Provider-agnostic** — Google Gemini or any hosted Ollama models
-- **Extensible** — drop a `.py` file in `<data_dir>/tools/` to add a custom tool
+## Dependencies
 
-## Requirements
+- C++17 compiler (GCC 9+, Clang 10+, or MSVC 2019+)
+- CMake 3.20+
+- SQLite3
+- [llama.cpp](https://github.com/ggerganov/llama.cpp)
+- Docker (optional — required for sandbox tier 2)
 
-- Python 3.12+
-- A `GEMINI_API_KEY` **or** a running Ollama server
+For development only: GoogleTest (fetched automatically by CMake).
 
-## Installation
+## Build from Source
 
-```bash
-pip install -e ".[dev]"   # development install with test deps
-# or
-uv pip install -e ".[dev]"
-```
-
-First-time setup:
-
-```bash
-ur init
-# or
-uv run ur init
+```shell
+git clone --recurse-submodules <repo>
+cd ur
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j$(nproc)
+cmake --install build
 ```
 
 ## Configuration
 
-Copy `.env.example` to `.env` and fill in your values:
-
-```bash
-cp .env.example .env
-```
-
-| Environment variable | Default | Description |
-|---|---|---|
-| `GEMINI_API_KEY` | — | Gemini API key |
-| `UR_MODEL` | `gemini/gemini-2.5-flash-lite` | LLM model to use |
-| `UR_OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
-| `UR_MAX_ITERATIONS` | `20` | Agent loop iteration cap |
-| `UR_DATA_DIR` | platform data dir | Override data/db/tools location |
-| `UR_TOOL_BUILTIN_TRUNCATE_AT` | `20000` | Max chars returned by shell/http/browser tools |
-| `UR_TOOL_BUILTIN_MAX_LINES` | `200` | Max lines returned by `read_file` |
-| `UR_TOOL_BUILTIN_MAX_SEARCH_RESULTS` | `10` | Max results returned by `web_search` |
-| `UR_TOOL_BUILTIN_SHELL_TIMEOUT` | `30` | Timeout in seconds for `shell` |
-| `UR_TOOL_BUILTIN_HTTP_TIMEOUT` | `10` | Timeout in seconds for `http_get` |
-| `UR_TOOL_BUILTIN_BROWSER_TIMEOUT` | `30` | Timeout in seconds for `browser_get` |
-
-**Platform data directories** (auto-detected):
-
-| OS | Path |
-|---|---|
-| Windows | `%APPDATA%\ur\` |
-| macOS | `~/Library/Application Support/ur/` |
-| Linux | `~/.local/share/ur/` |
+Configuration is provided via environment variables or a `.env` file in the working directory. See `.env.example` for available options.
 
 ## Usage
 
-```bash
-# Run a single task
-# `uv run` is only needed if you installed with `uv pip install -e .`
-ur run "Summarise the top 5 HN stories today"
+```shell
+# init database and workspace
+ur init
+# clean up database and workspace
+ur clean [--database|workspace]
+# run one-time request
+ur run <user_prompt> [--system-prompt=message|file] [--tools=message|file] [--model=provider/name] [--allow-all]
+# tui chat with agent with context manager
+ur chat [--continue=<id>] [--model=provider/name] [--allow-all]
+# view session history
+ur history [<id>]
+# view user profile created by agent
+ur persona
+```
 
-# Override model for one run
-ur run "Explain quantum entanglement" --model gemini/gemini-1.5-pro
+## Database Schema
 
-# Interactive multi-turn chat
-ur chat
+```sql
+TABLE session (
+    id         TEXT PRIMARY KEY,
+    title      TEXT,
+    model      TEXT,
+    created_at INTEGER,
+    updated_at INTEGER
+)
 
-# List past sessions
-ur history
+TABLE message (
+    id         TEXT PRIMARY KEY,
+    session_id TEXT REFERENCES session(id),
+    role       TEXT,    -- 'user' | 'assistant' | 'tool'
+    content    TEXT,
+    created_at INTEGER
+)
 
-# Inspect a specific session (partial ID match)
-ur history a3f2b1
+TABLE persona (
+    key        TEXT PRIMARY KEY,
+    value      TEXT,
+    updated_at INTEGER
+)
+```
+
+## Workspace Structure
+
+```shell
+# Linux
+root=~/.local/share/ur/
+# macOS
+root=~/Library/Application Support/ur/
+# Windows
+root=%APPDATA%\ur\
+
+# ur init creates the following
+$root/workspace    # agent read/write sandbox
+$root/database     # SQLite database
+$root/tools        # custom tool plugins
+$root/log          # runtime logs
+$root/keys         # API keys and credentials
 ```
 
 ## Providers
 
-### Gemini (default)
+### llama.cpp (default)
 
-```bash
-# .env
-GEMINI_API_KEY=your-key-here
-UR_MODEL=gemini/gemini-2.5-flash-lite
-```
-
-### Ollama (hosted or local)
-
-```bash
-# .env
-UR_MODEL=ollama/qwen3:30b
-UR_OLLAMA_BASE_URL=http://my-server:11434   # omit for localhost
-```
-
-Supported model prefixes: `ollama/` (generate API) and `ollama_chat/` (chat API).
+Runs inference locally using GGUF model files. Specify the model with `--model=llama.cpp/<model-name>`.
 
 ## Architecture
 
@@ -109,98 +104,56 @@ Supported model prefixes: `ollama/` (generate API) and `ollama_chat/` (chat API)
 ├── docs/
 │   ├── devlog/         Daily development notes
 │   └── plans/          Feature implementation plans
-├── src/ur/
-│   ├── config.py       Settings (pydantic-settings, platformdirs)
-│   ├── main.py         Typer CLI entry point
-│   ├── tui.py          Textual TUI (run + chat commands)
-│   ├── agent/
-│   │   ├── loop.py     Core agentic loop — yields tokens, dispatches tools
-│   │   ├── session.py  AgentSession — messages, usage, lifecycle
-│   │   └── models.py   Message type alias, UsageStats
-│   ├── llm/
-│   │   └── client.py   LiteLLM wrapper + CompletionStream
-│   ├── memory/
-│   │   ├── db.py       SQLite schema, get_db context manager
-│   │   └── session_store.py  save / list / get session messages
-│   └── tools/
-│       ├── registry.py ToolRegistry — register, lookup, dispatch
-│       └── builtin.py  shell, read_file, write_file, http_get, browser_get
+├── src/ur/             Agent implementation
+│   ├── agent/          Orchestration, tool calling, turn management
+│   ├── llm/            Provider abstraction layer
+│   ├── memory/         Session and persona persistence (SQLite)
+│   └── tools/          Tool plugin system
 └── tests/unit/         Unit tests, one file per source module
 ```
 
 ### Sandbox tiers
 
-| Tier | Backend | Default | Requires |
-|---|---|---|---|
-| 1 | subprocess | yes | nothing |
-| 2 | Docker / Podman | `--sandbox docker` | Docker daemon |
-| 3 | WASM (wasmtime) | future | `pip install ur[sandbox-wasm]` |
+Tool execution is restricted based on the active sandbox tier:
 
-### Optional extras
+| Tier | Mode | Description |
+|------|------|-------------|
+| 1 | Workspace-constrained | Tools can only read/write within `$root/workspace/` |
+| 2 | Docker runner | Tools execute inside a Docker container with controlled mounts |
 
-```bash
-pip install -e ".[tools]"         # playwright, markdownify, httpx, aiofiles, psutil
-pip install -e ".[sandbox]"       # docker SDK (Tier 2)
-pip install -e ".[api]"           # fastapi + uvicorn (REST/SSE)
-pip install -e ".[memory]"        # chromadb + sentence-transformers
-pip install -e ".[observability]" # opentelemetry, langfuse
-pip install -e ".[queue]"         # arq (Redis-backed task queue)
-```
+The `--allow-all` flag bypasses sandbox restrictions entirely.
 
-The `[tools]` extra enables five built-in tools:
+### Custom tool plugins
 
-| Tool | Description |
-|---|---|
-| `shell` | Run a shell command, return stdout+stderr |
-| `read_file` | Read a file from disk |
-| `write_file` | Write a file to disk |
-| `http_get` | Fetch a URL with a plain HTTP GET |
-| `browser_get` | Visit a URL with headless Chromium (JS rendered), return page as markdown |
-| `web_search` | Search the web and return titles, URLs, and snippets |
-
-After installing `[tools]`, download the Chromium binary once for `browser_get`:
-
-```bash
-uv run playwright install chromium
-```
-
-### Custom plugins
-
-Drop a `.py` file in `<data_dir>/tools/` and define a `register(registry)` function to add custom tools. Plugins are loaded alphabetically after builtins; a plugin can override a builtin by using the same name.
-
-> **Security:** Every `.py` file in the tools directory is executed unconditionally at startup with the full privileges of the running user. Only place files you trust there — never copy plugin files from untrusted sources without reviewing them first.
+Drop shared libraries or scripts into `$root/tools/`. They are loaded at agent startup and exposed to the agent as callable tools.
 
 ## Development
 
-```bash
-# Run all tests
-pytest
-
-# Run against Ollama
-UR_MODEL=ollama_chat/qwen2.5 UR_OLLAMA_BASE_URL=http://my-server:11434 pytest
-
-# Lint
-ruff check src tests
-
-# Type check
-mypy src
-```
-
 ### Test organisation
 
-Tests are in `tests/unit/`, one file per source module. No real API calls are made — litellm is patched with a `MockStreamWrapper`.
+One test file per source module under `tests/unit/`. Tests are registered with CMake and run via:
 
-Provider-specific tests are guarded with skip markers that activate based on `UR_MODEL`:
-
-```python
-@skip_if_not_gemini   # skipped when UR_MODEL starts with "ollama"
-@skip_if_not_ollama   # skipped when UR_MODEL starts with "gemini"
+```shell
+cmake -B build -DCMAKE_BUILD_TYPE=Debug
+cmake --build build
+ctest --test-dir build
+# run a specific test binary
+./build/tests/unit/<test_name> --gtest_filter=<Suite>.<Case>
 ```
 
 ## Roadmap
 
-- **Phase 1** (done) — LLM loop, streaming CLI, SQLite sessions
-- **Phase 2** (done) — tool suite: filesystem, code execution, HTTP, browser
-- **Phase 3** — token cost display, context window management (sliding-window truncation), `ur history <id>` audit trail
-- **Phase 4** — Docker sandbox, REST API, OpenTelemetry tracing
-- **Phase 5** — long-term memory (ChromaDB), multi-task queue, multi-agent seams
+**Phase 1** — CLI and workspace scaffolding:
+Implement `ur init` and `ur clean`, establish workspace directory layout, SQLite schema creation.
+
+**Phase 2** — Single-turn inference:
+Integrate llama.cpp, implement `ur run` for one-shot requests, basic session and message persistence.
+
+**Phase 3** — Multi-turn chat and persona:
+Implement `ur chat` with context manager and `--continue`, `ur history`, and `ur persona`; persona is updated by the agent over time.
+
+**Phase 4** — Tool system and sandbox tier 1:
+Tool plugin loading from `$root/tools/`, workspace-constrained sandbox, tool-calling loop in the agent.
+
+**Phase 5** — Docker sandbox and extended providers:
+Sandbox tier 2 (Docker runner), additional LLM provider support, TUI polish.
