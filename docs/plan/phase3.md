@@ -70,6 +70,22 @@ timezone:   UTC+9
 interests:  Rust, distributed systems
 ```
 
+## Memory Storage Architecture
+
+Two storage layers, each responsible for a distinct concern:
+
+| Layer | Backend | Used for |
+|-------|---------|----------|
+| Structured | SQLite (`database/ur.db`) | Sessions, messages, persona key-value pairs |
+| Semantic | Flat-file (`database/memory.bin`) | Vector embeddings for long-term memory (future phase) |
+
+Phase 3 only implements the structured layer. The flat-file vector store is deferred to a later phase but the split is established here so the two layers are never conflated.
+
+Design rules:
+- SQLite is the source of truth for all queryable, relational data
+- Vector embeddings are write-once, append-only blobs — no joins, no transactions needed
+- No external vector database or sqlite extensions required
+
 ## Acceptance Criteria
 
 - [ ] `ur chat` enters the loop and responds to input
