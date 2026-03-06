@@ -1,9 +1,10 @@
 {
   "permissions": {
     "allow": [
-    ]
+    ],
     "deny": [
       ".env",
-      ".env.*",
+      ".env.*"
     ]
+  }
 }
