@@ -22,11 +22,13 @@ repos:
     hooks:
       - id: clang-format
         args: [--style=file]
+        exclude: ^third_party/
       # - id: clang-tidy # after build, so that it can use the compile_commands.json
       #   args: [--build-path=build]
       # - id: uncrustify # conflicts with clang-format
       #   args: [-c=.uncrustify.cfg]
       - id: cppcheck
+        exclude: ^third_party/
         args:
           - --suppress=missingIncludeSystem
           - --suppress=missingInclude
@@ -42,5 +44,6 @@ repos:
     rev: 2.0.2
     hooks:
       - id: cpplint
+        exclude: ^third_party/
         args:
           - --filter=-whitespace/line_length,-whitespace/parens,-legal/copyright,-build/c++17,-readability/todo,-build/include_subdir
