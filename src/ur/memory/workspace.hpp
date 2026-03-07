@@ -24,7 +24,7 @@ Paths resolve_paths();
 // (idempotent).
 void init_workspace(const Paths& paths);
 
-// Remove the contents of workspace/ and database/ subdirectories.
+// Remove the contents of workspace/ subdirectories.
 void remove_workspace(const Paths& paths);
 
 }  // namespace ur
