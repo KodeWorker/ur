@@ -12,9 +12,14 @@ namespace ur {
 std::string load_key(const std::filesystem::path& key_path) {
   if (!std::filesystem::exists(key_path)) return {};
 
-  // TODO: open key_path in binary mode, read all bytes, return as string.
-  //       Throw std::runtime_error if the file cannot be opened.
-  throw std::runtime_error("load_key: not implemented");
+  // open key_path in binary mode, read all bytes, return as string.
+  // Throw std::runtime_error if the file cannot be opened.
+  std::ifstream file(key_path, std::ios::binary);
+  if (!file) {
+    throw std::runtime_error("load_key: failed to open file");
+  }
+  std::string key((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+  return key;
 }
 
 std::string encrypt(const std::string& plaintext, const std::string& key) {
