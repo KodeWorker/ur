@@ -19,7 +19,11 @@ Database::Database(std::filesystem::path path, std::string key)
     : path_(std::move(path)), key_(std::move(key)) {}
 
 Database::~Database() {
-  // TODO: close handle_ with sqlite3_close() if it is not nullptr.
+  // close handle_ with sqlite3_close() if it is not nullptr.
+  if (handle_) {
+    sqlite3_close(handle_);
+    handle_ = nullptr;
+  }
 }
 
 bool Database::is_open() const { return handle_ != nullptr; }
