@@ -17,7 +17,7 @@ Your agent sandbox — secured, efficient, local hosted, for you only
 - An OpenAI-compatible LLM server (e.g. llama.cpp server, Ollama) — managed and run independently
 - Docker (optional — required for sandbox tier 2)
 
-SQLite is bundled as an amalgamation — no system install required.
+SQLite is bundled as an amalgamation (3.52.0) — no system install required.
 
 For development only: GoogleTest (fetched automatically by CMake).
 
