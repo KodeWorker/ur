@@ -6,6 +6,7 @@
 #include <fstream>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 namespace ur {
 
@@ -18,12 +19,13 @@ std::string load_key(const std::filesystem::path& key_path) {
   if (!file) {
     throw std::runtime_error("load_key: failed to open file");
   }
-  std::string key((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+  std::string key((std::istreambuf_iterator<char>(file)),
+                  std::istreambuf_iterator<char>());
   return key;
 }
 
 std::string encrypt(const std::string& plaintext, const std::string& key) {
-  // TODO: implement AES-256-GCM encryption using OpenSSL EVP API.
+  // implement AES-256-GCM encryption using OpenSSL EVP API.
   //
   // Steps:
   //   1. Generate a 12-byte random IV with RAND_bytes().
@@ -33,13 +35,70 @@ std::string encrypt(const std::string& plaintext, const std::string& key) {
   //   5. Finalise and retrieve the 16-byte auth tag via EVP_CIPHER_CTX_ctrl().
   //   6. Return: IV + ciphertext + tag.
   //   Throw std::runtime_error on any OpenSSL failure.
-  (void)plaintext;
-  (void)key;
-  throw std::runtime_error("encrypt: not implemented");
+  std::vector<unsigned char> iv(12);
+  if (RAND_bytes(iv.data(), iv.size()) != 1) {
+    throw std::runtime_error("encrypt: failed to generate IV");
+  }
+  EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+  if (!ctx) {
+    throw std::runtime_error("encrypt: failed to create cipher context");
+  }
+  if (EVP_EncryptInit_ex(ctx, EVP_aes_256_gcm(), nullptr, nullptr, nullptr) !=
+      1) {
+    EVP_CIPHER_CTX_free(ctx);
+    throw std::runtime_error("encrypt: failed to initialize encryption");
+  }
+  // Set key and IV
+  if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN,
+                          static_cast<int>(iv.size()), nullptr) != 1) {
+    EVP_CIPHER_CTX_free(ctx);
+    throw std::runtime_error("encrypt: failed to set IV length");
+  }
+  if (EVP_EncryptInit_ex(ctx, nullptr, nullptr,
+                         reinterpret_cast<const unsigned char*>(key.data()),
+                         iv.data()) != 1) {
+    EVP_CIPHER_CTX_free(ctx);
+    throw std::runtime_error("encrypt: failed to set key and IV");
+  }
+  // Provide the message to be encrypted
+  std::vector<unsigned char> ciphertext(
+      plaintext.size() + EVP_MAX_BLOCK_LENGTH);  // ciphertext can be up to
+                                                 // plaintext size + tag size
+  int len;
+  if (EVP_EncryptUpdate(
+          ctx, ciphertext.data(), &len,
+          reinterpret_cast<const unsigned char*>(plaintext.data()),
+          static_cast<int>(plaintext.size())) != 1) {
+    EVP_CIPHER_CTX_free(ctx);
+    throw std::runtime_error("encrypt: failed to encrypt plaintext");
+  }
+  // Finalise encryption
+  int ciphertext_len = len;
+  if (EVP_EncryptFinal_ex(ctx, ciphertext.data() + len, &len) != 1) {
+    EVP_CIPHER_CTX_free(ctx);
+    throw std::runtime_error("encrypt: failed to finalize encryption");
+  }
+  ciphertext_len += len;
+  // Get the tag
+  std::vector<unsigned char> tag(16);
+  if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG,
+                          static_cast<int>(tag.size()), tag.data()) != 1) {
+    EVP_CIPHER_CTX_free(ctx);
+    throw std::runtime_error("encrypt: failed to get auth tag");
+  }
+  EVP_CIPHER_CTX_free(ctx);
+  // Construct the final output: IV + ciphertext + tag
+  std::string result;
+  result.reserve(iv.size() + ciphertext_len + tag.size());
+  result.append(reinterpret_cast<const char*>(iv.data()), iv.size());
+  result.append(reinterpret_cast<const char*>(ciphertext.data()),
+                ciphertext_len);
+  result.append(reinterpret_cast<const char*>(tag.data()), tag.size());
+  return result;
 }
 
 std::string decrypt(const std::string& ciphertext, const std::string& key) {
-  // TODO: implement AES-256-GCM decryption using OpenSSL EVP API.
+  // implement AES-256-GCM decryption using OpenSSL EVP API.
   //
   // Steps:
   //   1. Split ciphertext into IV (first 12 bytes), body, tag (last 16 bytes).
@@ -49,9 +108,58 @@ std::string decrypt(const std::string& ciphertext, const std::string& key) {
   //   5. Set the expected auth tag via EVP_CIPHER_CTX_ctrl() and finalise.
   //      Throw std::runtime_error if authentication fails.
   //   6. Return plaintext.
-  (void)ciphertext;
-  (void)key;
-  throw std::runtime_error("decrypt: not implemented");
+  if (ciphertext.size() < 12 + 16) {
+    throw std::runtime_error("decrypt: ciphertext too short");
+  }
+  const unsigned char* iv =
+      reinterpret_cast<const unsigned char*>(ciphertext.data());
+  const unsigned char* body =
+      reinterpret_cast<const unsigned char*>(ciphertext.data() + 12);
+  const unsigned char* tag = reinterpret_cast<const unsigned char*>(
+      ciphertext.data() + ciphertext.size() - 16);
+  size_t body_len = ciphertext.size() - 12 - 16;
+  EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+  if (!ctx) {
+    throw std::runtime_error("decrypt: failed to create cipher context");
+  }
+  if (EVP_DecryptInit_ex(ctx, EVP_aes_256_gcm(), nullptr, nullptr, nullptr) !=
+      1) {
+    EVP_CIPHER_CTX_free(ctx);
+    throw std::runtime_error("decrypt: failed to initialize decryption");
+  }
+  if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, 12, nullptr) != 1) {
+    EVP_CIPHER_CTX_free(ctx);
+    throw std::runtime_error("decrypt: failed to set IV length");
+  }
+  if (EVP_DecryptInit_ex(ctx, nullptr, nullptr,
+                         reinterpret_cast<const unsigned char*>(key.data()),
+                         iv) != 1) {
+    EVP_CIPHER_CTX_free(ctx);
+    throw std::runtime_error("decrypt: failed to set key and IV");
+  }
+  std::vector<unsigned char> plaintext(body_len);
+  int len;
+  if (EVP_DecryptUpdate(ctx, plaintext.data(), &len, body,
+                        static_cast<int>(body_len)) != 1) {
+    EVP_CIPHER_CTX_free(ctx);
+    throw std::runtime_error("decrypt: failed to decrypt ciphertext");
+  }
+  int plaintext_len = len;
+  // Set expected tag value
+  if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, 16,
+                          const_cast<unsigned char*>(tag)) != 1) {
+    EVP_CIPHER_CTX_free(ctx);
+    throw std::runtime_error("decrypt: failed to set expected auth tag");
+  }
+  // Finalise decryption - returns 0 if authentication fails
+  if (EVP_DecryptFinal_ex(ctx, plaintext.data() + len, &len) != 1) {
+    EVP_CIPHER_CTX_free(ctx);
+    throw std::runtime_error("decrypt: authentication failed");
+  }
+  plaintext_len += len;
+  EVP_CIPHER_CTX_free(ctx);
+  return std::string(reinterpret_cast<const char*>(plaintext.data()),
+                     plaintext_len);
 }
 
 }  // namespace ur
