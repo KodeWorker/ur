@@ -16,5 +16,8 @@
 .env.*
 !.env.example
 
+# BUILD
+build/
+
 # Tests
 *.log

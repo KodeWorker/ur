@@ -2,6 +2,7 @@
 
 #include <string>
 
+#include "log/logger.hpp"
 #include "memory/database.hpp"
 #include "memory/workspace.hpp"
 
@@ -13,9 +14,10 @@ struct Context {
   Paths paths;
   Database db;
   std::string enc_key;  // raw key bytes; empty = encryption disabled
+  Logger logger;
 };
 
-// Resolve paths, attempt to load $root/keys/secret.key, wire up Database.
+// Resolve paths, attempt to load $root/key/secret.key, wire up Database.
 // Does not open the database file.
 Context make_context();
 
