@@ -18,7 +18,7 @@ namespace ur {
 Database::Database(std::filesystem::path path, std::string key)
     : path_(std::move(path)), key_(std::move(key)) {}
 
-Database::~Database() { handle_.reset(); }
+Database::~Database() = default;
 
 bool Database::is_open() const { return handle_ != nullptr; }
 
