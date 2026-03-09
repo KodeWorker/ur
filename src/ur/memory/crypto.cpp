@@ -41,7 +41,7 @@ std::string encrypt(const std::string& plaintext, const std::string& key) {
   }
 
   std::vector<unsigned char> iv(12);
-  if (RAND_bytes(iv.data(), iv.size()) != 1) {
+  if (RAND_bytes(iv.data(), static_cast<int>(iv.size())) != 1) {
     throw std::runtime_error("encrypt: failed to generate IV");
   }
   EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
