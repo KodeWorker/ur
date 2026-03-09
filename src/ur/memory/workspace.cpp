@@ -49,7 +49,7 @@ Paths resolve_paths() {
   paths.database = root / "database";
   paths.tools = root / "tools";
   paths.logs = root / "logs";
-  paths.keys = root / "key";
+  paths.key = root / "key";
   return paths;
 }
 
