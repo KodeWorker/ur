@@ -40,7 +40,7 @@ TEST_F(WorkspaceTest, InitWorkspaceCreatesAllSubdirs) {
   EXPECT_TRUE(fs::is_directory(paths.workspace));
   EXPECT_TRUE(fs::is_directory(paths.database));
   EXPECT_TRUE(fs::is_directory(paths.tools));
-  EXPECT_TRUE(fs::is_directory(paths.log));
+  EXPECT_TRUE(fs::is_directory(paths.logs));
   EXPECT_TRUE(fs::is_directory(paths.keys));
 }
 
