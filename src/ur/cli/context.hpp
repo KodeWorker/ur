@@ -17,7 +17,7 @@ struct Context {
   Logger logger;
 };
 
-// Resolve paths, attempt to load $root/keys/secret.key, wire up Database.
+// Resolve paths, attempt to load $root/key/secret.key, wire up Database.
 // Does not open the database file.
 Context make_context();
 

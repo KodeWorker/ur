@@ -9,7 +9,7 @@ namespace ur {
 
 Context make_context() {
   Paths paths = resolve_paths();
-  std::string enc_key = load_key(paths.keys / "secret.key");
+  std::string enc_key = load_key(paths.key / "secret.key");
   // Database receives the key but does not open the file yet.
   // Logger is lazy — log file not created until first write.
   return Context{paths, Database(paths.database / "ur.db", enc_key), enc_key,
