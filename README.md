@@ -43,7 +43,7 @@ ur init
 # clean up database and workspace
 ur clean [--database|workspace]
 # run one-time request
-ur run <user_prompt> [--system-prompt=message|file] [--tools=message|file] [--model=provider/name] [--allow-all]
+ur run <user_prompt> [--system-prompt=/path/to/file] [--tools=/path/to/file] [--model=provider/name] [--allow-all]
 # tui chat with agent with context manager
 ur chat [--continue=<id>] [--model=provider/name] [--allow-all]
 # view session history
