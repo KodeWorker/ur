@@ -6,39 +6,44 @@
 namespace ur {
 
 int cmd_init(Context& ctx, int /*argc*/, char** /*argv*/) {
-  // TODO:
-  // 1. init_workspace(ctx.paths)  — create all five subdirectories
-  // 2. ctx.db.init_schema()       — lazy-open DB and create tables
-  // 3. Print a confirmation message to stdout
-  // Return 0 on success, 1 on error.
-  //
-  // NOTE: wrap steps 1–2 in try/catch; on exception call
-  // ctx.log.error(e.what())
-  //       before returning 1.
-  (void)ctx;
-  std::cerr << "cmd_init: not implemented\n";
+  try {
+    init_workspace(ctx.paths);
+    ctx.db.init_schema();
+    std::cout << "Workspace initialized at " << ctx.paths.root << "\n";
+    return 0;
+  } catch (const std::exception& e) {
+    ctx.log.error(e.what());
+  }
   return 1;
 }
 
 int cmd_clean(Context& ctx, int argc, char** argv) {
-  // Parse the optional flag from argv[2]:
-  //   --workspace : remove workspace contents only
-  //   --database  : drop all database tables only
-  //   (no flag)   : do both
-  //
-  // TODO:
-  //   --workspace → remove_workspace(ctx.paths)
-  //   --database  → ctx.db.drop_all()
-  //   (no flag)   → both of the above
-  // Return 0 on success, 1 on unknown flag or error.
-  //
-  // NOTE: wrap each operation in try/catch; on exception call
-  // ctx.log.error(e.what())
-  //       before returning 1. Log unknown flag as ctx.log.error(...) as well.
-  (void)ctx;
-  (void)argc;
-  (void)argv;
-  std::cerr << "cmd_clean: not implemented\n";
+  try {
+    if (argc == 2) {
+      // No flag, do both
+      remove_workspace(ctx.paths);
+      ctx.db.drop_all();
+      std::cout << "Workspace and database cleared.\n";
+    } else if (argc == 3) {
+      std::string flag(argv[2]);
+      if (flag == "--workspace") {
+        remove_workspace(ctx.paths);
+        std::cout << "Workspace cleared.\n";
+      } else if (flag == "--database") {
+        ctx.db.drop_all();
+        std::cout << "Database cleared.\n";
+      } else {
+        ctx.log.error("Unknown flag: " + flag);
+        return 1;
+      }
+    } else {
+      ctx.log.error("Too many arguments for clean command.");
+      return 1;
+    }
+    return 0;
+  } catch (const std::exception& e) {
+    ctx.log.error(e.what());
+  }
   return 1;
 }
 
