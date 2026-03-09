@@ -12,12 +12,11 @@
 namespace ur {
 
 std::string load_key(const std::filesystem::path& key_path) {
-  if (!std::filesystem::exists(key_path)) return {};
-
   // open key_path in binary mode, read all bytes, return as string.
   // Throw std::runtime_error if the file cannot be opened.
   std::ifstream file(key_path, std::ios::binary);
   if (!file) {
+    if (!std::filesystem::exists(key_path)) return {};
     throw std::runtime_error("load_key: failed to open file");
   }
   std::string key((std::istreambuf_iterator<char>(file)),
