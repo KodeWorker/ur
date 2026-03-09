@@ -24,9 +24,8 @@ Paths resolve_paths();
 // (idempotent).
 void init_workspace(const Paths& paths);
 
-// Remove the workspace/ subdirectory under the ur root.
+// Remove all contents inside workspace/ but keep the directory itself.
 // Other subdirectories (database/, logs/, keys/, tools/) are left intact.
-// Run ur init to recreate it.
 void remove_workspace(const Paths& paths);
 
 }  // namespace ur

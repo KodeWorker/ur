@@ -71,9 +71,9 @@ void init_workspace(const Paths& paths) {
 }
 
 void remove_workspace(const Paths& paths) {
-  //  remove the contents of paths.workspace and paths.database
-  //  using std::filesystem::remove_all.
-  std::filesystem::remove_all(paths.workspace);
+  for (auto& entry : std::filesystem::directory_iterator(paths.workspace)) {
+    std::filesystem::remove_all(entry.path());
+  }
 }
 
 }  // namespace ur

@@ -12,7 +12,7 @@ namespace fs = std::filesystem;
 // Builds a Paths struct rooted at an arbitrary temp directory.
 ur::Paths make_test_paths(const fs::path& root) {
   return {root,           root / "workspace", root / "database",
-          root / "tools", root / "log",       root / "keys"};
+          root / "tools", root / "logs",      root / "keys"};
 }
 
 class WorkspaceTest : public ::testing::Test {
@@ -61,6 +61,7 @@ TEST_F(WorkspaceTest, RemoveWorkspaceClearsContents) {
   ur::remove_workspace(paths);
 
   EXPECT_FALSE(fs::exists(paths.workspace / "sentinel.txt"));
+  EXPECT_TRUE(fs::is_directory(paths.workspace));
 }
 
 }  // namespace
