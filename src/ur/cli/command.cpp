@@ -12,7 +12,7 @@ int cmd_init(Context& ctx, int /*argc*/, char** /*argv*/) {
     std::cout << "Workspace initialized at " << ctx.paths.root << "\n";
     return 0;
   } catch (const std::exception& e) {
-    ctx.log.error(e.what());
+    ctx.logger.error(e.what());
   }
   return 1;
 }
@@ -33,16 +33,16 @@ int cmd_clean(Context& ctx, int argc, char** argv) {
         ctx.db.drop_all();
         std::cout << "Database cleared.\n";
       } else {
-        ctx.log.error("Unknown flag: " + flag);
+        ctx.logger.error("Unknown flag: " + flag);
         return 1;
       }
     } else {
-      ctx.log.error("Too many arguments for clean command.");
+      ctx.logger.error("Too many arguments for clean command.");
       return 1;
     }
     return 0;
   } catch (const std::exception& e) {
-    ctx.log.error(e.what());
+    ctx.logger.error(e.what());
   }
   return 1;
 }

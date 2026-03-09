@@ -14,7 +14,7 @@ struct Context {
   Paths paths;
   Database db;
   std::string enc_key;  // raw key bytes; empty = encryption disabled
-  Logger log;
+  Logger logger;
 };
 
 // Resolve paths, attempt to load $root/keys/secret.key, wire up Database.

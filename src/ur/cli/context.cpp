@@ -13,7 +13,7 @@ Context make_context() {
   // Database receives the key but does not open the file yet.
   // Logger is lazy — log file not created until first write.
   return Context{paths, Database(paths.database / "ur.db", enc_key), enc_key,
-                 Logger(paths.log, log_level_from_env())};
+                 Logger(paths.logs, log_level_from_env())};
 }
 
 }  // namespace ur

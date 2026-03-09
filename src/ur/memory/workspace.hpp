@@ -10,7 +10,7 @@ struct Paths {
   std::filesystem::path workspace;  // agent read/write sandbox
   std::filesystem::path database;   // SQLite database dir
   std::filesystem::path tools;      // custom tool plugins
-  std::filesystem::path log;        // runtime logs
+  std::filesystem::path logs;       // runtime logs
   std::filesystem::path keys;       // API keys and credentials
 };
 
@@ -24,7 +24,9 @@ Paths resolve_paths();
 // (idempotent).
 void init_workspace(const Paths& paths);
 
-// Remove the contents of workspace/ subdirectories.
+// Remove the workspace/ subdirectory under the ur root.
+// Other subdirectories (database/, logs/, keys/, tools/) are left intact.
+// Run ur init to recreate it.
 void remove_workspace(const Paths& paths);
 
 }  // namespace ur
