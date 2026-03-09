@@ -11,7 +11,7 @@ struct Paths {
   std::filesystem::path database;   // SQLite database dir
   std::filesystem::path tools;      // custom tool plugins
   std::filesystem::path logs;       // runtime logs
-  std::filesystem::path keys;       // API keys and credentials
+  std::filesystem::path key;        // API key and credential
 };
 
 // Resolve the platform-specific root and build all sub-paths.
@@ -25,7 +25,7 @@ Paths resolve_paths();
 void init_workspace(const Paths& paths);
 
 // Remove all contents inside workspace/ but keep the directory itself.
-// Other subdirectories (database/, logs/, keys/, tools/) are left intact.
+// Other subdirectories (database/, logs/, key/, tools/) are left intact.
 void remove_workspace(const Paths& paths);
 
 }  // namespace ur
