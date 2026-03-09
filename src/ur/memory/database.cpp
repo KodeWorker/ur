@@ -19,9 +19,9 @@ Database::Database(std::filesystem::path path, std::string key)
     : path_(std::move(path)), key_(std::move(key)) {}
 
 Database::~Database() {
-  if (handle_) {
-    sqlite3_close(handle_);
-    handle_ = nullptr;
+  if (handle_.get() != nullptr) {
+    sqlite3_close(handle_.get());
+    handle_.reset();
   }
 }
 
@@ -36,11 +36,11 @@ std::string Database::dec(const std::string& str) const {
 }
 
 void Database::open() {
-  int rc = sqlite3_open(path_.string().c_str(), &handle_);
+  int rc = sqlite3_open(path_.string().c_str(), &handle_.get());
   if (rc != SQLITE_OK) {
-    std::string err_msg = sqlite3_errmsg(handle_);
-    sqlite3_close(handle_);
-    handle_ = nullptr;
+    std::string err_msg = sqlite3_errmsg(handle_.get());
+    sqlite3_close(handle_.get());
+    handle_.reset();
     throw std::runtime_error("Database::open: " + err_msg);
   }
 }
@@ -74,7 +74,7 @@ void Database::init_schema() {
     );
   )";
   char* err_msg = nullptr;
-  int rc = sqlite3_exec(handle_, sql, nullptr, nullptr, &err_msg);
+  int rc = sqlite3_exec(handle_.get(), sql, nullptr, nullptr, &err_msg);
   if (rc != SQLITE_OK) {
     std::string err_str = err_msg ? err_msg : "unknown error";
     sqlite3_free(err_msg);
@@ -91,7 +91,7 @@ void Database::drop_all() {
     DROP TABLE IF EXISTS persona;
   )";
   char* err_msg = nullptr;
-  int rc = sqlite3_exec(handle_, sql, nullptr, nullptr, &err_msg);
+  int rc = sqlite3_exec(handle_.get(), sql, nullptr, nullptr, &err_msg);
   if (rc != SQLITE_OK) {
     std::string err_str = err_msg ? err_msg : "unknown error";
     sqlite3_free(err_msg);

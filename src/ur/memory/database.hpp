@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <memory>
 #include <string>
 
 // Forward-declare sqlite3 to avoid exposing it in the public header.
@@ -46,7 +47,8 @@ class Database {
   std::filesystem::path path_;
   // cppcheck-suppress unusedStructMember
   std::string key_;  // empty = plaintext mode
-  sqlite3* handle_ = nullptr;
+  std::unique_ptr<sqlite3, decltype(&sqlite3_close)> handle_{nullptr,
+                                                             sqlite3_close};
 };
 
 }  // namespace ur
