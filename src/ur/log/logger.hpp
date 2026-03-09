@@ -19,6 +19,12 @@ class Logger {
   explicit Logger(std::filesystem::path log_dir,
                   LogLevel min_level = LogLevel::INFO);
 
+  // Non-copyable, movable.
+  Logger(const Logger&) = delete;
+  Logger& operator=(const Logger&) = delete;
+  Logger(Logger&&) = default;
+  Logger& operator=(Logger&&) = default;
+
   void debug(std::string_view msg);
   void info(std::string_view msg);
   void warn(std::string_view msg);
