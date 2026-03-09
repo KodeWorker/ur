@@ -172,9 +172,9 @@ ur clean --workspace
 
 ## Acceptance Criteria
 
-- [ ] `cmake -B build && cmake --build build` succeeds with zero warnings
-- [ ] `ur init` creates all five workspace subdirs and the SQLite DB
-- [ ] `ur init` is idempotent (safe to run twice)
-- [ ] `ur clean` removes database and workspace contents
-- [ ] `make_context()` loads `$root/keys/secret.key` if present; `enc_key` is empty otherwise
-- [ ] All unit tests pass via `ctest --test-dir build`
+- [x] `cmake -B build && cmake --build build` succeeds with zero warnings
+- [x] `ur init` creates all five workspace subdirs and the SQLite DB
+- [x] `ur init` is idempotent (safe to run twice)
+- [x] `ur clean` removes database and workspace contents
+- [x] `make_context()` loads `$root/keys/secret.key` if present; `enc_key` is empty otherwise
+- [x] All unit tests pass via `ctest --test-dir build`

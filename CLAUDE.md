@@ -99,7 +99,7 @@ Commits are managed via `uv run pre-commit`. Hooks run automatically on `git com
 
 | Phase | Focus | Status |
 |-------|-------|--------|
-| 1 | CLI scaffolding, workspace init, SQLite | In progress |
+| 1 | CLI scaffolding, workspace init, SQLite | Complete |
 | 2 | `ur run`, OpenAI-compatible HTTP provider | Not started |
 | 3 | `ur chat`, `ur history`, `ur persona` | Not started |
 | 4 | Tool plugins, sandbox tier 1 | Not started |
