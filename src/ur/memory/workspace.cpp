@@ -49,20 +49,20 @@ Paths resolve_paths() {
   paths.database = root / "database";
   paths.tools = root / "tools";
   paths.logs = root / "logs";
-  paths.keys = root / "keys";
+  paths.keys = root / "key";
   return paths;
 }
 
 void init_workspace(const Paths& paths) {
   //  create paths.workspace, paths.database, paths.tools,
-  //  paths.logs, and paths.keys using std::filesystem::create_directories.
+  //  paths.logs, and paths.key using std::filesystem::create_directories.
   //  create_directories is idempotent — no need to check existence first.
   try {
     std::filesystem::create_directories(paths.workspace);
     std::filesystem::create_directories(paths.database);
     std::filesystem::create_directories(paths.tools);
     std::filesystem::create_directories(paths.logs);
-    std::filesystem::create_directories(paths.keys);
+    std::filesystem::create_directories(paths.key);
   } catch (const std::filesystem::filesystem_error& e) {
     throw std::runtime_error(
         std::string("init_workspace: failed to create directories: ") +
