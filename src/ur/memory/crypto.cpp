@@ -35,6 +35,11 @@ std::string encrypt(const std::string& plaintext, const std::string& key) {
   //   5. Finalise and retrieve the 16-byte auth tag via EVP_CIPHER_CTX_ctrl().
   //   6. Return: IV + ciphertext + tag.
   //   Throw std::runtime_error on any OpenSSL failure.
+
+  if (key.size() != 32) {
+    throw std::runtime_error("encrypt: key must be 32 bytes for AES-256-GCM");
+  }
+
   std::vector<unsigned char> iv(12);
   if (RAND_bytes(iv.data(), iv.size()) != 1) {
     throw std::runtime_error("encrypt: failed to generate IV");
@@ -108,6 +113,11 @@ std::string decrypt(const std::string& ciphertext, const std::string& key) {
   //   5. Set the expected auth tag via EVP_CIPHER_CTX_ctrl() and finalise.
   //      Throw std::runtime_error if authentication fails.
   //   6. Return plaintext.
+
+  if (key.size() != 32) {
+    throw std::runtime_error("decrypt: key must be 32 bytes for AES-256-GCM");
+  }
+
   if (ciphertext.size() < 12 + 16) {
     throw std::runtime_error("decrypt: ciphertext too short");
   }
