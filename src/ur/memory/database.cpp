@@ -18,12 +18,7 @@ namespace ur {
 Database::Database(std::filesystem::path path, std::string key)
     : path_(std::move(path)), key_(std::move(key)) {}
 
-Database::~Database() {
-  if (handle_.get() != nullptr) {
-    sqlite3_close(handle_.get());
-    handle_.reset();
-  }
-}
+Database::~Database() { handle_.reset(); }
 
 bool Database::is_open() const { return handle_ != nullptr; }
 
@@ -36,10 +31,11 @@ std::string Database::dec(const std::string& str) const {
 }
 
 void Database::open() {
-  int rc = sqlite3_open(path_.string().c_str(), &handle_.get());
+  sqlite3* db_handle = nullptr;
+  int rc = sqlite3_open(path_.string().c_str(), &db_handle);
+  handle_.reset(db_handle);
   if (rc != SQLITE_OK) {
     std::string err_msg = sqlite3_errmsg(handle_.get());
-    sqlite3_close(handle_.get());
     handle_.reset();
     throw std::runtime_error("Database::open: " + err_msg);
   }
