@@ -92,8 +92,8 @@ root=%APPDATA%\ur\
 $root/workspace    # agent read/write sandbox
 $root/database     # SQLite database
 $root/tools        # custom tool plugins
-$root/log          # runtime logs
-$root/keys         # API keys and credentials
+$root/logs         # runtime logs
+$root/key          # API key and credential
 ```
 
 ## Providers
@@ -123,15 +123,15 @@ Generate a 256-bit key and store it in the workspace:
 
 ```shell
 # Linux
-openssl rand -base64 32 > ~/.local/share/ur/keys/secret.key
-chmod 600 ~/.local/share/ur/keys/secret.key
+openssl rand -base64 32 > ~/.local/share/ur/key/secret.key
+chmod 600 ~/.local/share/ur/key/secret.key
 
 # macOS
-openssl rand -base64 32 > ~/Library/Application\ Support/ur/keys/secret.key
-chmod 600 ~/Library/Application\ Support/ur/keys/secret.key
+openssl rand -base64 32 > ~/Library/Application\ Support/ur/key/secret.key
+chmod 600 ~/Library/Application\ Support/ur/key/secret.key
 ```
 
-`ur` checks for `$root/keys/secret.key` at startup. If found, message content is encrypted before being written to the database and decrypted on read. The key never leaves the local machine.
+`ur` checks for `$root/key/secret.key` at startup. If found, message content is encrypted before being written to the database and decrypted on read. The key never leaves the local machine.
 
 ### Message transport security
 
