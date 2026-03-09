@@ -37,6 +37,7 @@ repos:
           - --suppress=unusedFunction
           - --suppress=syntaxError
           - --suppress=constParameterReference
+          - --suppress=unusedPrivateFunction
       # - id: include-what-you-use # after build, so that it can use the compile_commands.json
       #   args: [-p=build]
 

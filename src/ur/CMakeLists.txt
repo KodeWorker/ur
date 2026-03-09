@@ -2,11 +2,19 @@
 find_package(OpenSSL REQUIRED)
 
 add_library(
-  ur_lib STATIC cli/command.cpp cli/context.cpp log/logger.cpp
-                memory/workspace.cpp memory/database.cpp memory/crypto.cpp)
+  ur_lib STATIC
+  cli/command.cpp
+  cli/context.cpp
+  log/logger.cpp
+  memory/workspace.cpp
+  memory/database.cpp
+  memory/crypto.cpp
+  llm/http_provider.cpp
+  agent/runner.cpp)
 
 target_include_directories(ur_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(ur_lib PUBLIC sqlite3 OpenSSL::Crypto)
+target_link_libraries(ur_lib PUBLIC sqlite3 OpenSSL::Crypto httplib::httplib
+                                    nlohmann_json::nlohmann_json)
 
 # ur — the CLI binary
 add_executable(ur main.cpp)

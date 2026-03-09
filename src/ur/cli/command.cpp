@@ -3,6 +3,9 @@
 #include <iostream>
 #include <string>
 
+#include "agent/runner.hpp"
+#include "llm/http_provider.hpp"
+
 namespace ur {
 
 int cmd_init(Context& ctx, int /*argc*/, char** /*argv*/) {
@@ -47,6 +50,34 @@ int cmd_clean(Context& ctx, int argc, char** argv) {
   } catch (const std::exception& e) {
     ctx.logger.error(e.what());
   }
+  return 1;
+}
+
+int cmd_run(Context& ctx, int argc, char** argv) {
+  // TODO:
+  // 1. Parse arguments:
+  //      prompt           = argv[2]  (required; error if missing)
+  //      model            = value of --model=<name> if present,
+  //                         else std::getenv("UR_LLM_MODEL_NAME"), else ""
+  //      system_prompt    = contents of file at --system-prompt=<path>
+  //                         if present; error if file cannot be read
+  //      allow_all        = true if --allow-all flag is present (Phase 4)
+  //
+  // 2. Construct provider:
+  //      HttpProvider provider = make_http_provider();
+  //
+  // 3. Construct runner:
+  //      Runner runner(ctx.db, ctx.enc_key, ctx.logger);
+  //
+  // 4. Call runner.run(prompt, system_prompt, model, provider).
+  //    Print result.response to stdout.
+  //    Optionally log session_id at info level.
+  //
+  // 5. Return 0 on success, 1 on any exception (log via ctx.logger.error).
+  (void)ctx;
+  (void)argc;
+  (void)argv;
+  std::cerr << "cmd_run: not implemented\n";
   return 1;
 }
 

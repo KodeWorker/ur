@@ -14,4 +14,9 @@ int cmd_init(Context& ctx, int argc, char** argv);
 // --database:  drops all database tables only.
 int cmd_clean(Context& ctx, int argc, char** argv);
 
+// ur run <prompt> [--model=<name>] [--system-prompt=<file>] [--allow-all]
+// Sends a single-shot request to the LLM provider, persists the session and
+// messages, and prints the assistant response to stdout.
+int cmd_run(Context& ctx, int argc, char** argv);
+
 }  // namespace ur
