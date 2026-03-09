@@ -222,5 +222,8 @@ Implement `ur chat` with context manager and `--continue`, `ur history`, and `ur
 **Phase 4** — Tool system and sandbox tier 1:
 Tool plugin loading from `$root/tools/`, workspace-constrained sandbox, tool-calling loop in the agent.
 
-**Phase 5** — Docker sandbox and streaming TUI:
+**Phase 5** — Memory and context:
+Context compression (LLM-summarised rolling window), long-term semantic memory via flat-file vector store, context usage display in the TUI status line.
+
+**Phase 6** — Docker sandbox and streaming TUI:
 Sandbox tier 2 (Docker runner), streaming token output, TUI polish.

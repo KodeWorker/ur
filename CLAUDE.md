@@ -103,4 +103,5 @@ Commits are managed via `uv run pre-commit`. Hooks run automatically on `git com
 | 2 | `ur run`, OpenAI-compatible HTTP provider | Not started |
 | 3 | `ur chat`, `ur history`, `ur persona` | Not started |
 | 4 | Tool plugins, sandbox tier 1 | Not started |
-| 5 | Docker sandbox tier 2, streaming TUI | Not started |
+| 5 | Context compression, long-term memory, context usage display | Not started |
+| 6 | Docker sandbox tier 2, streaming TUI | Not started |
