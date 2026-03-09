@@ -1,31 +1,66 @@
 #include <gtest/gtest.h>
 
-#include "memory/workspace.hpp"
+#include <filesystem>
+#include <fstream>
 
-// Helper: create a temporary directory unique to this test run.
-// Use std::filesystem::temp_directory_path() / a unique subdirectory.
+#include "memory/workspace.hpp"
 
 namespace {
 
-// TODO: add a fixture that creates a temp root dir in SetUp()
-//       and removes it in TearDown().
+namespace fs = std::filesystem;
 
-TEST(WorkspaceTest, ResolvePathsReturnsNonEmptyRoot) {
-  // TODO: call resolve_paths() and assert that paths.root is not empty.
+// Builds a Paths struct rooted at an arbitrary temp directory.
+ur::Paths make_test_paths(const fs::path& root) {
+  return {root,           root / "workspace", root / "database",
+          root / "tools", root / "log",       root / "keys"};
 }
 
-TEST(WorkspaceTest, InitWorkspaceCreatesAllSubdirs) {
-  // TODO: build a Paths pointing at a temp dir, call init_workspace(),
-  //       and assert that workspace/, database/, tools/, log/, keys/ all exist.
+class WorkspaceTest : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    root_ =
+        fs::temp_directory_path() / ("ur_test_" + std::to_string(::getpid()));
+    fs::create_directories(root_);
+  }
+
+  void TearDown() override { fs::remove_all(root_); }
+
+  fs::path root_;
+};
+
+TEST(WorkspaceResolveTest, ResolvePathsReturnsNonEmptyRoot) {
+  ur::Paths paths = ur::resolve_paths();
+  EXPECT_FALSE(paths.root.empty());
 }
 
-TEST(WorkspaceTest, InitWorkspaceIsIdempotent) {
-  // TODO: call init_workspace() twice on the same Paths and assert no error.
+TEST_F(WorkspaceTest, InitWorkspaceCreatesAllSubdirs) {
+  ur::Paths paths = make_test_paths(root_);
+  ur::init_workspace(paths);
+
+  EXPECT_TRUE(fs::is_directory(paths.workspace));
+  EXPECT_TRUE(fs::is_directory(paths.database));
+  EXPECT_TRUE(fs::is_directory(paths.tools));
+  EXPECT_TRUE(fs::is_directory(paths.log));
+  EXPECT_TRUE(fs::is_directory(paths.keys));
 }
 
-TEST(WorkspaceTest, RemoveWorkspaceClearsContents) {
-  // TODO: init workspace, create a file inside workspace/,
-  //       call remove_workspace(), assert the file no longer exists.
+TEST_F(WorkspaceTest, InitWorkspaceIsIdempotent) {
+  ur::Paths paths = make_test_paths(root_);
+  EXPECT_NO_THROW(ur::init_workspace(paths));
+  EXPECT_NO_THROW(ur::init_workspace(paths));
+}
+
+TEST_F(WorkspaceTest, RemoveWorkspaceClearsContents) {
+  ur::Paths paths = make_test_paths(root_);
+  ur::init_workspace(paths);
+
+  // Create a file inside workspace/.
+  std::ofstream(paths.workspace / "sentinel.txt") << "data";
+  ASSERT_TRUE(fs::exists(paths.workspace / "sentinel.txt"));
+
+  ur::remove_workspace(paths);
+
+  EXPECT_FALSE(fs::exists(paths.workspace / "sentinel.txt"));
 }
 
 }  // namespace
