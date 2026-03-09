@@ -11,6 +11,10 @@ int cmd_init(Context& ctx, int /*argc*/, char** /*argv*/) {
   // 2. ctx.db.init_schema()       — lazy-open DB and create tables
   // 3. Print a confirmation message to stdout
   // Return 0 on success, 1 on error.
+  //
+  // NOTE: wrap steps 1–2 in try/catch; on exception call
+  // ctx.log.error(e.what())
+  //       before returning 1.
   (void)ctx;
   std::cerr << "cmd_init: not implemented\n";
   return 1;
@@ -27,6 +31,10 @@ int cmd_clean(Context& ctx, int argc, char** argv) {
   //   --database  → ctx.db.drop_all()
   //   (no flag)   → both of the above
   // Return 0 on success, 1 on unknown flag or error.
+  //
+  // NOTE: wrap each operation in try/catch; on exception call
+  // ctx.log.error(e.what())
+  //       before returning 1. Log unknown flag as ctx.log.error(...) as well.
   (void)ctx;
   (void)argc;
   (void)argv;
