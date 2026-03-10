@@ -22,11 +22,11 @@ HttpProvider::HttpProvider(std::string base_url, std::string api_key)
     : base_url_(std::move(base_url)), api_key_(std::move(api_key)) {}
 
 HttpProvider make_http_provider() {
-  // TODO:
   // 1. Read UR_LLM_BASE_URL from std::getenv; default to
-  //    "http://localhost:8080" if unset or empty.
+  //    "http://localhost:8000" if unset or empty.
   // 2. Read UR_LLM_API_KEY from std::getenv; default to empty string.
   // 3. Return HttpProvider(base_url, api_key).
+
   throw std::runtime_error("make_http_provider: not implemented");
 }
 
@@ -44,7 +44,7 @@ std::string HttpProvider::complete(const std::vector<Message>& messages,
   //
   // 2. Split base_url_ into host and path prefix using httplib::detail or
   //    manual string parsing (find "://", then first "/").
-  //    e.g. "http://localhost:8080" → host="http://localhost:8080", path=""
+  //    e.g. "http://localhost:8000" → host="http://localhost:8000", path=""
   //
   // 3. Create httplib::Client client(host).
   //    If api_key_ is non-empty, set the Authorization header:
