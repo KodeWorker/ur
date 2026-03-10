@@ -200,6 +200,37 @@ void Database::insert_message(const std::string& id,
   sqlite3_finalize(stmt);
 }
 
+void Database::begin() {
+  if (!is_open()) open();
+  char* err_msg = nullptr;
+  if (sqlite3_exec(handle_.get(), "BEGIN", nullptr, nullptr, &err_msg) !=
+      SQLITE_OK) {
+    std::string err = err_msg ? err_msg : "unknown error";
+    sqlite3_free(err_msg);
+    throw std::runtime_error("Database::begin: " + err);
+  }
+}
+
+void Database::commit() {
+  char* err_msg = nullptr;
+  if (sqlite3_exec(handle_.get(), "COMMIT", nullptr, nullptr, &err_msg) !=
+      SQLITE_OK) {
+    std::string err = err_msg ? err_msg : "unknown error";
+    sqlite3_free(err_msg);
+    throw std::runtime_error("Database::commit: " + err);
+  }
+}
+
+void Database::rollback() {
+  char* err_msg = nullptr;
+  if (sqlite3_exec(handle_.get(), "ROLLBACK", nullptr, nullptr, &err_msg) !=
+      SQLITE_OK) {
+    std::string err = err_msg ? err_msg : "unknown error";
+    sqlite3_free(err_msg);
+    throw std::runtime_error("Database::rollback: " + err);
+  }
+}
+
 void Database::drop_all() {
   // Drop message before session to respect the foreign key reference.
   if (!is_open()) open();

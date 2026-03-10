@@ -67,7 +67,7 @@ int cmd_run(Context& ctx, int argc, char** argv) {
   //      HttpProvider provider = make_http_provider();
   //
   // 3. Construct runner:
-  //      Runner runner(ctx.db, ctx.enc_key, ctx.logger);
+  //      Runner runner(ctx.db, ctx.logger);
   //
   // 4. Call runner.run(prompt, system_prompt, model, provider).
   //    Print result.response to stdout.

@@ -30,10 +30,27 @@ tests/unit/test_persona_updater.cpp
    b. Append user message to context + DB
    c. Call provider.complete(context)
    d. Append assistant message to context + DB
-   e. Stream/print response
+   e. Stream/print response (see Reasoning Display below)
    f. Run persona_updater on latest exchange
    g. Repeat until user exits (Ctrl-C / "exit" / "quit")
 ```
+
+## Reasoning Display (Thinking Models)
+
+Some OpenAI-compatible backends expose chain-of-thought reasoning alongside the final answer:
+
+| Backend style | Reasoning location |
+|---|---|
+| DeepSeek-R1 / QwQ | `choices[0]["message"]["reasoning_content"]` (separate field) |
+| Embedded tags | `<think>...</think>` prefix inside `content` |
+| OpenAI o1/o3 | Consumed internally — not exposed in response |
+
+`HttpProvider::complete()` currently returns only `content`. For Phase 3, extend it to also return `reasoning_content` when present, so the TUI can render it separately (e.g. collapsed/dimmed block above the answer).
+
+Design:
+- Add an optional `reasoning` field to the response type (or return a struct instead of `std::string`)
+- TUI renders reasoning in a visually distinct block; `ur run` ignores it
+- Reasoning is **not** stored in the database — it is ephemeral display only
 
 ## Context Window Management
 

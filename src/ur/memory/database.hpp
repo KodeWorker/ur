@@ -46,6 +46,13 @@ class Database {
                       const std::string& role, const std::string& content,
                       int64_t created_at);
 
+  // Transaction control. begin() lazily opens the database.
+  // commit() and rollback() require an open handle (call after begin()).
+  // All three throw std::runtime_error on failure.
+  void begin();
+  void commit();
+  void rollback();
+
   bool is_open() const;
 
  private:
