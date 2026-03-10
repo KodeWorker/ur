@@ -3,6 +3,7 @@ find_package(OpenSSL REQUIRED)
 
 add_library(
   ur_lib STATIC
+  env.cpp
   cli/command.cpp
   cli/context.cpp
   log/logger.cpp

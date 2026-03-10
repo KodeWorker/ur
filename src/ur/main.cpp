@@ -3,6 +3,7 @@
 
 #include "cli/command.hpp"
 #include "cli/context.hpp"
+#include "env.hpp"
 
 static void print_usage() {
   std::cerr << "usage: ur <command> [options]\n"
@@ -28,6 +29,7 @@ int main(int argc, char** argv) {
     return 0;
   }
 
+  ur::load_dotenv();
   ur::Context ctx = ur::make_context();
 
   if (cmd == "init") return ur::cmd_init(ctx, argc, argv);
