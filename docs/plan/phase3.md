@@ -10,12 +10,38 @@
 - `ur history [<id>]` — list sessions or show messages for one session
 - `ur persona` — display current persona key/value pairs
 
+## TUI Backend — ftxui
+
+Phase 3 adopts [ftxui](https://github.com/ArthurSonzogni/FTXUI) as the TUI
+library, added via CMake FetchContent.
+
+Rationale: ftxui's component model scales naturally across future phases without
+a rewrite:
+
+| Phase | UI additions |
+|-------|-------------|
+| 3 | Input box, scrollable chat history, spinner, collapsible reasoning block |
+| 4 | Inline tool-call / tool-result display |
+| 5 | Status bar: token count, context usage, compression indicator |
+| 6 | Streaming token output |
+
+Key design points:
+- `Chat::run()` drives ftxui's `ScreenInteractive` event loop rather than a
+  plain `while(getline)`. The provider call runs on a background thread and
+  posts an event back to the UI thread on completion.
+- Reasoning block rendered via ftxui `Collapsible` component — collapsed by
+  default, user can expand with a keypress.
+- Spinner is an ftxui `Spinner` or animated `Text` component on the UI thread,
+  driven by a periodic `PostEvent` from the background thread.
+
+CMake targets used: `ftxui::component`, `ftxui::dom`, `ftxui::screen`.
+
 ## Source Files to Create
 
 ```
 src/ur/agent/chat.cpp/.hpp          Multi-turn loop, context window management
 src/ur/agent/persona_updater.cpp    Extracts persona facts from conversation and upserts
-src/ur/cli/tui.cpp/.hpp             Minimal line-based TUI (input prompt, streaming output)
+src/ur/cli/tui.cpp/.hpp             ftxui-based TUI wrapper (input, chat view, spinner)
 tests/unit/test_chat.cpp
 tests/unit/test_persona_updater.cpp
 ```
@@ -30,7 +56,7 @@ tests/unit/test_persona_updater.cpp
    b. Append user message to context + DB
    c. Start spinner animation on a background thread; call provider.complete(context); stop spinner on return
    d. Strip `<think>…</think>` from response:
-      - If reasoning present: save to DB as role `"reason"`, render dimmed in TUI
+      - If reasoning present: save to DB as role `"reason"`, render as collapsible block in TUI (collapsed by default)
       - Save cleaned content to DB as role `"assistant"`, append to in-memory context
    e. Stream/print response (see Reasoning Display below)
    f. Run persona_updater on latest exchange
@@ -50,8 +76,8 @@ Design:
 - `HttpProvider::complete()` returns the full raw `content` string unchanged
 - `Chat` (Phase 3) strips the `<think>…</think>` prefix from `content` before
   storing the assistant message and before passing it back to the persona updater
-- The stripped reasoning block is rendered in a visually distinct (dimmed) block
-  in the TUI above the final answer; `ur run` discards it silently
+- The stripped reasoning block is rendered as a collapsible block above the
+  final answer (collapsed by default); `ur run` discards it silently
 - Reasoning is **not** stored in the database — it is ephemeral display only
 
 ## Context Window Management
