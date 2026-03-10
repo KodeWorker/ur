@@ -29,7 +29,9 @@ tests/unit/test_persona_updater.cpp
    a. Read user input from TUI
    b. Append user message to context + DB
    c. Call provider.complete(context)
-   d. Append assistant message to context + DB
+   d. Strip `<think>…</think>` from response:
+      - If reasoning present: save to DB as role `"reason"`, render dimmed in TUI
+      - Save cleaned content to DB as role `"assistant"`, append to in-memory context
    e. Stream/print response (see Reasoning Display below)
    f. Run persona_updater on latest exchange
    g. Repeat until user exits (Ctrl-C or `/exit` slash command)
