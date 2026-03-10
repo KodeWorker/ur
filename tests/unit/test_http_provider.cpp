@@ -4,6 +4,7 @@
 #include <httplib.h>
 
 #include <functional>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <utility>
@@ -25,6 +26,7 @@ class HttpProviderTest : public ::testing::Test {
     // swap it out without re-registering routes.
     svr_.Post("/v1/chat/completions",
               [this](const httplib::Request& req, httplib::Response& res) {
+                std::lock_guard<std::mutex> lock(handler_mu_);
                 handler_(req, res);
               });
     port_ = svr_.bind_to_any_port("localhost");
@@ -38,8 +40,10 @@ class HttpProviderTest : public ::testing::Test {
   }
 
   // Replace the active request handler before calling provider.complete().
+  // Guarded by handler_mu_ — the server thread reads handler_ on each request.
   void set_handler(
       std::function<void(const httplib::Request&, httplib::Response&)> h) {
+    std::lock_guard<std::mutex> lock(handler_mu_);
     handler_ = std::move(h);
   }
 
@@ -48,6 +52,7 @@ class HttpProviderTest : public ::testing::Test {
   std::thread thread_;
   std::string base_url_;
 
+  std::mutex handler_mu_;
   // Default handler: always returns a valid 200 response.
   std::function<void(const httplib::Request&, httplib::Response&)> handler_ =
       [](const httplib::Request&, httplib::Response& res) {
