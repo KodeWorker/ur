@@ -70,8 +70,8 @@ std::string HttpProvider::complete(const std::vector<Message>& messages,
     throw std::runtime_error("HTTP error " + std::to_string(res->status) +
                              ": " + res->body);
   }
-  nlohmann::json response_json = nlohmann::json::parse(res->body);
   try {
+    nlohmann::json response_json = nlohmann::json::parse(res->body);
     return response_json["choices"][0]["message"]["content"].get<std::string>();
   } catch (const nlohmann::json::exception& e) {
     throw std::runtime_error(std::string("response parsing error: ") +
