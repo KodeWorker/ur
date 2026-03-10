@@ -103,6 +103,7 @@ int cmd_run(Context& ctx, int argc, char** argv) {
         return 1;
       }
     }
+    ctx.db.init_schema();
     HttpProvider provider = make_http_provider();
     Runner runner(ctx.db, ctx.logger);
     RunResult result = runner.run(prompt, system_prompt, model, provider);

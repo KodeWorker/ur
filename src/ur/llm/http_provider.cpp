@@ -24,7 +24,7 @@ HttpProvider::HttpProvider(std::string base_url, std::string api_key)
 HttpProvider make_http_provider() {
   const char* base_url = std::getenv("UR_LLM_BASE_URL");
   if (base_url == nullptr || std::string(base_url).empty()) {
-    base_url = "http://localhost:8000";
+    base_url = "http://localhost:8080";
   }
   const char* api_key = std::getenv("UR_LLM_API_KEY");
   if (api_key == nullptr) {

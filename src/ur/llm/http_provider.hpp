@@ -11,7 +11,7 @@ namespace ur {
 // Reads UR_LLM_BASE_URL and UR_LLM_API_KEY from environment at construction.
 class HttpProvider : public Provider {
  public:
-  // base_url: e.g. "http://localhost:8000" or "http://localhost:11434"
+  // base_url: e.g. "http://localhost:8080" or "http://localhost:11434"
   // api_key:  sent as "Authorization: Bearer <key>"; may be empty for local
   //           servers that do not require authentication.
   explicit HttpProvider(std::string base_url, std::string api_key = {});
@@ -27,7 +27,7 @@ class HttpProvider : public Provider {
 };
 
 // Construct HttpProvider from environment variables.
-// UR_LLM_BASE_URL defaults to "http://localhost:8000" if unset.
+// UR_LLM_BASE_URL defaults to "http://localhost:8080" if unset.
 // UR_LLM_API_KEY defaults to empty string if unset.
 // Model name is NOT read here — it is resolved in cmd_run / Runner:
 //   --model=<name>  >  UR_LLM_MODEL  >  empty (server picks default)
