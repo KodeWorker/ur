@@ -62,9 +62,9 @@ Default: omit `--model` and the server's default model is used.
 
 ## Acceptance Criteria
 
-- [ ] `ur run "hello"` completes and prints a response
-- [ ] Session and both messages appear in the database afterward
-- [ ] Message content is encrypted at rest when `$root/keys/secret.key` is present
-- [ ] `--system-prompt=file.txt` loads the file and prepends as a system message
-- [ ] Unreachable server exits with a clear error message
-- [ ] `UR_LLM_BASE_URL` overrides the default endpoint
+- [x] `ur run "hello"` completes and prints a response
+- [x] Session and both messages appear in the database afterward
+- [x] Message content is encrypted at rest when `$root/key/secret.key` is present
+- [x] `--system-prompt=file.txt` loads the file and prepends as a system message
+- [x] Unreachable server exits with a clear error message
+- [x] `UR_LLM_BASE_URL` overrides the default endpoint
