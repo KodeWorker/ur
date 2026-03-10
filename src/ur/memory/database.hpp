@@ -6,9 +6,6 @@
 #include <memory>
 #include <string>
 
-// Forward-declare sqlite3 to avoid exposing it in the public header.
-struct sqlite3;
-
 namespace ur {
 
 class Database {
