@@ -81,43 +81,123 @@ void Database::init_schema() {
 void Database::insert_session(const std::string& id, const std::string& title,
                               const std::string& model, int64_t created_at,
                               int64_t updated_at) {
-  // TODO:
-  // 1. If !is_open(), call open().
-  // 2. Prepare: INSERT INTO session (id, title, model, created_at, updated_at)
-  //             VALUES (?, ?, ?, ?, ?)
-  //    Use sqlite3_prepare_v2.
-  // 3. Bind: id, title, model as SQLITE_TRANSIENT text; created_at, updated_at
-  //    as int64.
-  // 4. sqlite3_step — throw on anything other than SQLITE_DONE.
-  // 5. sqlite3_finalize.
-  (void)id;
-  (void)title;
-  (void)model;
-  (void)created_at;
-  (void)updated_at;
-  throw std::runtime_error("Database::insert_session: not implemented");
+  if (!is_open()) open();
+  // SQL: parameterized INSERT into session (id, title, model, created_at,
+  // updated_at).
+  const char* sql = R"(
+    INSERT INTO session (id, title, model, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?)
+  )";
+  sqlite3_stmt* stmt = nullptr;
+  int rc = sqlite3_prepare_v2(handle_.get(), sql, -1, &stmt, nullptr);
+  if (rc != SQLITE_OK) {
+    std::string err_msg = sqlite3_errmsg(handle_.get());
+    throw std::runtime_error("Database::insert_session (prepare): " + err_msg);
+  }
+  // Bind parameters
+  if (sqlite3_bind_text(stmt, 1, id.c_str(), -1, SQLITE_TRANSIENT) !=
+      SQLITE_OK) {
+    std::string err_msg = sqlite3_errmsg(handle_.get());
+    sqlite3_finalize(stmt);
+    throw std::runtime_error("Database::insert_session (bind id): " + err_msg);
+  }
+  if (sqlite3_bind_text(stmt, 2, title.c_str(), -1, SQLITE_TRANSIENT) !=
+      SQLITE_OK) {
+    std::string err_msg = sqlite3_errmsg(handle_.get());
+    sqlite3_finalize(stmt);
+    throw std::runtime_error("Database::insert_session (bind title): " +
+                             err_msg);
+  }
+  if (sqlite3_bind_text(stmt, 3, model.c_str(), -1, SQLITE_TRANSIENT) !=
+      SQLITE_OK) {
+    std::string err_msg = sqlite3_errmsg(handle_.get());
+    sqlite3_finalize(stmt);
+    throw std::runtime_error("Database::insert_session (bind model): " +
+                             err_msg);
+  }
+  if (sqlite3_bind_int64(stmt, 4, created_at) != SQLITE_OK) {
+    std::string err_msg = sqlite3_errmsg(handle_.get());
+    sqlite3_finalize(stmt);
+    throw std::runtime_error("Database::insert_session (bind created_at): " +
+                             err_msg);
+  }
+  if (sqlite3_bind_int64(stmt, 5, updated_at) != SQLITE_OK) {
+    std::string err_msg = sqlite3_errmsg(handle_.get());
+    sqlite3_finalize(stmt);
+    throw std::runtime_error("Database::insert_session (bind updated_at): " +
+                             err_msg);
+  }
+  // Execute
+  rc = sqlite3_step(stmt);
+  if (rc != SQLITE_DONE) {
+    std::string err_msg = sqlite3_errmsg(handle_.get());
+    sqlite3_finalize(stmt);
+    throw std::runtime_error("Database::insert_session (step): " + err_msg);
+  }
+  sqlite3_finalize(stmt);
 }
 
 void Database::insert_message(const std::string& id,
                               const std::string& session_id,
                               const std::string& role,
                               const std::string& content, int64_t created_at) {
-  // TODO:
-  // 1. If !is_open(), call open().
-  // 2. Prepare: INSERT INTO message (id, session_id, role, content, created_at)
-  //             VALUES (?, ?, ?, ?, ?)
-  //    Use sqlite3_prepare_v2.
-  // 3. Bind: id, session_id, role as SQLITE_TRANSIENT text; content as blob
-  //    (sqlite3_bind_blob with explicit size — handles binary/encrypted bytes);
-  //    created_at as int64.
-  // 4. sqlite3_step — throw on anything other than SQLITE_DONE.
-  // 5. sqlite3_finalize.
-  (void)id;
-  (void)session_id;
-  (void)role;
-  (void)content;
-  (void)created_at;
-  throw std::runtime_error("Database::insert_message: not implemented");
+  if (!is_open()) open();
+  // SQL: parameterized INSERT into message (id, session_id, role, content,
+  // created_at).
+  const char* sql = R"(
+    INSERT INTO message (id, session_id, role, content, created_at)
+    VALUES (?, ?, ?, ?, ?)
+  )";
+  sqlite3_stmt* stmt = nullptr;
+  int rc = sqlite3_prepare_v2(handle_.get(), sql, -1, &stmt, nullptr);
+  if (rc != SQLITE_OK) {
+    std::string err_msg = sqlite3_errmsg(handle_.get());
+    throw std::runtime_error("Database::insert_message (prepare): " + err_msg);
+  }
+  // Bind parameters
+  if (sqlite3_bind_text(stmt, 1, id.c_str(), -1, SQLITE_TRANSIENT) !=
+      SQLITE_OK) {
+    std::string err_msg = sqlite3_errmsg(handle_.get());
+    sqlite3_finalize(stmt);
+    throw std::runtime_error("Database::insert_message (bind id): " + err_msg);
+  }
+  if (sqlite3_bind_text(stmt, 2, session_id.c_str(), -1, SQLITE_TRANSIENT) !=
+      SQLITE_OK) {
+    std::string err_msg = sqlite3_errmsg(handle_.get());
+    sqlite3_finalize(stmt);
+    throw std::runtime_error("Database::insert_message (bind session_id): " +
+                             err_msg);
+  }
+  if (sqlite3_bind_text(stmt, 3, role.c_str(), -1, SQLITE_TRANSIENT) !=
+      SQLITE_OK) {
+    std::string err_msg = sqlite3_errmsg(handle_.get());
+    sqlite3_finalize(stmt);
+    throw std::runtime_error("Database::insert_message (bind role): " +
+                             err_msg);
+  }
+  const std::string encrypted = enc(content);
+  if (sqlite3_bind_blob(stmt, 4, encrypted.data(),
+                        static_cast<int>(encrypted.size()),
+                        SQLITE_TRANSIENT) != SQLITE_OK) {
+    std::string err_msg = sqlite3_errmsg(handle_.get());
+    sqlite3_finalize(stmt);
+    throw std::runtime_error("Database::insert_message (bind content): " +
+                             err_msg);
+  }
+  if (sqlite3_bind_int64(stmt, 5, created_at) != SQLITE_OK) {
+    std::string err_msg = sqlite3_errmsg(handle_.get());
+    sqlite3_finalize(stmt);
+    throw std::runtime_error("Database::insert_message (bind created_at): " +
+                             err_msg);
+  }
+  // Execute
+  rc = sqlite3_step(stmt);
+  if (rc != SQLITE_DONE) {
+    std::string err_msg = sqlite3_errmsg(handle_.get());
+    sqlite3_finalize(stmt);
+    throw std::runtime_error("Database::insert_message (step): " + err_msg);
+  }
+  sqlite3_finalize(stmt);
 }
 
 void Database::drop_all() {
