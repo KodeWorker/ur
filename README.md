@@ -13,7 +13,7 @@ Your agent sandbox — secured, efficient, local hosted, for you only
 - An OpenAI-compatible LLM server (e.g. llama.cpp server, Ollama) — managed and run independently
 - Docker (optional — required for sandbox tier 2)
 
-All other dependencies (SQLite, mbedTLS, cpp-httplib, nlohmann/json, GoogleTest) are either bundled or fetched automatically by CMake. No manual library installation required.
+All other dependencies (SQLite, mbedTLS, cpp-httplib, nlohmann/json, ftxui, GoogleTest) are either bundled or fetched automatically by CMake. No manual library installation required.
 
 ## Build from Source
 
