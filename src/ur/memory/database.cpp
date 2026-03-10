@@ -101,8 +101,7 @@ void Database::insert_session(const std::string& id, const std::string& title,
 void Database::insert_message(const std::string& id,
                               const std::string& session_id,
                               const std::string& role,
-                              const std::string& content,
-                              int64_t created_at) {
+                              const std::string& content, int64_t created_at) {
   // TODO:
   // 1. If !is_open(), call open().
   // 2. Prepare: INSERT INTO message (id, session_id, role, content, created_at)
