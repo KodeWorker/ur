@@ -43,6 +43,7 @@ class RunnerTest : public ::testing::Test {
             ("ur_test_runner_" + std::to_string(::getpid()));
     fs::create_directories(root_);
     db_ = std::make_unique<ur::Database>(root_ / "ur.db");
+    db_->init_schema();
     logger_ = std::make_unique<ur::Logger>(root_);
   }
 
@@ -125,6 +126,7 @@ TEST_F(RunnerTest, RunPassesSystemPromptAsFirstMessage) {
 TEST_F(RunnerTest, RunEncryptsContentWithKey) {
   const std::string key(32, 'k');
   auto db_enc = std::make_unique<ur::Database>(root_ / "ur_enc.db", key);
+  db_enc->init_schema();
   MockProvider mock("response");
   ur::Runner runner(*db_enc, *logger_);
   runner.run("secret", "", "", mock);

@@ -29,7 +29,10 @@ std::string Runner::generate_id() {
 RunResult Runner::run(const std::string& prompt,
                       const std::string& system_prompt,
                       const std::string& model, Provider& provider) {
-  db_.init_schema();
+  if (!db_.is_open()) {
+    throw std::runtime_error(
+        "Runner::run: database is not open, init schema first");
+  }
   std::string session_id = generate_id();
   std::string user_msg_id = generate_id();
   std::string asst_msg_id = generate_id();
