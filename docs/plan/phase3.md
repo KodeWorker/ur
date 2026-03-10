@@ -93,6 +93,7 @@ ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated
 
 # ur history <id>     → messages for session
 [user]      hello
+[reason]    ...
 [assistant] hi there...
 ```
 
