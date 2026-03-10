@@ -64,6 +64,21 @@ Design:
 
 After each assistant turn, run a lightweight secondary LLM call (or regex heuristics) to extract facts about the user and upsert them into the `persona` table.
 
+### Meaningful-turn filter
+
+Skip the persona updater unless **both** conditions hold:
+
+- **Length** — user message exceeds 50 characters
+- **Depth** — session has at least 3 completed exchanges (6 messages in context)
+
+These thresholds are intentionally conservative starting points and should be
+tuned once real usage data is available. A "hi" or single-word reply never
+triggers extraction. Open questions for later refinement:
+
+- Should depth count only user messages, or all messages?
+- Should a very long first message (e.g. a detailed self-introduction) bypass the depth check?
+- Is 50 chars the right length floor, or should it be token-based?
+
 ```sql
 INSERT INTO persona (key, value, updated_at)
 VALUES (?, ?, ?)
