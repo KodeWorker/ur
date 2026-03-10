@@ -35,6 +35,10 @@ void load_dotenv(const std::filesystem::path& path) {
 
     if (key.empty()) continue;
 
+// Intentional: .env is project-level defaults that always win. Shell-profile
+// values take precedence by simply not listing the var in .env. Skipping
+// already-set vars would make .env silently ineffective when the same var
+// appears in both places.
 #ifdef _WIN32
     _putenv_s(key.c_str(), val.c_str());
 #else
