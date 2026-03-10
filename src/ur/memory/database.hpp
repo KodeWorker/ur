@@ -34,6 +34,18 @@ class Database {
   // The database file itself is kept; only the schema is removed.
   void drop_all();
 
+  // Insert a new session row. created_at and updated_at are Unix timestamps.
+  // Throws std::runtime_error on failure.
+  void insert_session(const std::string& id, const std::string& title,
+                      const std::string& model, int64_t created_at,
+                      int64_t updated_at);
+
+  // Insert a new message row. content is stored as-is (caller is responsible
+  // for encryption). Throws std::runtime_error on failure.
+  void insert_message(const std::string& id, const std::string& session_id,
+                      const std::string& role, const std::string& content,
+                      int64_t created_at);
+
   bool is_open() const;
 
  private:

@@ -78,6 +78,49 @@ void Database::init_schema() {
   }
 }
 
+void Database::insert_session(const std::string& id, const std::string& title,
+                              const std::string& model, int64_t created_at,
+                              int64_t updated_at) {
+  // TODO:
+  // 1. If !is_open(), call open().
+  // 2. Prepare: INSERT INTO session (id, title, model, created_at, updated_at)
+  //             VALUES (?, ?, ?, ?, ?)
+  //    Use sqlite3_prepare_v2.
+  // 3. Bind: id, title, model as SQLITE_TRANSIENT text; created_at, updated_at
+  //    as int64.
+  // 4. sqlite3_step — throw on anything other than SQLITE_DONE.
+  // 5. sqlite3_finalize.
+  (void)id;
+  (void)title;
+  (void)model;
+  (void)created_at;
+  (void)updated_at;
+  throw std::runtime_error("Database::insert_session: not implemented");
+}
+
+void Database::insert_message(const std::string& id,
+                              const std::string& session_id,
+                              const std::string& role,
+                              const std::string& content,
+                              int64_t created_at) {
+  // TODO:
+  // 1. If !is_open(), call open().
+  // 2. Prepare: INSERT INTO message (id, session_id, role, content, created_at)
+  //             VALUES (?, ?, ?, ?, ?)
+  //    Use sqlite3_prepare_v2.
+  // 3. Bind: id, session_id, role as SQLITE_TRANSIENT text; content as blob
+  //    (sqlite3_bind_blob with explicit size — handles binary/encrypted bytes);
+  //    created_at as int64.
+  // 4. sqlite3_step — throw on anything other than SQLITE_DONE.
+  // 5. sqlite3_finalize.
+  (void)id;
+  (void)session_id;
+  (void)role;
+  (void)content;
+  (void)created_at;
+  throw std::runtime_error("Database::insert_message: not implemented");
+}
+
 void Database::drop_all() {
   // Drop message before session to respect the foreign key reference.
   if (!is_open()) open();
