@@ -47,17 +47,8 @@ std::string HttpProvider::complete(const std::vector<Message>& messages,
   }
   // Client setup and request
   const std::string body = request_json.dump();
-  auto scheme_end = base_url_.find("://");
-  if (scheme_end == std::string::npos)
-    throw std::runtime_error("complete: invalid base_url: " + base_url_);
-  auto path_start =
-      base_url_.find('/', scheme_end + 3);  // first '/' after the host
-  const std::string host =
-      base_url_.substr(0, path_start);  // "http://localhost:8000"
-  const std::string path_prefix =
-      (path_start != std::string::npos) ? base_url_.substr(path_start) : "";
-  const std::string endpoint = path_prefix + "/v1/chat/completions";
-  httplib::Client client(host);
+  httplib::Client client(base_url_);
+  const std::string endpoint = "/v1/chat/completions";
   const char* conn_timeout = std::getenv("UR_LLM_CONNECTION_TIMEOUT");
   const char* read_timeout = std::getenv("UR_LLM_READ_TIMEOUT");
   client.set_connection_timeout(conn_timeout ? std::stoi(conn_timeout) : 10,
