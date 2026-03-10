@@ -19,12 +19,26 @@ set(GTEST_FORCE_SHARED_CRT
     CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
-# cpp-httplib (header-only; HTTPS support via OpenSSL which is already linked)
+# cpp-httplib (header-only; HTTP-only mode — HTTPS is handled by a reverse
+# proxy)
 FetchContent_Declare(
   cpp-httplib
   GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
   GIT_TAG v0.18.1)
 FetchContent_MakeAvailable(cpp-httplib)
+
+# mbedTLS — crypto only (CTR-DRBG + AES-256-GCM); no TLS stack or X.509 needed
+FetchContent_Declare(
+  mbedtls
+  GIT_REPOSITORY https://github.com/Mbed-TLS/mbedtls.git
+  GIT_TAG v3.6.2)
+set(ENABLE_TESTING
+    OFF
+    CACHE BOOL "" FORCE)
+set(ENABLE_PROGRAMS
+    OFF
+    CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(mbedtls)
 
 # nlohmann/json (header-only)
 FetchContent_Declare(

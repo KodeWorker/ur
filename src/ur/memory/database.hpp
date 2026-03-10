@@ -10,10 +10,9 @@ namespace ur {
 
 class Database {
  public:
-  // Stores the path and optional encryption key — does NOT open the file.
-  // key: raw bytes of the AES-256-GCM key loaded from keys/secret.key.
-  //      Empty string disables encryption (plaintext mode).
-  explicit Database(std::filesystem::path path, std::string key = {});
+  // Stores the path and encryption key — does NOT open the file.
+  // key: 32 raw bytes of the AES-256-GCM key loaded from key/secret.key.
+  explicit Database(std::filesystem::path path, std::string key);
 
   ~Database();
 
@@ -57,14 +56,13 @@ class Database {
   // Throws std::runtime_error on failure.
   void open();
 
-  // Encrypt str if key_ is set; return str unchanged otherwise.
+  // Encrypt str with key_.
   std::string enc(const std::string& str) const;
-  // Decrypt str if key_ is set; return str unchanged otherwise.
+  // Decrypt str with key_.
   std::string dec(const std::string& str) const;
 
   std::filesystem::path path_;
-  // cppcheck-suppress unusedStructMember
-  std::string key_;  // empty = plaintext mode
+  std::string key_;
   std::unique_ptr<sqlite3, decltype(&sqlite3_close)> handle_{nullptr,
                                                              sqlite3_close};
 };

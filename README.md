@@ -10,16 +10,10 @@ Your agent sandbox — secured, efficient, local hosted, for you only
 
 - C++17 compiler (GCC 9+, Clang 10+, or MSVC 2019+)
 - CMake 3.20+
-- OpenSSL 3+
-  - Linux: `libssl-dev` (Debian/Ubuntu), `openssl-devel` (Fedora)
-  - macOS: `brew install openssl`
-  - Windows: `vcpkg install openssl` — pass `-DCMAKE_TOOLCHAIN_FILE=<vcpkg-root>/scripts/buildsystems/vcpkg.cmake` to CMake
 - An OpenAI-compatible LLM server (e.g. llama.cpp server, Ollama) — managed and run independently
 - Docker (optional — required for sandbox tier 2)
 
-SQLite is bundled as an amalgamation (3.52.0) — no system install required.
-
-For development only: GoogleTest (fetched automatically by CMake).
+All other dependencies (SQLite, mbedTLS, cpp-httplib, nlohmann/json, GoogleTest) are either bundled or fetched automatically by CMake. No manual library installation required.
 
 ## Build from Source
 
@@ -119,22 +113,9 @@ Examples:
 
 `ur` supports symmetric encryption (AES-256-GCM) for messages stored in the local SQLite database. Encryption is optional — if no key file is present, `ur` operates in plaintext mode.
 
-Generate a 256-bit (32-byte) key and store it in the workspace. Use `-out` to write raw bytes — **do not use `-base64`**, which would produce a 44-byte encoded string and be rejected at startup.
+`ur init` generates a 256-bit encryption key automatically. No manual step required.
 
-```shell
-# Linux
-openssl rand -out ~/.local/share/ur/key/secret.key 32
-chmod 600 ~/.local/share/ur/key/secret.key
-
-# macOS
-openssl rand -out ~/Library/Application\ Support/ur/key/secret.key 32
-chmod 600 ~/Library/Application\ Support/ur/key/secret.key
-```
-
-`ur` checks for `$root/key/secret.key` at startup:
-- **Key absent** — plaintext mode, no encryption applied.
-- **Key present, 32 bytes** — AES-256-GCM encryption on all stored message content.
-- **Key present, wrong size** — startup fails with `[ERROR] encrypt: key must be 32 bytes for AES-256-GCM`.
+`ur` loads `$root/key/secret.key` at startup. If the key is missing or the wrong size, startup fails with an error. Run `ur init` to generate the key before first use.
 
 The key never leaves the local machine.
 

@@ -5,10 +5,18 @@
 
 namespace ur {
 
-// Reads $root/keys/secret.key and returns its contents as a raw byte string.
-// Returns an empty string if the file does not exist (encryption disabled).
-// Throws std::runtime_error if the file exists but cannot be read.
+// Reads $root/key/secret.key and returns its contents as a raw byte string.
+// Throws std::runtime_error if the file does not exist or cannot be read.
 std::string load_key(const std::filesystem::path& key_path);
+
+// Generate a 32-byte key using OS entropy (mbedTLS CTR-DRBG) and write it to
+// key_path. No-op if key_path already exists — never overwrites an existing
+// key. Throws std::runtime_error on failure.
+void generate_key(const std::filesystem::path& key_path);
+
+// Fill n bytes with cryptographically random data (mbedTLS CTR-DRBG).
+// Throws std::runtime_error on failure.
+std::string random_bytes(size_t n);
 
 // AES-256-GCM encrypt plaintext with key.
 // Output format: [ 12-byte random IV ][ ciphertext ][ 16-byte auth tag ]

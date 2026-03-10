@@ -1,6 +1,4 @@
 # ur_lib — all sources except main.cpp, so tests can link against it.
-find_package(OpenSSL REQUIRED)
-
 add_library(
   ur_lib STATIC
   env.cpp
@@ -14,8 +12,9 @@ add_library(
   agent/runner.cpp)
 
 target_include_directories(ur_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(ur_lib PUBLIC sqlite3 OpenSSL::Crypto httplib::httplib
-                                    nlohmann_json::nlohmann_json)
+target_link_libraries(
+  ur_lib PUBLIC sqlite3 MbedTLS::mbedcrypto httplib::httplib
+                nlohmann_json::nlohmann_json)
 
 # ur — the CLI binary
 add_executable(ur main.cpp)

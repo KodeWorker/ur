@@ -1,7 +1,5 @@
 #include "runner.hpp"
 
-#include <openssl/rand.h>
-
 #include <ctime>
 #include <iomanip>
 #include <sstream>
@@ -9,18 +7,17 @@
 #include <string>
 #include <vector>
 
+#include "memory/crypto.hpp"
+
 namespace ur {
 
 Runner::Runner(Database& db, Logger& logger) : db_(db), logger_(logger) {}
 
 std::string Runner::generate_id() {
-  unsigned char buf[16];
-  if (RAND_bytes(buf, sizeof(buf)) != 1) {
-    throw std::runtime_error("Runner::generate_id: RAND_bytes failed");
-  }
+  std::string bytes = random_bytes(16);
   std::ostringstream oss;
   oss << std::hex << std::setfill('0');
-  for (unsigned char c : buf) {
+  for (unsigned char c : bytes) {
     oss << std::setw(2) << static_cast<int>(c);
   }
   return oss.str();

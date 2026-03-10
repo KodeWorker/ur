@@ -16,6 +16,8 @@ namespace {
 
 namespace fs = std::filesystem;
 
+const std::string kKey(32, 'k');
+
 // Mock provider — returns a canned response and records received messages.
 class MockProvider : public ur::Provider {
  public:
@@ -42,7 +44,7 @@ class RunnerTest : public ::testing::Test {
     root_ = fs::temp_directory_path() /
             ("ur_test_runner_" + std::to_string(::getpid()));
     fs::create_directories(root_);
-    db_ = std::make_unique<ur::Database>(root_ / "ur.db");
+    db_ = std::make_unique<ur::Database>(root_ / "ur.db", kKey);
     db_->init_schema();
     logger_ = std::make_unique<ur::Logger>(root_);
   }
@@ -124,8 +126,7 @@ TEST_F(RunnerTest, RunPassesSystemPromptAsFirstMessage) {
 }
 
 TEST_F(RunnerTest, RunEncryptsContentWithKey) {
-  const std::string key(32, 'k');
-  auto db_enc = std::make_unique<ur::Database>(root_ / "ur_enc.db", key);
+  auto db_enc = std::make_unique<ur::Database>(root_ / "ur_enc.db", kKey);
   db_enc->init_schema();
   MockProvider mock("response");
   ur::Runner runner(*db_enc, *logger_);

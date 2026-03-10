@@ -16,32 +16,34 @@ class DatabaseTest : public ::testing::Test {
   void SetUp() override {
     db_path_ = fs::temp_directory_path() /
                ("ur_test_db_" + std::to_string(::getpid()) + ".db");
+    key_ = std::string(32, 'k');
   }
 
   void TearDown() override { fs::remove(db_path_); }
 
   fs::path db_path_;
+  std::string key_;
 };
 
 TEST_F(DatabaseTest, IsNotOpenBeforeFirstCall) {
-  ur::Database db(db_path_);
+  ur::Database db(db_path_, key_);
   EXPECT_FALSE(db.is_open());
 }
 
 TEST_F(DatabaseTest, InitSchemaOpensDatabase) {
-  ur::Database db(db_path_);
+  ur::Database db(db_path_, key_);
   EXPECT_NO_THROW(db.init_schema());
   EXPECT_TRUE(db.is_open());
 }
 
 TEST_F(DatabaseTest, InitSchemaIsIdempotent) {
-  ur::Database db(db_path_);
+  ur::Database db(db_path_, key_);
   EXPECT_NO_THROW(db.init_schema());
   EXPECT_NO_THROW(db.init_schema());
 }
 
 TEST_F(DatabaseTest, InitSchemaCreatesAllThreeTables) {
-  ur::Database db(db_path_);
+  ur::Database db(db_path_, key_);
   db.init_schema();
 
   // Query sqlite_master for table names.
@@ -65,7 +67,7 @@ TEST_F(DatabaseTest, InitSchemaCreatesAllThreeTables) {
 }
 
 TEST_F(DatabaseTest, DropAllRemovesAllTables) {
-  ur::Database db(db_path_);
+  ur::Database db(db_path_, key_);
   db.init_schema();
   EXPECT_NO_THROW(db.drop_all());
 
