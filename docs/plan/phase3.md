@@ -37,19 +37,17 @@ tests/unit/test_persona_updater.cpp
 
 ## Reasoning Display (Thinking Models)
 
-Some OpenAI-compatible backends expose chain-of-thought reasoning alongside the final answer:
-
-| Backend style | Reasoning location |
-|---|---|
-| DeepSeek-R1 / QwQ | `choices[0]["message"]["reasoning_content"]` (separate field) |
-| Embedded tags | `<think>...</think>` prefix inside `content` |
-| OpenAI o1/o3 | Consumed internally — not exposed in response |
-
-`HttpProvider::complete()` currently returns only `content`. For Phase 3, extend it to also return `reasoning_content` when present, so the TUI can render it separately (e.g. collapsed/dimmed block above the answer).
+`ur` targets llama.cpp as its primary backend. When running thinking models
+(DeepSeek-R1, QwQ, etc.) through llama.cpp server, reasoning is always embedded
+as a `<think>…</think>` block at the start of `content` — there is no separate
+`reasoning_content` field.
 
 Design:
-- Add an optional `reasoning` field to the response type (or return a struct instead of `std::string`)
-- TUI renders reasoning in a visually distinct block; `ur run` ignores it
+- `HttpProvider::complete()` returns the full raw `content` string unchanged
+- `Chat` (Phase 3) strips the `<think>…</think>` prefix from `content` before
+  storing the assistant message and before passing it back to the persona updater
+- The stripped reasoning block is rendered in a visually distinct (dimmed) block
+  in the TUI above the final answer; `ur run` discards it silently
 - Reasoning is **not** stored in the database — it is ephemeral display only
 
 ## Context Window Management
@@ -108,5 +106,5 @@ Design rules:
 - [ ] `ur chat` enters the loop and responds to input
 - [ ] `--continue=<id>` resumes a previous session with full history
 - [ ] Messages are persisted after each turn (crash-safe)
-- [ ] `ur history` lists sessions; `ur history <id>` shows messages (decrypted transparently if key loaded)
-- [ ] `ur persona` shows accumulated key/value pairs (decrypted transparently if key loaded)
+- [ ] `ur history` lists sessions; `ur history <id>` shows messages (decrypted transparently)
+- [ ] `ur persona` shows accumulated key/value pairs (decrypted transparently)
