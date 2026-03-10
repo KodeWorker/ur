@@ -19,4 +19,17 @@ int cmd_clean(Context& ctx, int argc, char** argv);
 // messages, and prints the assistant response to stdout.
 int cmd_run(Context& ctx, int argc, char** argv);
 
+// ur chat [--continue=<id>] [--model=<name>] [--system-prompt=<file>]
+// Opens an interactive ftxui TUI session. Blocks until the user exits.
+int cmd_chat(Context& ctx, int argc, char** argv);
+
+// ur history [<id>]
+// No id: lists all sessions (id, title, created_at, model).
+// With id: prints all messages for that session in order.
+int cmd_history(Context& ctx, int argc, char** argv);
+
+// ur persona
+// Prints all accumulated persona key-value pairs.
+int cmd_persona(Context& ctx, int argc, char** argv);
+
 }  // namespace ur

@@ -9,11 +9,16 @@ static void print_usage() {
   std::cerr << "usage: ur <command> [options]\n"
             << "\n"
             << "commands:\n"
-            << "  init                       create workspace and initialise "
-               "database\n"
+            << "  init                            create workspace and "
+               "initialise database\n"
             << "  clean [--database|--workspace]  remove workspace artifacts\n"
             << "  run <prompt> [--model=<name>] [--system-prompt=<file>]\n"
-            << "                             one-shot LLM request\n";
+            << "                                  one-shot LLM request\n"
+            << "  chat [--continue=<id>] [--model=<name>]\n"
+            << "                                  interactive TUI session\n"
+            << "  history [<id>]                  list sessions or show "
+               "messages\n"
+            << "  persona                         show user persona\n";
 }
 
 int main(int argc, char** argv) {
@@ -42,6 +47,9 @@ int main(int argc, char** argv) {
   if (cmd == "init") return ur::cmd_init(ctx, argc, argv);
   if (cmd == "clean") return ur::cmd_clean(ctx, argc, argv);
   if (cmd == "run") return ur::cmd_run(ctx, argc, argv);
+  if (cmd == "chat") return ur::cmd_chat(ctx, argc, argv);
+  if (cmd == "history") return ur::cmd_history(ctx, argc, argv);
+  if (cmd == "persona") return ur::cmd_persona(ctx, argc, argv);
 
   std::cerr << "ur: unknown command '" << cmd << "'\n";
   print_usage();

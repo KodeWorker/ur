@@ -87,3 +87,52 @@ TEST_F(DatabaseTest, DropAllRemovesAllTables) {
 }
 
 }  // namespace
+
+// ---------------------------------------------------------------------------
+// Phase 3 — select / upsert / touch
+// ---------------------------------------------------------------------------
+
+TEST_F(DatabaseTest, SelectSessionsReturnsEmptyWhenNone) {
+  // TODO
+  GTEST_SKIP();
+}
+
+TEST_F(DatabaseTest, SessionExistsReturnsFalseForUnknownId) {
+  // TODO
+  GTEST_SKIP();
+}
+
+TEST_F(DatabaseTest, SessionExistsReturnsTrueAfterInsert) {
+  // TODO
+  GTEST_SKIP();
+}
+
+TEST_F(DatabaseTest, SelectMessagesReturnsRowsInOrder) {
+  // TODO
+  GTEST_SKIP();
+}
+
+TEST_F(DatabaseTest, SelectMessagesDecryptsContent) {
+  // TODO
+  GTEST_SKIP();
+}
+
+TEST_F(DatabaseTest, SelectPersonaReturnsEmptyWhenNone) {
+  // TODO
+  GTEST_SKIP();
+}
+
+TEST_F(DatabaseTest, UpsertPersonaInsertsNewEntry) {
+  // TODO
+  GTEST_SKIP();
+}
+
+TEST_F(DatabaseTest, UpsertPersonaOverwritesExistingEntry) {
+  // TODO
+  GTEST_SKIP();
+}
+
+TEST_F(DatabaseTest, TouchSessionUpdatesTimestamp) {
+  // TODO
+  GTEST_SKIP();
+}

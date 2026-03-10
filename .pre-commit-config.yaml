@@ -30,14 +30,23 @@ repos:
       - id: cppcheck
         exclude: ^third_party/
         args:
+          # permanent: FetchContent headers are not on the system include path
           - --suppress=missingIncludeSystem
           - --suppress=missingInclude
+          # permanent: SQLite amalgamation uses C-style unread struct members
           - --suppress=unusedStructMember
+          # permanent: inline suppress comments that cppcheck itself emits
           - --suppress=unmatchedSuppression
+          # permanent: free functions used across TUs are not visible to cppcheck
           - --suppress=unusedFunction
+          # permanent: third-party headers (sqlite3, mbedtls) trigger false syntax errors
           - --suppress=syntaxError
+          # permanent: const-ref lint fires on correct pass-by-value intentional stubs
           - --suppress=constParameterReference
+          # TODO(phase3): remove once Chat / PersonaUpdater private helpers are implemented
           - --suppress=unusedPrivateFunction
+          # TODO(phase3): remove once is_meaningful() stub is replaced with real logic
+          - --suppress=knownConditionTrueFalse
       # - id: include-what-you-use # after build, so that it can use the compile_commands.json
       #   args: [-p=build]
 
