@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "crypto.hpp"
 
@@ -224,6 +225,63 @@ void Database::rollback() {
     sqlite3_free(err_msg);
     throw std::runtime_error("Database::rollback: " + err);
   }
+}
+
+bool Database::session_exists(const std::string& id) {
+  // TODO: prepare "SELECT 1 FROM session WHERE id=? LIMIT 1"; bind id;
+  //       return true if sqlite3_step returns SQLITE_ROW.
+  if (!is_open()) open();
+  (void)id;
+  return false;
+}
+
+std::vector<SessionRow> Database::select_sessions() {
+  // TODO: prepare "SELECT id, title, model, created_at, updated_at FROM session
+  //               ORDER BY created_at DESC";
+  //       step through rows; build SessionRow for each; return vector.
+  if (!is_open()) open();
+  return {};
+}
+
+std::vector<MessageRow> Database::select_messages(
+    const std::string& session_id) {
+  // TODO: prepare "SELECT id, session_id, role, content, created_at
+  //               FROM message WHERE session_id=? ORDER BY created_at ASC";
+  //       bind session_id; for each row call dec() on content before storing
+  //       in MessageRow; return vector.
+  if (!is_open()) open();
+  (void)session_id;
+  return {};
+}
+
+std::vector<PersonaRow> Database::select_persona() {
+  // TODO: prepare "SELECT key, value, updated_at FROM persona ORDER BY key
+  // ASC";
+  //       for each row call dec() on value before storing in PersonaRow;
+  //       return vector.
+  if (!is_open()) open();
+  return {};
+}
+
+void Database::upsert_persona(const std::string& key, const std::string& value,
+                              int64_t updated_at) {
+  // TODO: prepare
+  //   "INSERT INTO persona (key, value, updated_at) VALUES (?, ?, ?)
+  //    ON CONFLICT(key) DO UPDATE SET value=excluded.value,
+  //                                   updated_at=excluded.updated_at";
+  //       bind key, enc(value), updated_at; step; finalize.
+  if (!is_open()) open();
+  (void)key;
+  (void)value;
+  (void)updated_at;
+}
+
+void Database::touch_session(const std::string& id, int64_t updated_at) {
+  // TODO: prepare "UPDATE session SET updated_at=? WHERE id=?";
+  //       bind updated_at, id; step; finalize.
+  if (!is_open()) open();
+  (void)id;
+  (void)updated_at;
 }
 
 void Database::drop_all() {

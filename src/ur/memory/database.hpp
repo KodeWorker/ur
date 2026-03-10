@@ -2,11 +2,39 @@
 
 #include <sqlite3.h>
 
+#include <cstdint>
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace ur {
+
+// ---------------------------------------------------------------------------
+// Row types returned by select queries (content fields are decrypted)
+// ---------------------------------------------------------------------------
+
+struct SessionRow {
+  std::string id;
+  std::string title;
+  std::string model;
+  int64_t created_at;
+  int64_t updated_at;
+};
+
+struct MessageRow {
+  std::string id;
+  std::string session_id;
+  std::string role;     // "user" | "assistant" | "reason"
+  std::string content;  // decrypted
+  int64_t created_at;
+};
+
+struct PersonaRow {
+  std::string key;
+  std::string value;  // decrypted
+  int64_t updated_at;
+};
 
 class Database {
  public:
@@ -48,6 +76,28 @@ class Database {
   void begin();
   void commit();
   void rollback();
+
+  // Returns true if a session with the given id exists.
+  bool session_exists(const std::string& id);
+
+  // Returns all sessions ordered by created_at DESC.
+  std::vector<SessionRow> select_sessions();
+
+  // Returns all messages for a session ordered by created_at ASC.
+  // content fields are decrypted automatically.
+  std::vector<MessageRow> select_messages(const std::string& session_id);
+
+  // Returns all persona key-value pairs ordered by key ASC.
+  // value fields are decrypted automatically.
+  std::vector<PersonaRow> select_persona();
+
+  // Insert or update a persona entry. Uses SQLite UPSERT (ON CONFLICT).
+  void upsert_persona(const std::string& key, const std::string& value,
+                      int64_t updated_at);
+
+  // Update the updated_at timestamp of an existing session.
+  // Called after each new message turn in the chat loop.
+  void touch_session(const std::string& id, int64_t updated_at);
 
   bool is_open() const;
 

@@ -53,12 +53,28 @@ Plugins in `$root/tools/` can be:
 1. Inject tool definitions into the system prompt / tool list
 2. Call LLM
 3. If response contains tool calls:
-   a. For each call: resolve tool → enforce sandbox → execute → collect result
-   b. Append tool results to context
+   a. For each call:
+      - If NOT --allow-all: request human audit (see below); on rejection,
+        append ToolResult { is_error: true, "rejected by user" } and skip execution
+      - If approved (or --allow-all): resolve tool → enforce sandbox → execute
+   b. Collect all results, append to context
    c. Call LLM again with results
 4. Repeat until no tool calls in response
 5. Return final text response
 ```
+
+## Human Audit
+
+Without `--allow-all`, every tool call requires explicit user approval before
+execution. The audit surface differs by command:
+
+- **`ur chat`** — ftxui modal block shows tool name + formatted args; user
+  presses `y` to approve or `n` to reject inline in the TUI
+- **`ur run`** — prints tool name + args to stderr and reads a `y/n` line from
+  stdin; non-interactive environments (piped stdin) treat it as rejection
+
+Approval/rejection is recorded as a `"tool_audit"` message role in the session
+for auditability. `--allow-all` bypasses the audit entirely.
 
 ## Sandbox Tier 1: Workspace Constraint
 
@@ -79,5 +95,7 @@ Accepts a JSON file listing which tools (by name) are enabled for this invocatio
 - [ ] Tools in `$root/tools/` are discovered and registered at startup
 - [ ] LLM tool calls are routed through the executor and results returned to LLM
 - [ ] Tier 1 sandbox blocks any path outside `$root/workspace/`
-- [ ] `--allow-all` allows arbitrary paths
+- [ ] `--allow-all` allows arbitrary paths and bypasses human audit
+- [ ] Without `--allow-all`, tool calls are held for user approval before execution
+- [ ] Rejected tool calls return an error result to the LLM without executing
 - [ ] Invalid tool name in LLM response returns a clear error result (no crash)

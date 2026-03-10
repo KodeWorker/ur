@@ -32,6 +32,7 @@ class HttpProviderTest : public ::testing::Test {
     port_ = svr_.bind_to_any_port("localhost");
     thread_ = std::thread([this]() { svr_.listen_after_bind(); });
     base_url_ = "http://localhost:" + std::to_string(port_);
+    svr_.wait_until_ready();
   }
 
   void TearDown() override {

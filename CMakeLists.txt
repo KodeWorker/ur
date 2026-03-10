@@ -47,6 +47,19 @@ FetchContent_Declare(
   GIT_TAG v3.11.3)
 FetchContent_MakeAvailable(nlohmann_json)
 
+# ftxui — component-based TUI (Phase 3+)
+FetchContent_Declare(
+  ftxui
+  GIT_REPOSITORY https://github.com/ArthurSonzogni/FTXUI.git
+  GIT_TAG v5.0.0)
+set(FTXUI_BUILD_EXAMPLES
+    OFF
+    CACHE BOOL "" FORCE)
+set(FTXUI_BUILD_TESTS
+    OFF
+    CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(ftxui)
+
 enable_testing()
 
 add_subdirectory(third_party/sqlite3)
