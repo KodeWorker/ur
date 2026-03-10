@@ -30,7 +30,7 @@ class HttpProvider : public Provider {
 // UR_LLM_BASE_URL defaults to "http://localhost:8080" if unset.
 // UR_LLM_API_KEY defaults to empty string if unset.
 // Model name is NOT read here — it is resolved in cmd_run / Runner:
-//   --model=<name>  >  UR_LLM_MODEL_NAME  >  empty (server picks default)
+//   --model=<name>  >  UR_LLM_MODEL  >  empty (server picks default)
 HttpProvider make_http_provider();
 
 }  // namespace ur

@@ -119,19 +119,24 @@ Examples:
 
 `ur` supports symmetric encryption (AES-256-GCM) for messages stored in the local SQLite database. Encryption is optional — if no key file is present, `ur` operates in plaintext mode.
 
-Generate a 256-bit key and store it in the workspace:
+Generate a 256-bit (32-byte) key and store it in the workspace. Use `-out` to write raw bytes — **do not use `-base64`**, which would produce a 44-byte encoded string and be rejected at startup.
 
 ```shell
 # Linux
-openssl rand -base64 32 > ~/.local/share/ur/key/secret.key
+openssl rand -out ~/.local/share/ur/key/secret.key 32
 chmod 600 ~/.local/share/ur/key/secret.key
 
 # macOS
-openssl rand -base64 32 > ~/Library/Application\ Support/ur/key/secret.key
+openssl rand -out ~/Library/Application\ Support/ur/key/secret.key 32
 chmod 600 ~/Library/Application\ Support/ur/key/secret.key
 ```
 
-`ur` checks for `$root/key/secret.key` at startup. If found, message content is encrypted before being written to the database and decrypted on read. The key never leaves the local machine.
+`ur` checks for `$root/key/secret.key` at startup:
+- **Key absent** — plaintext mode, no encryption applied.
+- **Key present, 32 bytes** — AES-256-GCM encryption on all stored message content.
+- **Key present, wrong size** — startup fails with `[ERROR] encrypt: key must be 32 bytes for AES-256-GCM`.
+
+The key never leaves the local machine.
 
 ### Message transport security
 

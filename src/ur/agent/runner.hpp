@@ -17,18 +17,19 @@ struct RunResult {
 // Orchestrates a single-turn LLM request:
 //   - Creates a session in the database
 //   - Sends messages to the provider
-//   - Persists user and assistant messages (encrypted if key is set)
+//   - Persists user and assistant messages (encrypted if key is set by
+//   provider)
 //
 // All references are borrowed from Context and must outlive the Runner.
 class Runner {
  public:
-  Runner(Database& db, const std::string& enc_key, Logger& logger);
+  Runner(Database& db, Logger& logger);
 
   // Execute one request/response turn.
   // prompt:        user message text
   // system_prompt: injected as a "system" message if non-empty
   // model:         model name passed to provider; resolved with precedence:
-  //                  --model=<name>  >  UR_LLM_MODEL_NAME  >  empty
+  //                  --model=<name>  >  UR_LLM_MODEL  >  empty
   // provider:      called to produce the assistant response
   // Returns RunResult on success; throws std::runtime_error on failure.
   RunResult run(const std::string& prompt, const std::string& system_prompt,
@@ -40,7 +41,6 @@ class Runner {
   static std::string generate_id();
 
   Database& db_;
-  const std::string& enc_key_;
   Logger& logger_;
 };
 

@@ -7,65 +7,60 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 namespace ur {
 
-Runner::Runner(Database& db, const std::string& enc_key, Logger& logger)
-    : db_(db), enc_key_(enc_key), logger_(logger) {}
+Runner::Runner(Database& db, Logger& logger) : db_(db), logger_(logger) {}
 
 std::string Runner::generate_id() {
-  // TODO:
-  // 1. Declare: unsigned char buf[16];
-  // 2. Call RAND_bytes(buf, sizeof(buf)); throw on return value != 1.
-  // 3. Convert buf to a 32-char lowercase hex string using std::ostringstream
-  //    and std::hex + std::setfill('0') + std::setw(2).
-  // 4. Return the hex string.
-  (void)0;
-  throw std::runtime_error("Runner::generate_id: not implemented");
+  unsigned char buf[16];
+  if (RAND_bytes(buf, sizeof(buf)) != 1) {
+    throw std::runtime_error("Runner::generate_id: RAND_bytes failed");
+  }
+  std::ostringstream oss;
+  oss << std::hex << std::setfill('0');
+  for (unsigned char c : buf) {
+    oss << std::setw(2) << static_cast<int>(c);
+  }
+  return oss.str();
 }
 
 RunResult Runner::run(const std::string& prompt,
                       const std::string& system_prompt,
                       const std::string& model, Provider& provider) {
-  // TODO:
-  // 1. db_.init_schema()  — lazy-open and create tables (idempotent).
-  //
-  // 2. Generate IDs:
-  //      session_id  = generate_id()
-  //      user_msg_id = generate_id()
-  //      asst_msg_id = generate_id()
-  //
-  // 3. Get current Unix timestamp:
-  //      int64_t now = static_cast<int64_t>(std::time(nullptr));
-  //
-  // 4. Insert session row:
-  //      INSERT INTO session (id, title, model, created_at, updated_at)
-  //      VALUES (session_id, title, model, now, now)
-  //      where title = first 60 chars of prompt.
-  //    Use sqlite3_prepare_v2 / sqlite3_bind_text / sqlite3_step pattern
-  //    (see database.cpp for the style to follow).
-  //
-  // 5. Build messages vector:
-  //      if system_prompt is non-empty: push {role="system",
-  //      content=system_prompt} push {role="user", content=prompt}
-  //
-  // 6. Call provider.complete(messages, model) to get response string.
-  //    Log the call at debug level before and after.
-  //
-  // 7. Insert user message:
-  //      INSERT INTO message (id, session_id, role, content, created_at)
-  //      VALUES (user_msg_id, session_id, "user", enc_(prompt), now)
-  //    enc_: encrypt content using enc_key_ if set (call ur::encrypt()).
-  //
-  // 8. Insert assistant message:
-  //      VALUES (asst_msg_id, session_id, "assistant", enc_(response), now)
-  //
-  // 9. Return RunResult{session_id, response}.
-  (void)prompt;
-  (void)system_prompt;
-  (void)model;
-  (void)provider;
-  throw std::runtime_error("Runner::run: not implemented");
+  if (!db_.is_open()) {
+    throw std::runtime_error(
+        "Runner::run: database is not open, init schema first");
+  }
+  std::string session_id = generate_id();
+  std::string user_msg_id = generate_id();
+  std::string asst_msg_id = generate_id();
+  int64_t now = static_cast<int64_t>(std::time(nullptr));
+  std::string title = prompt.substr(0, 60);
+  // Prepare messages for provider call (system + user).
+  std::vector<Message> messages;
+  if (!system_prompt.empty()) {
+    messages.push_back({"system", system_prompt});
+  }
+  messages.push_back({"user", prompt});
+  // Network call outside the transaction — no DB lock held during I/O.
+  logger_.debug("calling provider: model=" + model);
+  std::string response = provider.complete(messages, model);
+  logger_.debug("provider returned");
+
+  // All three writes succeed or none do.
+  db_.begin();
+  try {
+    db_.insert_session(session_id, title, model, now, now);
+    db_.insert_message(user_msg_id, session_id, "user", prompt, now);
+    db_.insert_message(asst_msg_id, session_id, "assistant", response, now);
+    db_.commit();
+  } catch (...) {
+    db_.rollback();
+    throw;
+  }
+  return {session_id, response};
 }
 
 }  // namespace ur

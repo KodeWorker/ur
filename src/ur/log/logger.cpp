@@ -23,7 +23,12 @@ const char* level_str(LogLevel l) {
     case LogLevel::ERROR:
       return "ERROR";
   }
+#ifdef __GNUC__
   __builtin_unreachable();
+#elif defined(_MSC_VER)
+  __assume(false);
+#endif
+  return "UNKWN";
 }
 
 std::string timestamp() {
