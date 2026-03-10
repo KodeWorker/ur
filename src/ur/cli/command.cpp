@@ -1,12 +1,14 @@
 #include "command.hpp"
 
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <string>
 
 #include "agent/runner.hpp"
 #include "llm/http_provider.hpp"
+#include "memory/crypto.hpp"
 
 namespace ur {
 
@@ -14,7 +16,13 @@ int cmd_init(Context& ctx, int /*argc*/, char** /*argv*/) {
   try {
     init_workspace(ctx.paths);
     ctx.db.init_schema();
+    const std::filesystem::path key_path = ctx.paths.key / "secret.key";
+    bool key_existed = std::filesystem::exists(key_path);
+    generate_key(key_path);
     std::cout << "Workspace initialized at " << ctx.paths.root << "\n";
+    if (!key_existed) {
+      std::cout << "Encryption key generated.\n";
+    }
     return 0;
   } catch (const std::exception& e) {
     ctx.logger.error(e.what());

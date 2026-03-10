@@ -13,12 +13,12 @@ namespace ur {
 struct Context {
   Paths paths;
   Database db;
-  std::string enc_key;  // raw key bytes; empty = encryption disabled
+  std::string enc_key;  // 32 raw bytes of the AES-256-GCM key
   Logger logger;
 };
 
-// Resolve paths, attempt to load $root/key/secret.key, wire up Database.
-// Does not open the database file.
+// Resolve paths, load $root/key/secret.key (throws if absent), wire up
+// Database. Does not open the database file.
 Context make_context();
 
 }  // namespace ur

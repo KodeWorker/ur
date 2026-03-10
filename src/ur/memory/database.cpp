@@ -10,11 +10,6 @@
 
 namespace ur {
 
-// Encrypt content if key_ is set; return as-is otherwise.
-// Use before every write of a message content or persona value.
-// Decrypt content if key_ is set; return as-is otherwise.
-// Use after every read of a message content or persona value.
-
 Database::Database(std::filesystem::path path, std::string key)
     : path_(std::move(path)), key_(std::move(key)) {}
 
@@ -23,11 +18,11 @@ Database::~Database() = default;
 bool Database::is_open() const { return handle_ != nullptr; }
 
 std::string Database::enc(const std::string& str) const {
-  return key_.empty() ? str : encrypt(str, key_);
+  return encrypt(str, key_);
 }
 
 std::string Database::dec(const std::string& str) const {
-  return key_.empty() ? str : decrypt(str, key_);
+  return decrypt(str, key_);
 }
 
 void Database::open() {
