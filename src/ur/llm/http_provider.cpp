@@ -53,8 +53,8 @@ std::string HttpProvider::complete(const std::vector<Message>& messages,
   const char* read_timeout = std::getenv("UR_LLM_READ_TIMEOUT");
   client.set_connection_timeout(conn_timeout ? std::stoi(conn_timeout) : 10,
                                 0);  // default 10 seconds
-  client.set_read_timeout(read_timeout ? std::stoi(read_timeout) : 60,
-                          0);  // default 60 seconds
+  client.set_read_timeout(read_timeout ? std::stoi(read_timeout) : 0,
+                          0);  // default: no timeout (0 = wait indefinitely)
   if (!api_key_.empty()) {
     client.set_default_headers({{"Authorization", "Bearer " + api_key_}});
   }

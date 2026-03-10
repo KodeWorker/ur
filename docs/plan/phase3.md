@@ -28,7 +28,7 @@ tests/unit/test_persona_updater.cpp
 3. Loop:
    a. Read user input from TUI
    b. Append user message to context + DB
-   c. Call provider.complete(context)
+   c. Start spinner animation on a background thread; call provider.complete(context); stop spinner on return
    d. Strip `<think>…</think>` from response:
       - If reasoning present: save to DB as role `"reason"`, render dimmed in TUI
       - Save cleaned content to DB as role `"assistant"`, append to in-memory context
