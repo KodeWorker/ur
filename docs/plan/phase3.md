@@ -32,7 +32,9 @@ tests/unit/test_persona_updater.cpp
    d. Append assistant message to context + DB
    e. Stream/print response (see Reasoning Display below)
    f. Run persona_updater on latest exchange
-   g. Repeat until user exits (Ctrl-C / "exit" / "quit")
+   g. Repeat until user exits (Ctrl-C or `/exit` slash command)
+      - Input starting with `/` is a TUI slash command, not sent to the agent
+      - `/exit` — quit the session
 ```
 
 ## Reasoning Display (Thinking Models)
