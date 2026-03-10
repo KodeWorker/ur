@@ -65,7 +65,7 @@ int cmd_run(Context& ctx, int argc, char** argv) {
     }
     std::string prompt(argv[2]);
     std::string system_prompt;
-    const char* env_model = std::getenv("UR_LLM_MODEL_NAME");
+    const char* env_model = std::getenv("UR_LLM_MODEL");
     std::string model = env_model ? env_model : "";
     // Parse optional flags. For simplicity, we require --model and
     // --system-prompt to come after the prompt and allow them in any order.
