@@ -58,6 +58,12 @@ std::string HttpProvider::complete(const std::vector<Message>& messages,
       (path_start != std::string::npos) ? base_url_.substr(path_start) : "";
   const std::string endpoint = path_prefix + "/v1/chat/completions";
   httplib::Client client(host);
+  const char* conn_timeout = std::getenv("UR_LLM_CONNECTION_TIMEOUT");
+  const char* read_timeout = std::getenv("UR_LLM_READ_TIMEOUT");
+  client.set_connection_timeout(conn_timeout ? std::stoi(conn_timeout) : 10,
+                                0);  // default 10 seconds
+  client.set_read_timeout(read_timeout ? std::stoi(read_timeout) : 60,
+                          0);  // default 60 seconds
   if (!api_key_.empty()) {
     client.set_default_headers({{"Authorization", "Bearer " + api_key_}});
   }
