@@ -39,7 +39,7 @@ public:
 `HttpProvider` calls a remote OpenAI-compatible server (`POST /v1/chat/completions`).
 
 Configuration (env vars or `.env`):
-- `UR_LLM_BASE_URL` — server base URL (default: `http://localhost:8080`)
+- `UR_LLM_BASE_URL` — server base URL (default: `http://localhost:8000`)
 - `UR_LLM_API_KEY` — Bearer token (optional; leave empty for local servers)
 
 The provider is stateless — no local model files or library linkage required.

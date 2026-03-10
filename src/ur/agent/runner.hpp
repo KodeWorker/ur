@@ -28,7 +28,7 @@ class Runner {
   // prompt:        user message text
   // system_prompt: injected as a "system" message if non-empty
   // model:         model name passed to provider; resolved with precedence:
-  //                  --model=<name>  >  UR_LLM_MODEL_NAME  >  empty
+  //                  --model=<name>  >  UR_LLM_MODEL  >  empty
   // provider:      called to produce the assistant response
   // Returns RunResult on success; throws std::runtime_error on failure.
   RunResult run(const std::string& prompt, const std::string& system_prompt,

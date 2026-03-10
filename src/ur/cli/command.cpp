@@ -58,7 +58,7 @@ int cmd_run(Context& ctx, int argc, char** argv) {
   // 1. Parse arguments:
   //      prompt           = argv[2]  (required; error if missing)
   //      model            = value of --model=<name> if present,
-  //                         else std::getenv("UR_LLM_MODEL_NAME"), else ""
+  //                         else std::getenv("UR_LLM_MODEL"), else ""
   //      system_prompt    = contents of file at --system-prompt=<path>
   //                         if present; error if file cannot be read
   //      allow_all        = true if --allow-all flag is present (Phase 4)

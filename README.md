@@ -104,13 +104,13 @@ Configure the endpoint via environment variables:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `UR_LLM_BASE_URL` | Base URL of the OpenAI-compatible server | `http://localhost:8080` |
+| `UR_LLM_BASE_URL` | Base URL of the OpenAI-compatible server | `http://localhost:8000` |
 | `UR_LLM_API_KEY` | API key (leave empty for local servers) | _(empty)_ |
 
 Specify the model name with `--model=<name>`, which is passed directly to the server.
 
 Examples:
-- llama.cpp server: `UR_LLM_BASE_URL=http://localhost:8080 ur run "hello"`
+- llama.cpp server: `UR_LLM_BASE_URL=http://localhost:8000 ur run "hello"`
 - Ollama: `UR_LLM_BASE_URL=http://localhost:11434 ur run --model=mistral "hello"`
 
 ## Security
