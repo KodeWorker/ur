@@ -43,7 +43,8 @@ RunResult Runner::run(const std::string& prompt,
   messages.push_back({"user", prompt});
   // Network call outside the transaction — no DB lock held during I/O.
   logger_.debug("calling provider: model=" + model);
-  std::string response = provider.complete(messages, model);
+  CompletionResult cr = provider.complete(messages, model);
+  const std::string& response = cr.content;
   logger_.debug("provider returned");
 
   // All three writes succeed or none do.

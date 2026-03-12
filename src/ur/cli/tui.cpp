@@ -1,67 +1,526 @@
 #include "tui.hpp"
 
+#include <algorithm>
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <cstdio>
+#include <cstdlib>
 #include <memory>
+#include <mutex>
+#include <sstream>
 #include <string>
+#include <thread>
+#include <utility>
+#include <vector>
 
 // ftxui — included via FetchContent.
-// component: ScreenInteractive, Input, Collapsible, Spinner
-// dom: elements, text, separator, gauge
-// screen: Screen
 #include <ftxui/component/component.hpp>
+#include <ftxui/component/component_base.hpp>
 #include <ftxui/component/screen_interactive.hpp>
 #include <ftxui/dom/elements.hpp>
+#include <ftxui/screen/box.hpp>
 
 namespace ur {
 
-FtxuiTui::FtxuiTui() {
-  // TODO: initialise ScreenInteractive (TerminalOutput or FullscreenPrimary).
-  //       Build initial component tree:
-  //         - Input component bound to an input string + submit callback
-  //         - Scrollable chat history container (list of rendered message
-  //           elements: user bubbles, assistant bubbles, Collapsible for
-  //           reason)
-  //         - Spinner element shown/hidden based on spinner_running_ flag
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+static std::string env_or(const char* name, const char* fallback) {
+  const char* v = std::getenv(name);
+  return (v && v[0]) ? v : fallback;
 }
+
+// Render text respecting embedded \n characters, wrapping each line with
+// ftxui::paragraph so long lines still wrap at the terminal boundary.
+static ftxui::Element render_text(const std::string& text) {
+  ftxui::Elements elems;
+  std::istringstream stream(text);
+  std::string line;
+  while (std::getline(stream, line)) {
+    elems.push_back(ftxui::paragraph(line));
+  }
+  if (elems.empty()) return ftxui::text("");
+  return ftxui::vbox(std::move(elems));
+}
+
+// ---------------------------------------------------------------------------
+// Scroller — mouse-wheel-scrollable wrapper for a child component.
+// Tracks a virtual cursor (selected_) and uses yframe to scroll the viewport.
+// Auto-scrolls to the bottom when scroll_to_end_ is set.
+// ---------------------------------------------------------------------------
+
+class ScrollerBase : public ftxui::ComponentBase {
+ public:
+  explicit ScrollerBase(ftxui::Component child) { Add(std::move(child)); }
+
+  // Call from the UI thread to jump to the bottom on the next render.
+  void ScrollToEnd() { scroll_to_end_ = true; }
+
+ private:
+  ftxui::Element Render() override {
+    if (ChildAt(0)->ChildCount() == 0)
+      return ftxui::text("") | ftxui::yflex | ftxui::reflect(box_);
+    auto focused = Focused() ? ftxui::focus : ftxui::select;
+    ftxui::Element background = ChildAt(0)->Render();
+    background->ComputeRequirement();
+    size_ = background->requirement().min_y;
+    if (scroll_to_end_) {
+      selected_ = size_;
+      scroll_to_end_ = false;
+    }
+    selected_ = std::max(0, std::min(size_ - 1, selected_));
+    return ftxui::dbox({
+               std::move(background),
+               ftxui::vbox({
+                   ftxui::text("") |
+                       ftxui::size(ftxui::HEIGHT, ftxui::EQUAL, selected_),
+                   ftxui::text("") | focused,
+               }),
+           }) |
+           ftxui::vscroll_indicator | ftxui::yframe | ftxui::yflex |
+           ftxui::reflect(box_);
+  }
+
+  bool OnEvent(ftxui::Event event) override {
+    if (event.is_mouse() && box_.Contain(event.mouse().x, event.mouse().y))
+      TakeFocus();
+
+    // Let children handle non-scroll events first (e.g. Collapsible toggle).
+    bool is_scroll =
+        (event.is_mouse() &&
+         (event.mouse().button == ftxui::Mouse::WheelUp ||
+          event.mouse().button == ftxui::Mouse::WheelDown)) ||
+        event == ftxui::Event::ArrowUp || event == ftxui::Event::ArrowDown ||
+        event == ftxui::Event::PageUp || event == ftxui::Event::PageDown ||
+        event == ftxui::Event::Home || event == ftxui::Event::End;
+    if (!is_scroll && ComponentBase::OnEvent(event)) return true;
+
+    int old = selected_;
+    if (event == ftxui::Event::ArrowUp ||
+        (event.is_mouse() && event.mouse().button == ftxui::Mouse::WheelUp))
+      selected_--;
+    if (event == ftxui::Event::ArrowDown ||
+        (event.is_mouse() && event.mouse().button == ftxui::Mouse::WheelDown))
+      selected_++;
+    if (event == ftxui::Event::PageUp) selected_ -= box_.y_max - box_.y_min;
+    if (event == ftxui::Event::PageDown) selected_ += box_.y_max - box_.y_min;
+    if (event == ftxui::Event::Home) selected_ = 0;
+    if (event == ftxui::Event::End) selected_ = size_;
+    selected_ = std::max(0, std::min(size_ - 1, selected_));
+    return selected_ != old;
+  }
+
+  bool Focusable() const override { return true; }
+
+  int selected_ = 0;
+  int size_ = 0;
+  bool scroll_to_end_ = false;
+  ftxui::Box box_;
+};
+
+// ---------------------------------------------------------------------------
+// Impl
+// ---------------------------------------------------------------------------
+
+struct FtxuiTui::Impl {
+  // --- Tab ---
+  int tab_index = 0;
+  std::vector<std::string> tab_labels{"Session", "System Prompt", "Tools",
+                                      "Options"};
+
+  // --- Session ---
+  std::string input_content;
+  std::string submitted_line;
+
+  struct HistoryEntry {
+    std::string role;  // "user" | "assistant" | "reason" | "error"
+    std::string content;
+    std::shared_ptr<bool>
+        open;  // non-null for "reason"; stable addr for Collapsible
+    ftxui::Component component;  // added to history_container once
+  };
+  std::vector<HistoryEntry> history;
+
+  int prompt_tokens = 0;
+  int ctx_len = 0;
+  std::string status_hint;
+
+  // --- System Prompt ---
+  std::string system_prompt;
+
+  // --- Options (pre-loaded from env at startup) ---
+  std::string opt_base_url;
+  std::string opt_api_key;
+  std::string opt_model;
+  std::string opt_conn_timeout;
+  std::string opt_read_timeout;
+
+  // --- Spinner ---
+  std::atomic<bool> spinner_running{false};
+  std::atomic<int> spinner_frame{0};
+  std::thread spinner_thread;
+
+  // --- Submit sync (read_input blocks here between turns) ---
+  std::mutex submit_mu;
+  std::condition_variable submit_cv;
+  bool submitted = false;
+  bool exit_requested = false;
+  std::thread loop_thread;
+
+  // --- ftxui (screen must be last — non-movable after construction) ---
+  ftxui::ScreenInteractive screen;
+  ftxui::Component root;
+  ftxui::Component history_container;
+  ScrollerBase* scroller = nullptr;  // raw ptr into the scroller component
+
+  Impl() : screen(ftxui::ScreenInteractive::Fullscreen()) {}
+};
+
+// ---------------------------------------------------------------------------
+// Constructor
+// ---------------------------------------------------------------------------
+
+FtxuiTui::FtxuiTui(std::string initial_system_prompt)
+    : impl_(std::make_unique<Impl>()) {
+  impl_->system_prompt = std::move(initial_system_prompt);
+
+  // Load Options from environment.
+  impl_->opt_base_url = env_or("UR_LLM_BASE_URL", "http://localhost:8080");
+  impl_->opt_api_key = env_or("UR_LLM_API_KEY", "");
+  impl_->opt_model = env_or("UR_LLM_MODEL", "");
+  impl_->opt_conn_timeout = env_or("UR_LLM_CONNECTION_TIMEOUT", "10");
+  impl_->opt_read_timeout = env_or("UR_LLM_READ_TIMEOUT", "0");
+
+  // Stable raw pointer for lambdas — safe because Impl is owned by this object.
+  Impl* d = impl_.get();
+
+  // ── Session tab ───────────────────────────────────────────────────────────
+
+  d->history_container = ftxui::Container::Vertical({});
+
+  auto input_style = [](ftxui::InputState s) {
+    return std::move(s.element) | ftxui::bgcolor(ftxui::Color::GrayDark) |
+           ftxui::color(ftxui::Color::White);
+  };
+
+  auto input_option = ftxui::InputOption::Default();
+  input_option.transform = input_style;
+  input_option.on_enter = [d] {
+    std::string line = d->input_content;
+    d->input_content.clear();
+    if (!line.empty()) {
+      // Notify the main thread (blocked in read_input). The event loop keeps
+      // running so the screen stays live for the next turn.
+      std::lock_guard<std::mutex> lock(d->submit_mu);
+      d->submitted_line = line;
+      d->submitted = true;
+      d->submit_cv.notify_one();
+    }
+  };
+  auto input_component = ftxui::Input(
+      &d->input_content, "Type a message or /command…", input_option);
+
+  auto scroller_owned = ftxui::Make<ScrollerBase>(d->history_container);
+  d->scroller = scroller_owned.get();
+  auto scroller =
+      std::shared_ptr<ftxui::ComponentBase>(std::move(scroller_owned));
+
+  auto session_container =
+      ftxui::Container::Vertical({scroller, input_component});
+
+  // Spinner frames (Braille dots).
+  static const std::vector<std::string> kSpinnerFrames{"⠋", "⠙", "⠹", "⠸", "⠼",
+                                                       "⠴", "⠦", "⠧", "⠇", "⠏"};
+
+  auto session_tab = ftxui::Renderer(session_container, [d, scroller,
+                                                         input_component] {
+    // Status footer.
+    std::string status;
+    if (d->prompt_tokens > 0) {
+      status = "context: " + std::to_string(d->prompt_tokens);
+      if (d->ctx_len > 0) status += "/" + std::to_string(d->ctx_len);
+      status += " tokens";
+    }
+    if (!d->status_hint.empty()) {
+      if (!status.empty()) status += "  |  ";
+      status += d->status_hint;
+    }
+
+    // Spinner element.
+    ftxui::Element spinner_elem = ftxui::text("");
+    if (d->spinner_running) {
+      int f = d->spinner_frame.load() % static_cast<int>(kSpinnerFrames.size());
+      spinner_elem = ftxui::text(" " + kSpinnerFrames[f] + " thinking…") |
+                     ftxui::color(ftxui::Color::Yellow);
+    }
+
+    return ftxui::vbox({
+        scroller->Render(),
+        ftxui::separator(),
+        ftxui::hbox({ftxui::text("> "), input_component->Render() | ftxui::flex,
+                     spinner_elem}),
+        ftxui::separator(),
+        ftxui::text(status) | ftxui::dim,
+    });
+  });
+
+  // ── System Prompt tab ─────────────────────────────────────────────────────
+
+  auto sysprompt_option = ftxui::InputOption::Default();
+  sysprompt_option.multiline = true;
+  sysprompt_option.transform = input_style;
+  auto sysprompt_input =
+      ftxui::Input(&d->system_prompt, "Enter system prompt…", sysprompt_option);
+
+  auto sysprompt_tab = ftxui::Renderer(sysprompt_input, [sysprompt_input] {
+    return ftxui::vbox({
+        ftxui::text("System Prompt") | ftxui::bold,
+        ftxui::separator(),
+        sysprompt_input->Render() | ftxui::flex | ftxui::border,
+        ftxui::separator(),
+        ftxui::text(
+            "Edits take effect on the next turn.  "
+            "Use /save-prompt <path> or /load-prompt <path> to persist.") |
+            ftxui::dim,
+    });
+  });
+
+  // ── Tools tab (Phase 4 placeholder) ──────────────────────────────────────
+
+  auto tools_tab = ftxui::Renderer([] {
+    return ftxui::vbox({
+        ftxui::text("Tools") | ftxui::bold,
+        ftxui::separator(),
+        ftxui::text("No tools loaded.  "
+                    "Add plugins to $root/tools/ and restart.") |
+            ftxui::dim,
+    });
+  });
+
+  // ── Options tab ───────────────────────────────────────────────────────────
+
+  auto opt_url_input = ftxui::Input(&d->opt_base_url, "http://localhost:8080");
+  auto opt_key_input =
+      ftxui::Input(&d->opt_api_key, "(empty for local servers)");
+  auto opt_model_input = ftxui::Input(&d->opt_model, "(server default)");
+  auto opt_conn_input = ftxui::Input(&d->opt_conn_timeout, "10");
+  auto opt_read_input = ftxui::Input(&d->opt_read_timeout, "0");
+
+  auto options_container = ftxui::Container::Vertical({
+      opt_url_input,
+      opt_key_input,
+      opt_model_input,
+      opt_conn_input,
+      opt_read_input,
+  });
+
+  auto options_tab = ftxui::Renderer(
+      options_container, [opt_url_input, opt_key_input, opt_model_input,
+                          opt_conn_input, opt_read_input] {
+        // Fixed-width label helper.
+        constexpr int kLabelWidth = 28;
+        auto row = [kLabelWidth](const char* label, ftxui::Component c) {
+          return ftxui::hbox({
+              ftxui::text(label) |
+                  ftxui::size(ftxui::WIDTH, ftxui::EQUAL, kLabelWidth),
+              c->Render() | ftxui::flex,
+          });
+        };
+        return ftxui::vbox({
+            ftxui::text("Options") | ftxui::bold,
+            ftxui::separator(),
+            row("UR_LLM_BASE_URL", opt_url_input),
+            row("UR_LLM_API_KEY", opt_key_input),
+            row("UR_LLM_MODEL", opt_model_input),
+            row("UR_LLM_CONNECTION_TIMEOUT", opt_conn_input),
+            row("UR_LLM_READ_TIMEOUT", opt_read_input),
+            ftxui::separator(),
+            ftxui::text("Press Enter on a field to save all options to .env.") |
+                ftxui::dim,
+        });
+      });
+
+  // ── Tab bar + root ────────────────────────────────────────────────────────
+
+  auto tab_toggle = ftxui::Menu(&d->tab_labels, &d->tab_index,
+                                ftxui::MenuOption::HorizontalAnimated());
+
+  auto tab_content = ftxui::Container::Tab(
+      {session_tab, sysprompt_tab, tools_tab, options_tab}, &d->tab_index);
+
+  auto layout = ftxui::Container::Vertical({tab_toggle, tab_content});
+
+  d->root = ftxui::Renderer(layout, [tab_toggle, tab_content] {
+    return ftxui::vbox({
+        tab_toggle->Render() | ftxui::hcenter,
+        ftxui::separator(),
+        tab_content->Render() | ftxui::flex,
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Destructor
+// ---------------------------------------------------------------------------
 
 FtxuiTui::~FtxuiTui() {
-  // TODO: post an ExitLoopClosure event to the ScreenInteractive if it is
-  //       still running, then join the event-loop thread if any.
+  if (!impl_) return;
+  // Unblock any read_input() waiting on submit_cv.
+  {
+    std::lock_guard<std::mutex> lock(impl_->submit_mu);
+    impl_->exit_requested = true;
+    impl_->submit_cv.notify_all();
+  }
+  // Stop spinner before loop (spinner posts events; must join first).
+  impl_->spinner_running = false;
+  if (impl_->spinner_thread.joinable()) impl_->spinner_thread.join();
+  // Exit the event loop and join its thread.
+  impl_->screen.ExitLoopClosure()();
+  if (impl_->loop_thread.joinable()) impl_->loop_thread.join();
 }
 
+// ---------------------------------------------------------------------------
+// Remaining method stubs (read_input, print_*, set_status, spinner)
+// ---------------------------------------------------------------------------
+
 std::string FtxuiTui::read_input() {
-  // TODO: block the ftxui event loop (screen.Loop(root_component)) until the
-  //       user presses Enter. The Input component's on_enter callback stores
-  //       the submitted string and posts an event to unblock the loop.
-  //       Return "" on Ctrl-C or /exit.
-  return {};
+  Impl* d = impl_.get();
+
+  // Start the event loop in a background thread on the first call.
+  // The loop runs for the lifetime of the session; read_input() just waits
+  // for each submitted line via submit_cv.
+  if (!d->loop_thread.joinable()) {
+    d->loop_thread = std::thread([d] {
+      // Set terminal window title.
+      std::printf("\033]0;UR::CHAT\007");
+      std::fflush(stdout);
+      d->screen.Loop(d->root);
+      // Restore terminal title on exit.
+      std::printf("\033]0;\007");
+      std::fflush(stdout);
+      // Loop exited externally (Ctrl-C or ExitLoopClosure).
+      std::lock_guard<std::mutex> lock(d->submit_mu);
+      d->exit_requested = true;
+      d->submit_cv.notify_one();
+    });
+  }
+
+  std::unique_lock<std::mutex> lock(d->submit_mu);
+  d->submit_cv.wait(lock, [d] { return d->submitted || d->exit_requested; });
+
+  if (d->exit_requested) return "";
+
+  std::string result = std::move(d->submitted_line);
+  d->submitted = false;
+  return result;
+}
+
+void FtxuiTui::print_user(const std::string& content) {
+  Impl* d = impl_.get();
+  std::string text = content;
+  auto component = ftxui::Renderer([text] {
+    return ftxui::vbox({
+               ftxui::text("user: ") | ftxui::bold |
+                   ftxui::color(ftxui::Color::Cyan),
+               render_text(text),
+           }) |
+           ftxui::xflex;
+  });
+  d->screen.Post([d, component]() {
+    d->history.push_back({"user", {}, nullptr, component});
+    d->history_container->Add(component);
+    d->scroller->ScrollToEnd();
+  });
 }
 
 void FtxuiTui::print_response(const std::string& content) {
-  // TODO: append a new assistant message Element to the chat history list;
-  //       call screen.PostEvent(Event::Custom) to trigger a re-render.
-  (void)content;
+  Impl* d = impl_.get();
+  std::string text = content;
+  auto component = ftxui::Renderer([text] {
+    return ftxui::vbox({
+               ftxui::text("assistant: ") | ftxui::bold |
+                   ftxui::color(ftxui::Color::Green),
+               render_text(text),
+           }) |
+           ftxui::xflex;
+  });
+  d->screen.Post([d, component]() {
+    d->history.push_back({"assistant", {}, nullptr, component});
+    d->history_container->Add(component);
+    d->scroller->ScrollToEnd();
+  });
 }
 
 void FtxuiTui::print_reasoning(const std::string& reasoning) {
-  // TODO: if reasoning is empty, return.
-  //       Otherwise prepend a ftxui Collapsible component (collapsed by
-  //       default, title "thinking…") containing the reasoning text above
-  //       the corresponding response element; trigger re-render.
-  (void)reasoning;
+  if (reasoning.empty()) return;
+  Impl* d = impl_.get();
+  std::string text = reasoning;
+  // shared_ptr keeps the bool alive and its address stable even if history
+  // vector reallocates. Collapsible holds the raw bool* safely.
+  auto open = std::make_shared<bool>(false);
+  auto inner = ftxui::Renderer([text] {
+    return render_text(text) | ftxui::color(ftxui::Color::GrayDark) |
+           ftxui::xflex;
+  });
+  auto collapsible = ftxui::Collapsible("thinking…", inner, open.get());
+  d->screen.Post([d, collapsible, open]() {
+    d->history.push_back({"reason", {}, open, collapsible});
+    d->history_container->Add(collapsible);
+    d->scroller->ScrollToEnd();
+  });
+}
+
+void FtxuiTui::print_error(const std::string& msg) {
+  Impl* d = impl_.get();
+  std::string text = msg;
+  auto component = ftxui::Renderer([text] {
+    return ftxui::text("error: " + text) | ftxui::color(ftxui::Color::Red);
+  });
+  d->screen.Post([d, component]() {
+    d->history.push_back({"error", {}, nullptr, component});
+    d->history_container->Add(component);
+    d->scroller->ScrollToEnd();
+  });
+}
+
+void FtxuiTui::set_status(int prompt_tokens, int ctx_len,
+                          const std::string& hint) {
+  Impl* d = impl_.get();
+  // Post to the UI thread — avoids data races on the string members.
+  d->screen.Post([d, prompt_tokens, ctx_len, hint]() {
+    d->prompt_tokens = prompt_tokens;
+    d->ctx_len = ctx_len;
+    d->status_hint = hint;
+  });
 }
 
 void FtxuiTui::start_spinner() {
-  // TODO: set spinner_running_ = true; start a background thread that posts
-  //       Event::Custom at ~100 ms intervals to advance the spinner frame
-  //       counter; the renderer reads spinner_running_ + frame to draw the
-  //       spinner Element (e.g. ftxui::spinner(7, frame)).
+  Impl* d = impl_.get();
+  d->spinner_running = true;
+  d->spinner_frame = 0;
+  d->spinner_thread = std::thread([d] {
+    while (d->spinner_running) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      ++d->spinner_frame;
+      d->screen.PostEvent(ftxui::Event::Custom);
+    }
+  });
 }
 
 void FtxuiTui::stop_spinner() {
-  // TODO: set spinner_running_ = false; join the spinner thread; post one
-  //       more Event::Custom to clear the spinner from the screen.
+  Impl* d = impl_.get();
+  d->spinner_running = false;
+  if (d->spinner_thread.joinable()) d->spinner_thread.join();
+  // One final redraw to clear the spinner from the screen.
+  d->screen.PostEvent(ftxui::Event::Custom);
 }
 
-std::unique_ptr<Tui> make_tui() { return std::make_unique<FtxuiTui>(); }
+std::string FtxuiTui::system_prompt() const { return impl_->system_prompt; }
+
+std::unique_ptr<Tui> make_tui(std::string initial_system_prompt) {
+  return std::make_unique<FtxuiTui>(std::move(initial_system_prompt));
+}
 
 }  // namespace ur

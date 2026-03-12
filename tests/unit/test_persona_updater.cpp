@@ -25,12 +25,14 @@ class MockProvider : public ur::Provider {
   explicit MockProvider(std::string response)
       : response_(std::move(response)) {}
 
-  std::string complete(const std::vector<ur::Message>& messages,
-                       const std::string& /*model*/) override {
+  ur::CompletionResult complete(const std::vector<ur::Message>& messages,
+                                const std::string& /*model*/) override {
     ++call_count;
     last_messages = messages;
-    return response_;
+    return {response_, {}, 0, 0};
   }
+
+  ur::ServerInfo server_info() override { return {}; }
 
   int call_count = 0;
   std::vector<ur::Message> last_messages;

@@ -17,8 +17,11 @@ struct Message {
 
 // Result returned by Provider::complete().
 struct CompletionResult {
-  std::string content;    // assistant reply (raw, may contain <think> block)
-  int prompt_tokens = 0;  // usage.prompt_tokens from API; 0 if absent
+  std::string content;  // assistant reply (cleaned, no <think> block)
+  std::string
+      reasoning_content;      // from reasoning_content field if present,
+                              // or extracted from <think>…</think> in content
+  int prompt_tokens = 0;      // usage.prompt_tokens from API; 0 if absent
   int completion_tokens = 0;  // usage.completion_tokens from API; 0 if absent
 };
 

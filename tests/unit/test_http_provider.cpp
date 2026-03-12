@@ -82,8 +82,8 @@ TEST_F(HttpProviderTest, CompletePostsToCorrectEndpoint) {
 
 TEST_F(HttpProviderTest, CompleteReturnsAssistantContent) {
   ur::HttpProvider provider(base_url_);
-  std::string result = provider.complete({{"user", "hello"}}, "");
-  EXPECT_EQ(result, "hi there");
+  ur::CompletionResult result = provider.complete({{"user", "hello"}}, "");
+  EXPECT_EQ(result.content, "hi there");
 }
 
 TEST_F(HttpProviderTest, CompleteThrowsOnNon200Response) {

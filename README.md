@@ -13,7 +13,7 @@ Your agent sandbox — secured, efficient, local hosted, for you only
 - An OpenAI-compatible LLM server (e.g. llama.cpp server, Ollama) — managed and run independently
 - Docker (optional — required for sandbox tier 2)
 
-All other dependencies (SQLite, mbedTLS, cpp-httplib, nlohmann/json, ftxui, GoogleTest) are either bundled or fetched automatically by CMake. No manual library installation required.
+All other dependencies (SQLite, mbedTLS, cpp-httplib, nlohmann/json, ftxui, md4c, GoogleTest) are either bundled or fetched automatically by CMake. No manual library installation required.
 
 ## Build from Source
 
@@ -212,4 +212,4 @@ Tool plugin loading from `$root/tools/`, workspace-constrained sandbox, tool-cal
 Context compression (LLM-summarised rolling window), long-term semantic memory via flat-file vector store, context usage display in the TUI status line.
 
 **Phase 6** — Docker sandbox and streaming TUI:
-Sandbox tier 2 (Docker runner), streaming token output, TUI polish.
+Sandbox tier 2 (Docker runner), streaming token output, TUI polish (markdown rendering via md4c).

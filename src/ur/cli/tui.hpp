@@ -77,6 +77,10 @@ class FtxuiTui : public Tui {
   void start_spinner() override;
   void stop_spinner() override;
   std::string system_prompt() const override;
+
+ private:
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
 // Construct the production TUI, pre-populating the System Prompt tab.
