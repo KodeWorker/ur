@@ -1,11 +1,13 @@
 #include "chat.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <ctime>
 #include <iomanip>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "agent/persona_updater.hpp"
@@ -124,7 +126,12 @@ void Chat::run(const ChatOptions& opts, Provider& provider, Tui& tui) {
   // ── 2. Event loop ─────────────────────────────────────────────────────────
 
   while (true) {
-    const std::string input = tui.read_input();
+    std::string input = tui.read_input();
+
+    // Trim trailing whitespace (spaces, \r, \n) from input field.
+    while (!input.empty() && (input.back() == ' ' || input.back() == '\r' ||
+                              input.back() == '\n' || input.back() == '\t'))
+      input.pop_back();
 
     // Empty string signals Ctrl-C or TUI exit.
     if (input.empty()) break;
@@ -132,10 +139,18 @@ void Chat::run(const ChatOptions& opts, Provider& provider, Tui& tui) {
     // ── Slash commands ───────────────────────────────────────────────────────
     if (input[0] == '/') {
       if (input == "/exit") {
+        tui.print_response("goodbye👋");
+        std::this_thread::sleep_for(std::chrono::milliseconds(800));
         break;
-      } else if (input == "/compact") {
+      }
+      tui.print_user(input);
+      if (input == "/compact") {
         // Stub: full summarisation deferred to Phase 5.
         tui.print_error("/compact is not yet implemented");
+      } else if (input == "/save-prompt") {
+        tui.print_error("/save-prompt is not yet implemented");
+      } else if (input == "/load-prompt") {
+        tui.print_error("/load-prompt is not yet implemented");
       } else {
         tui.print_error("unknown command: " + input);
       }

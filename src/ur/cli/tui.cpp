@@ -132,6 +132,7 @@ struct FtxuiTui::Impl {
 
   // --- Session ---
   std::string input_content;
+  int input_cursor = 0;
   std::string submitted_line;
 
   struct HistoryEntry {
@@ -207,9 +208,11 @@ FtxuiTui::FtxuiTui(std::string initial_system_prompt)
 
   auto input_option = ftxui::InputOption::Default();
   input_option.transform = input_style;
+  input_option.cursor_position = &d->input_cursor;
   input_option.on_enter = [d] {
     std::string line = d->input_content;
     d->input_content.clear();
+    d->input_cursor = 0;
     if (!line.empty()) {
       // Notify the main thread (blocked in read_input). The event loop keeps
       // running so the screen stays live for the next turn.
@@ -221,6 +224,35 @@ FtxuiTui::FtxuiTui(std::string initial_system_prompt)
   };
   auto input_component = ftxui::Input(
       &d->input_content, "Type a message or /command…", input_option);
+
+  // Tab key autocomplete for slash commands.
+  static const std::vector<std::string> kSlashCommands{
+      "/compact", "/exit", "/load-prompt", "/save-prompt"};
+  input_component = ftxui::CatchEvent(input_component, [d](ftxui::Event e) {
+    if (e != ftxui::Event::Tab) return false;
+    if (d->input_content.empty() || d->input_content[0] != '/') return false;
+    std::vector<std::string> matches;
+    std::copy_if(kSlashCommands.begin(), kSlashCommands.end(),
+                 std::back_inserter(matches), [&](const std::string& cmd) {
+                   return cmd.rfind(d->input_content, 0) == 0;
+                 });
+    if (matches.empty()) return true;
+    if (matches.size() == 1) {
+      d->input_content = matches[0];
+      d->input_cursor = static_cast<int>(d->input_content.size());
+      return true;
+    }
+    // Multiple matches: complete to longest common prefix.
+    std::string prefix = matches[0];
+    for (const auto& m : matches) {
+      size_t i = 0;
+      while (i < prefix.size() && i < m.size() && prefix[i] == m[i]) ++i;
+      prefix.resize(i);
+    }
+    d->input_content = prefix;
+    d->input_cursor = static_cast<int>(d->input_content.size());
+    return true;
+  });
 
   auto scroller_owned = ftxui::Make<ScrollerBase>(d->history_container);
   d->scroller = scroller_owned.get();
@@ -432,6 +464,7 @@ void FtxuiTui::print_user(const std::string& content) {
     d->history.push_back({"user", {}, nullptr, component});
     d->history_container->Add(component);
     d->scroller->ScrollToEnd();
+    d->screen.PostEvent(ftxui::Event::Custom);
   });
 }
 
@@ -450,6 +483,7 @@ void FtxuiTui::print_response(const std::string& content) {
     d->history.push_back({"assistant", {}, nullptr, component});
     d->history_container->Add(component);
     d->scroller->ScrollToEnd();
+    d->screen.PostEvent(ftxui::Event::Custom);
   });
 }
 
@@ -469,6 +503,7 @@ void FtxuiTui::print_reasoning(const std::string& reasoning) {
     d->history.push_back({"reason", {}, open, collapsible});
     d->history_container->Add(collapsible);
     d->scroller->ScrollToEnd();
+    d->screen.PostEvent(ftxui::Event::Custom);
   });
 }
 
@@ -482,6 +517,7 @@ void FtxuiTui::print_error(const std::string& msg) {
     d->history.push_back({"error", {}, nullptr, component});
     d->history_container->Add(component);
     d->scroller->ScrollToEnd();
+    d->screen.PostEvent(ftxui::Event::Custom);
   });
 }
 
