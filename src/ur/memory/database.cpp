@@ -228,60 +228,209 @@ void Database::rollback() {
 }
 
 bool Database::session_exists(const std::string& id) {
-  // TODO: prepare "SELECT 1 FROM session WHERE id=? LIMIT 1"; bind id;
-  //       return true if sqlite3_step returns SQLITE_ROW.
   if (!is_open()) open();
-  (void)id;
-  return false;
+  const char* sql = R"(
+    SELECT 1 FROM session WHERE id=? LIMIT 1
+  )";
+  sqlite3_stmt* stmt = nullptr;
+  int rc = sqlite3_prepare_v2(handle_.get(), sql, -1, &stmt, nullptr);
+  if (rc != SQLITE_OK) {
+    std::string err_msg = sqlite3_errmsg(handle_.get());
+    throw std::runtime_error("Database::session_exists (prepare): " + err_msg);
+  }
+  if (sqlite3_bind_text(stmt, 1, id.c_str(), -1, SQLITE_TRANSIENT) !=
+      SQLITE_OK) {
+    std::string err_msg = sqlite3_errmsg(handle_.get());
+    sqlite3_finalize(stmt);
+    throw std::runtime_error("Database::session_exists (bind id): " + err_msg);
+  }
+  rc = sqlite3_step(stmt);
+  if (rc != SQLITE_ROW && rc != SQLITE_DONE) {
+    std::string err_msg = sqlite3_errmsg(handle_.get());
+    sqlite3_finalize(stmt);
+    throw std::runtime_error("Database::session_exists (step): " + err_msg);
+  }
+  const bool exists = (rc == SQLITE_ROW);
+  sqlite3_finalize(stmt);
+  return exists;
+}
+
+static std::string col_text(sqlite3_stmt* stmt, int col) {
+  const auto* p = sqlite3_column_text(stmt, col);
+  return p ? reinterpret_cast<const char*>(p) : std::string{};
+}
+
+static std::string col_blob(sqlite3_stmt* stmt, int col) {
+  const void* p = sqlite3_column_blob(stmt, col);
+  int n = sqlite3_column_bytes(stmt, col);
+  return p ? std::string(static_cast<const char*>(p), n) : std::string{};
 }
 
 std::vector<SessionRow> Database::select_sessions() {
-  // TODO: prepare "SELECT id, title, model, created_at, updated_at FROM session
-  //               ORDER BY created_at DESC";
-  //       step through rows; build SessionRow for each; return vector.
   if (!is_open()) open();
-  return {};
+  const char* sql = R"(
+    SELECT id, title, model, created_at, updated_at
+    FROM session
+    ORDER BY created_at DESC
+  )";
+  sqlite3_stmt* stmt = nullptr;
+  int rc = sqlite3_prepare_v2(handle_.get(), sql, -1, &stmt, nullptr);
+  if (rc != SQLITE_OK) {
+    std::string err_msg = sqlite3_errmsg(handle_.get());
+    throw std::runtime_error("Database::select_sessions (prepare): " + err_msg);
+  }
+  std::vector<SessionRow> sessions;
+  while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+    sessions.push_back(SessionRow{
+        col_text(stmt, 0), col_text(stmt, 1), col_text(stmt, 2),
+        sqlite3_column_int64(stmt, 3), sqlite3_column_int64(stmt, 4)});
+  }
+  if (rc != SQLITE_DONE) {
+    std::string err_msg = sqlite3_errmsg(handle_.get());
+    sqlite3_finalize(stmt);
+    throw std::runtime_error("Database::select_sessions (step): " + err_msg);
+  }
+  sqlite3_finalize(stmt);
+  return sessions;
 }
 
 std::vector<MessageRow> Database::select_messages(
     const std::string& session_id) {
-  // TODO: prepare "SELECT id, session_id, role, content, created_at
-  //               FROM message WHERE session_id=? ORDER BY created_at ASC";
-  //       bind session_id; for each row call dec() on content before storing
-  //       in MessageRow; return vector.
   if (!is_open()) open();
-  (void)session_id;
-  return {};
+  const char* sql = R"(
+    SELECT id, session_id, role, content, created_at
+    FROM message
+    WHERE session_id=?
+    ORDER BY created_at ASC
+  )";
+  sqlite3_stmt* stmt = nullptr;
+  int rc = sqlite3_prepare_v2(handle_.get(), sql, -1, &stmt, nullptr);
+  if (rc != SQLITE_OK) {
+    std::string err_msg = sqlite3_errmsg(handle_.get());
+    throw std::runtime_error("Database::select_messages (prepare): " + err_msg);
+  }
+  if (sqlite3_bind_text(stmt, 1, session_id.c_str(), -1, SQLITE_TRANSIENT) !=
+      SQLITE_OK) {
+    std::string err_msg = sqlite3_errmsg(handle_.get());
+    sqlite3_finalize(stmt);
+    throw std::runtime_error("Database::select_messages (bind session_id): " +
+                             err_msg);
+  }
+  std::vector<MessageRow> messages;
+  while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+    messages.push_back(MessageRow{col_text(stmt, 0), col_text(stmt, 1),
+                                  col_text(stmt, 2), dec(col_blob(stmt, 3)),
+                                  sqlite3_column_int64(stmt, 4)});
+  }
+  if (rc != SQLITE_DONE) {
+    std::string err_msg = sqlite3_errmsg(handle_.get());
+    sqlite3_finalize(stmt);
+    throw std::runtime_error("Database::select_messages (step): " + err_msg);
+  }
+  sqlite3_finalize(stmt);
+  return messages;
 }
 
 std::vector<PersonaRow> Database::select_persona() {
-  // TODO: prepare "SELECT key, value, updated_at FROM persona ORDER BY key
-  // ASC";
-  //       for each row call dec() on value before storing in PersonaRow;
-  //       return vector.
   if (!is_open()) open();
-  return {};
+  const char* sql = R"(
+    SELECT key, value, updated_at
+    FROM persona
+    ORDER BY key ASC
+  )";
+  sqlite3_stmt* stmt = nullptr;
+  int rc = sqlite3_prepare_v2(handle_.get(), sql, -1, &stmt, nullptr);
+  if (rc != SQLITE_OK) {
+    std::string err_msg = sqlite3_errmsg(handle_.get());
+    throw std::runtime_error("Database::select_persona (prepare): " + err_msg);
+  }
+  std::vector<PersonaRow> persona;
+  while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+    persona.push_back(PersonaRow{col_text(stmt, 0), dec(col_blob(stmt, 1)),
+                                 sqlite3_column_int64(stmt, 2)});
+  }
+  if (rc != SQLITE_DONE) {
+    std::string err_msg = sqlite3_errmsg(handle_.get());
+    sqlite3_finalize(stmt);
+    throw std::runtime_error("Database::select_persona (step): " + err_msg);
+  }
+  sqlite3_finalize(stmt);
+  return persona;
 }
 
 void Database::upsert_persona(const std::string& key, const std::string& value,
                               int64_t updated_at) {
-  // TODO: prepare
-  //   "INSERT INTO persona (key, value, updated_at) VALUES (?, ?, ?)
-  //    ON CONFLICT(key) DO UPDATE SET value=excluded.value,
-  //                                   updated_at=excluded.updated_at";
-  //       bind key, enc(value), updated_at; step; finalize.
   if (!is_open()) open();
-  (void)key;
-  (void)value;
-  (void)updated_at;
+  const char* sql = R"(
+    INSERT INTO persona (key, value, updated_at) VALUES (?, ?, ?)
+    ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at
+  )";
+  sqlite3_stmt* stmt = nullptr;
+  int rc = sqlite3_prepare_v2(handle_.get(), sql, -1, &stmt, nullptr);
+  if (rc != SQLITE_OK) {
+    std::string err_msg = sqlite3_errmsg(handle_.get());
+    throw std::runtime_error("Database::upsert_persona (prepare): " + err_msg);
+  }
+  if (sqlite3_bind_text(stmt, 1, key.c_str(), -1, SQLITE_TRANSIENT) !=
+      SQLITE_OK) {
+    std::string err_msg = sqlite3_errmsg(handle_.get());
+    sqlite3_finalize(stmt);
+    throw std::runtime_error("Database::upsert_persona (bind key): " + err_msg);
+  }
+  const std::string encrypted_value = enc(value);
+  if (sqlite3_bind_blob(stmt, 2, encrypted_value.data(),
+                        static_cast<int>(encrypted_value.size()),
+                        SQLITE_TRANSIENT) != SQLITE_OK) {
+    std::string err_msg = sqlite3_errmsg(handle_.get());
+    sqlite3_finalize(stmt);
+    throw std::runtime_error("Database::upsert_persona (bind value): " +
+                             err_msg);
+  }
+  if (sqlite3_bind_int64(stmt, 3, updated_at) != SQLITE_OK) {
+    std::string err_msg = sqlite3_errmsg(handle_.get());
+    sqlite3_finalize(stmt);
+    throw std::runtime_error("Database::upsert_persona (bind updated_at): " +
+                             err_msg);
+  }
+  rc = sqlite3_step(stmt);
+  if (rc != SQLITE_DONE) {
+    std::string err_msg = sqlite3_errmsg(handle_.get());
+    sqlite3_finalize(stmt);
+    throw std::runtime_error("Database::upsert_persona (step): " + err_msg);
+  }
+  sqlite3_finalize(stmt);
 }
 
 void Database::touch_session(const std::string& id, int64_t updated_at) {
-  // TODO: prepare "UPDATE session SET updated_at=? WHERE id=?";
-  //       bind updated_at, id; step; finalize.
   if (!is_open()) open();
-  (void)id;
-  (void)updated_at;
+  const char* sql = R"(
+    UPDATE session SET updated_at=? WHERE id=?
+  )";
+  sqlite3_stmt* stmt = nullptr;
+  int rc = sqlite3_prepare_v2(handle_.get(), sql, -1, &stmt, nullptr);
+  if (rc != SQLITE_OK) {
+    std::string err_msg = sqlite3_errmsg(handle_.get());
+    throw std::runtime_error("Database::touch_session (prepare): " + err_msg);
+  }
+  if (sqlite3_bind_int64(stmt, 1, updated_at) != SQLITE_OK) {
+    std::string err_msg = sqlite3_errmsg(handle_.get());
+    sqlite3_finalize(stmt);
+    throw std::runtime_error("Database::touch_session (bind updated_at): " +
+                             err_msg);
+  }
+  if (sqlite3_bind_text(stmt, 2, id.c_str(), -1, SQLITE_TRANSIENT) !=
+      SQLITE_OK) {
+    std::string err_msg = sqlite3_errmsg(handle_.get());
+    sqlite3_finalize(stmt);
+    throw std::runtime_error("Database::touch_session (bind id): " + err_msg);
+  }
+  rc = sqlite3_step(stmt);
+  if (rc != SQLITE_DONE) {
+    std::string err_msg = sqlite3_errmsg(handle_.get());
+    sqlite3_finalize(stmt);
+    throw std::runtime_error("Database::touch_session (step): " + err_msg);
+  }
+  sqlite3_finalize(stmt);
 }
 
 void Database::drop_all() {
