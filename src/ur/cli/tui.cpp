@@ -6,6 +6,7 @@
 #include <condition_variable>
 #include <cstdio>
 #include <cstdlib>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <sstream>
@@ -206,6 +207,17 @@ struct FtxuiTui::Impl {
   ScrollerBase* scroller = nullptr;  // raw ptr into the scroller component
 
   Impl() : screen(ftxui::ScreenInteractive::Fullscreen()) {}
+
+  // Execute fn in the event loop if running; otherwise execute directly.
+  // Direct execution is safe before read_input() starts the loop thread
+  // (only the main thread is running at that point).
+  void post_or_direct(std::function<void()> fn) {
+    if (loop_thread.joinable()) {
+      screen.Post(std::move(fn));
+    } else {
+      fn();
+    }
+  }
 };
 
 // ---------------------------------------------------------------------------
@@ -256,7 +268,7 @@ FtxuiTui::FtxuiTui(std::string initial_system_prompt)
 
   // Tab key autocomplete for slash commands.
   static const std::vector<std::string> kSlashCommands{
-      "/compact", "/exit", "/load-prompt", "/save-prompt"};
+      "/compact", "/exit", "/load-prompt", "/save-prompt", "/title"};
   input_component = ftxui::CatchEvent(input_component, [d](ftxui::Event e) {
     if (e != ftxui::Event::Tab) return false;
     if (d->input_content.empty() || d->input_content[0] != '/') return false;
@@ -516,7 +528,7 @@ void FtxuiTui::print_user(const std::string& content) {
            }) |
            ftxui::xflex;
   });
-  d->screen.Post([d, component]() {
+  d->post_or_direct([d, component]() {
     d->history.push_back({"user", {}, nullptr, component});
     d->history_container->Add(component);
     d->scroller->ScrollToEnd();
@@ -535,7 +547,7 @@ void FtxuiTui::print_response(const std::string& content) {
            }) |
            ftxui::xflex;
   });
-  d->screen.Post([d, component]() {
+  d->post_or_direct([d, component]() {
     d->history.push_back({"assistant", {}, nullptr, component});
     d->history_container->Add(component);
     d->scroller->ScrollToEnd();
@@ -586,7 +598,7 @@ void FtxuiTui::print_reasoning(const std::string& reasoning) {
   });
   auto collapsible =
       NonFocusable(ftxui::Collapsible("thinking…", inner, open.get()));
-  d->screen.Post([d, collapsible, open]() {
+  d->post_or_direct([d, collapsible, open]() {
     d->history.push_back({"reason", {}, open, collapsible});
     d->history_container->Add(collapsible);
     d->scroller->ScrollToEnd();
@@ -629,7 +641,7 @@ void FtxuiTui::print_error(const std::string& msg) {
   auto component = ftxui::Renderer([text] {
     return ftxui::text("error: " + text) | ftxui::color(ftxui::Color::Red);
   });
-  d->screen.Post([d, component]() {
+  d->post_or_direct([d, component]() {
     d->history.push_back({"error", {}, nullptr, component});
     d->history_container->Add(component);
     d->scroller->ScrollToEnd();
@@ -670,6 +682,10 @@ void FtxuiTui::stop_spinner() {
 }
 
 std::string FtxuiTui::system_prompt() const { return impl_->system_prompt; }
+
+void FtxuiTui::set_system_prompt(const std::string& prompt) {
+  impl_->system_prompt = prompt;
+}
 
 std::unique_ptr<Tui> make_tui(std::string initial_system_prompt) {
   return std::make_unique<FtxuiTui>(std::move(initial_system_prompt));

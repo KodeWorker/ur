@@ -57,6 +57,9 @@ class Tui {
   // Return the current system prompt text (may have been edited by the user
   // in the System Prompt tab since the session started).
   virtual std::string system_prompt() const = 0;
+
+  // Replace the system prompt text (e.g. from /load-prompt command).
+  virtual void set_system_prompt(const std::string& prompt) = 0;
 };
 
 // ---------------------------------------------------------------------------
@@ -90,6 +93,7 @@ class FtxuiTui : public Tui {
   void start_spinner() override;
   void stop_spinner() override;
   std::string system_prompt() const override;
+  void set_system_prompt(const std::string& prompt) override;
 
  private:
   struct Impl;

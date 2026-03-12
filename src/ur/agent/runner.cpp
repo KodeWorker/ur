@@ -36,7 +36,6 @@ RunResult Runner::run(const std::string& prompt,
   std::string user_msg_id = generate_id();
   std::string asst_msg_id = generate_id();
   int64_t now = static_cast<int64_t>(std::time(nullptr));
-  std::string title = prompt.substr(0, 60);
   // Prepare messages for provider call (system + user).
   std::vector<Message> messages;
   if (!system_prompt.empty()) {
@@ -67,7 +66,7 @@ RunResult Runner::run(const std::string& prompt,
   // All three writes succeed or none do.
   db_.begin();
   try {
-    db_.insert_session(session_id, title, model, now, now);
+    db_.insert_session(session_id, "", model, now, now);
     db_.insert_message(user_msg_id, session_id, "user", prompt, now);
     db_.insert_message(asst_msg_id, session_id, "assistant", response, now);
     db_.commit();

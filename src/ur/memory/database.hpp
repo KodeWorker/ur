@@ -99,6 +99,17 @@ class Database {
   // Called after each new message turn in the chat loop.
   void touch_session(const std::string& id, int64_t updated_at);
 
+  // Update the title of an existing session.
+  void update_session_title(const std::string& id, const std::string& title);
+
+  // Return the session ID whose title matches exactly.
+  // Throws std::runtime_error if no match or more than one match found.
+  std::string find_session_by_title(const std::string& title);
+
+  // Return the session ID whose id starts with prefix.
+  // Throws std::runtime_error if no match or more than one match found.
+  std::string find_session_by_id_prefix(const std::string& prefix);
+
   bool is_open() const;
 
  private:

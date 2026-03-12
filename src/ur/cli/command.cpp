@@ -1,10 +1,13 @@
 #include "command.hpp"
 
 #include <cstdlib>
+#include <ctime>
 #include <filesystem>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <memory>
+#include <sstream>
 #include <string>
 
 #include "agent/chat.hpp"
@@ -141,7 +144,18 @@ int cmd_chat(Context& ctx, int argc, char** argv) {
       if (arg.rfind("--model=", 0) == 0) {
         opts.model = arg.substr(8);
       } else if (arg.rfind("--continue=", 0) == 0) {
-        opts.continue_id = arg.substr(11);
+        const std::string val = arg.substr(11);
+        // Resolve: exact ID → ID prefix → title.
+        ctx.db.init_schema();
+        if (ctx.db.session_exists(val)) {
+          opts.continue_id = val;
+        } else {
+          try {
+            opts.continue_id = ctx.db.find_session_by_id_prefix(val);
+          } catch (const std::exception&) {
+            opts.continue_id = ctx.db.find_session_by_title(val);
+          }
+        }
       } else if (arg.rfind("--system-prompt=", 0) == 0) {
         std::string path = arg.substr(16);
         try {
@@ -177,13 +191,25 @@ int cmd_history(Context& ctx, int argc, char** argv) {
   try {
     ctx.db.init_schema();
     if (argc == 2) {
-      // TODO: ctx.db.select_sessions() → print id, title, created_at, model
-      //       for each row.
+      for (const auto& session : ctx.db.select_sessions()) {
+        auto tm = std::localtime(&session.created_at);
+        std::ostringstream oss;
+        oss << std::put_time(tm, "%Y-%m-%d %H:%M:%S");
+        std::cout << session.id << " | " << session.title << " | "
+                  << session.model << " | " << oss.str() << '\n';
+      }
     } else if (argc == 3) {
-      // TODO: ctx.db.select_messages(argv[2]) → print [role] content for each.
-      (void)argv;
+      if (!ctx.db.session_exists(argv[2])) {
+        ctx.logger.error("Session ID not found: " + std::string(argv[2]));
+        return 1;
+      }
+      for (const auto& message : ctx.db.select_messages(argv[2])) {
+        std::cout << "[" << message.role << "] " << message.content << '\n';
+      }
     } else {
-      ctx.logger.error("Usage: ur history [<id>]");
+      ctx.logger.error(
+          "Too many arguments for history command.\nUsage: ur history "
+          "[<session_id>]");
       return 1;
     }
     return 0;
@@ -196,7 +222,9 @@ int cmd_history(Context& ctx, int argc, char** argv) {
 int cmd_persona(Context& ctx, int /*argc*/, char** /*argv*/) {
   try {
     ctx.db.init_schema();
-    // TODO: ctx.db.select_persona() → print "key:  value" for each row.
+    for (const auto& persona : ctx.db.select_persona()) {
+      std::cout << persona.key << ": " << persona.value << '\n';
+    }
     return 0;
   } catch (const std::exception& e) {
     ctx.logger.error(e.what());

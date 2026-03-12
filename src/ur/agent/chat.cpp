@@ -147,10 +147,53 @@ void Chat::run(const ChatOptions& opts, Provider& provider, Tui& tui) {
       if (input == "/compact") {
         // Stub: full summarisation deferred to Phase 5.
         tui.print_error("/compact is not yet implemented");
-      } else if (input == "/save-prompt") {
-        tui.print_error("/save-prompt is not yet implemented");
-      } else if (input == "/load-prompt") {
-        tui.print_error("/load-prompt is not yet implemented");
+      } else if (input.rfind("/save-prompt ", 0) == 0) {
+        const std::string path = input.substr(13);
+        if (path.empty()) {
+          tui.print_error("usage: /save-prompt <file>");
+        } else {
+          try {
+            std::ofstream f(path);
+            if (!f) throw std::runtime_error("cannot open: " + path);
+            f << tui.system_prompt();
+            tui.print_response("system prompt saved to: " + path);
+          } catch (const std::exception& e) {
+            tui.print_error(std::string("failed to save system prompt: ") +
+                            e.what());
+          }
+        }
+      } else if (input.rfind("/load-prompt ", 0) == 0) {
+        const std::string path = input.substr(13);
+        if (path.empty()) {
+          tui.print_error("usage: /load-prompt <file>");
+        } else {
+          try {
+            std::ifstream f(path);
+            if (!f) throw std::runtime_error("cannot open: " + path);
+            std::string new_prompt((std::istreambuf_iterator<char>(f)),
+                                   std::istreambuf_iterator<char>());
+            tui.set_system_prompt(new_prompt);
+            tui.print_response("system prompt loaded from: " + path);
+          } catch (const std::exception& e) {
+            tui.print_error(std::string("failed to load system prompt: ") +
+                            e.what());
+          }
+        }
+      } else if (input.rfind("/title ", 0) == 0) {
+        const std::string new_title = input.substr(7);
+        if (new_title.empty()) {
+          tui.print_error("usage: /title <text>");
+        } else {
+          try {
+            db_.update_session_title(session_id, new_title);
+            tui.print_response("title set: " + new_title);
+          } catch (const std::exception& e) {
+            tui.print_error(std::string("failed to set title: ") + e.what());
+          }
+        }
+      } else if (input == "/title" || input == "/save-prompt" ||
+                 input == "/load-prompt") {
+        tui.print_error("usage: " + input + " <text>");
       } else {
         tui.print_error("unknown command: " + input);
       }
