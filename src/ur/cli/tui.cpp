@@ -21,6 +21,8 @@
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/screen/box.hpp>
 
+#include "env.hpp"
+
 namespace ur {
 
 // ---------------------------------------------------------------------------
@@ -333,12 +335,28 @@ FtxuiTui::FtxuiTui(std::string initial_system_prompt)
 
   // ── Options tab ───────────────────────────────────────────────────────────
 
-  auto opt_url_input = ftxui::Input(&d->opt_base_url, "http://localhost:8080");
-  auto opt_key_input =
-      ftxui::Input(&d->opt_api_key, "(empty for local servers)");
-  auto opt_model_input = ftxui::Input(&d->opt_model, "(server default)");
-  auto opt_conn_input = ftxui::Input(&d->opt_conn_timeout, "10");
-  auto opt_read_input = ftxui::Input(&d->opt_read_timeout, "0");
+  // Shared save callback — writes all 5 fields to .env on Enter.
+  auto save_opts = [d] {
+    save_dotenv(".env", {{"UR_LLM_BASE_URL", d->opt_base_url},
+                         {"UR_LLM_API_KEY", d->opt_api_key},
+                         {"UR_LLM_MODEL", d->opt_model},
+                         {"UR_LLM_CONNECTION_TIMEOUT", d->opt_conn_timeout},
+                         {"UR_LLM_READ_TIMEOUT", d->opt_read_timeout}});
+  };
+
+  auto make_opt = [&](std::string* val, const char* placeholder) {
+    ftxui::InputOption opt;
+    opt.multiline = false;
+    opt.transform = input_style;
+    opt.on_enter = save_opts;
+    return ftxui::Input(val, placeholder, opt);
+  };
+
+  auto opt_url_input = make_opt(&d->opt_base_url, "http://localhost:8080");
+  auto opt_key_input = make_opt(&d->opt_api_key, "(empty for local servers)");
+  auto opt_model_input = make_opt(&d->opt_model, "(server default)");
+  auto opt_conn_input = make_opt(&d->opt_conn_timeout, "10");
+  auto opt_read_input = make_opt(&d->opt_read_timeout, "0");
 
   auto options_container = ftxui::Container::Vertical({
       opt_url_input,
@@ -369,7 +387,8 @@ FtxuiTui::FtxuiTui(std::string initial_system_prompt)
             row("UR_LLM_CONNECTION_TIMEOUT", opt_conn_input),
             row("UR_LLM_READ_TIMEOUT", opt_read_input),
             ftxui::separator(),
-            ftxui::text("Press Enter on a field to save all options to .env.") |
+            ftxui::text(
+                "Press Enter on any field to save all options to .env.") |
                 ftxui::dim,
         });
       });

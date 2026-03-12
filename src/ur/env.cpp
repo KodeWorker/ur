@@ -2,7 +2,9 @@
 
 #include <cstdlib>
 #include <fstream>
+#include <map>
 #include <string>
+#include <vector>
 
 namespace ur {
 
@@ -45,6 +47,41 @@ void load_dotenv(const std::filesystem::path& path) {
     setenv(key.c_str(), val.c_str(), /*overwrite=*/1);
 #endif
   }
+}
+
+void save_dotenv(const std::filesystem::path& path,
+                 const std::map<std::string, std::string>& vars) {
+  // Read existing lines, replacing matching keys in-place.
+  std::vector<std::string> lines;
+  std::map<std::string, bool> written;
+  for (const auto& kv : vars) written[kv.first] = false;
+
+  std::ifstream in(path);
+  if (in) {
+    std::string line;
+    while (std::getline(in, line)) {
+      auto eq = line.find('=');
+      if (eq != std::string::npos) {
+        std::string key = line.substr(0, eq);
+        auto it = vars.find(key);
+        if (it != vars.end()) {
+          lines.push_back(key + "=" + it->second);
+          written[key] = true;
+          continue;
+        }
+      }
+      lines.push_back(line);
+    }
+    in.close();
+  }
+
+  // Append keys not already present.
+  for (const auto& kv : vars) {
+    if (!written[kv.first]) lines.push_back(kv.first + "=" + kv.second);
+  }
+
+  std::ofstream out(path);
+  for (const auto& l : lines) out << l << "\n";
 }
 
 }  // namespace ur
