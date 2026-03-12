@@ -23,11 +23,22 @@ class Tui {
   virtual void print_user(const std::string& content) = 0;
 
   // Append the assistant response to the Session tab history view.
+  // Called once with the full text when not streaming.
   virtual void print_response(const std::string& content) = 0;
 
+  // Append a single streaming chunk to the in-progress response.
+  // Called repeatedly during provider.stream(); print_response() is NOT
+  // called afterwards — the chunk stream IS the response for that turn.
+  virtual void print_response_chunk(const std::string& chunk) = 0;
+
   // Append a collapsible reasoning block above the response.
+  // Called once with the full text when not streaming.
   // No-op if reasoning is empty.
   virtual void print_reasoning(const std::string& reasoning) = 0;
+
+  // Append a single streaming chunk to the in-progress reasoning block.
+  // First chunk creates the collapsible; subsequent chunks extend it.
+  virtual void print_reasoning_chunk(const std::string& chunk) = 0;
 
   // Show an inline error line in the Session tab (e.g. unknown slash command).
   virtual void print_error(const std::string& msg) = 0;
@@ -70,7 +81,9 @@ class FtxuiTui : public Tui {
   std::string read_input() override;
   void print_user(const std::string& content) override;
   void print_response(const std::string& content) override;
+  void print_response_chunk(const std::string& chunk) override;
   void print_reasoning(const std::string& reasoning) override;
+  void print_reasoning_chunk(const std::string& chunk) override;
   void print_error(const std::string& msg) override;
   void set_status(int prompt_tokens, int ctx_len,
                   const std::string& hint) override;

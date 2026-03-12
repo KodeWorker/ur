@@ -25,7 +25,9 @@ std::string Runner::generate_id() {
 
 RunResult Runner::run(const std::string& prompt,
                       const std::string& system_prompt,
-                      const std::string& model, Provider& provider) {
+                      const std::string& model, Provider& provider,
+                      const TokenCallback& token_cb,
+                      const TokenCallback& reasoning_cb) {
   if (!db_.is_open()) {
     throw std::runtime_error(
         "Runner::run: database is not open, init schema first");
@@ -43,7 +45,22 @@ RunResult Runner::run(const std::string& prompt,
   messages.push_back({"user", prompt});
   // Network call outside the transaction — no DB lock held during I/O.
   logger_.debug("calling provider: model=" + model);
-  CompletionResult cr = provider.complete(messages, model);
+  CompletionResult cr;
+  if (token_cb || reasoning_cb) {
+    // Wrap callbacks: forward each chunk to the caller AND accumulate into cr
+    // so the full text is available for the DB write below.
+    auto wrap_token = [&](const std::string& chunk) {
+      cr.content += chunk;
+      if (token_cb) token_cb(chunk);
+    };
+    auto wrap_reasoning = [&](const std::string& chunk) {
+      cr.reasoning_content += chunk;
+      if (reasoning_cb) reasoning_cb(chunk);
+    };
+    provider.stream(messages, model, wrap_token, wrap_reasoning);
+  } else {
+    cr = provider.complete(messages, model);
+  }
   const std::string& response = cr.content;
   logger_.debug("provider returned");
 

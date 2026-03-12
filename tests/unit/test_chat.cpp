@@ -33,6 +33,14 @@ class MockProvider : public ur::Provider {
     return {response_, {}, 0, 0};
   }
 
+  void stream(const std::vector<ur::Message>& messages,
+              const std::string& /*model*/, const ur::TokenCallback& token_cb,
+              const ur::TokenCallback& /*reasoning_cb*/) override {
+    last_messages = messages;
+    // Deliver the whole response as one chunk.
+    if (token_cb) token_cb(response_);
+  }
+
   ur::ServerInfo server_info() override { return {}; }
 
   std::vector<ur::Message> last_messages;
@@ -58,19 +66,38 @@ class MockTui : public ur::Tui {
     return line;
   }
 
+  void print_user(const std::string& /*content*/) override {}
+
   void print_response(const std::string& content) override {
     responses.push_back(content);
+  }
+
+  void print_response_chunk(const std::string& chunk) override {
+    chunks.push_back(chunk);
   }
 
   void print_reasoning(const std::string& reasoning) override {
     reasonings.push_back(reasoning);
   }
 
+  void print_reasoning_chunk(const std::string& chunk) override {
+    reasoning_chunks.push_back(chunk);
+  }
+
+  void print_error(const std::string& /*msg*/) override {}
+
+  void set_status(int /*prompt_tokens*/, int /*ctx_len*/,
+                  const std::string& /*hint*/) override {}
+
   void start_spinner() override {}
   void stop_spinner() override {}
 
+  std::string system_prompt() const override { return {}; }
+
   std::vector<std::string> responses;
+  std::vector<std::string> chunks;
   std::vector<std::string> reasonings;
+  std::vector<std::string> reasoning_chunks;
 
  private:
   std::queue<std::string> inputs_;

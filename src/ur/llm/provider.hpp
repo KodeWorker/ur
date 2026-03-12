@@ -1,9 +1,14 @@
 #pragma once
 
+#include <functional>
 #include <string>
 #include <vector>
 
 namespace ur {
+
+// Callback for streaming token delivery.
+// Called once per chunk as it arrives from the server.
+using TokenCallback = std::function<void(const std::string&)>;
 
 // A single message in a conversation turn.
 // role is passed through to the server as-is.
@@ -47,6 +52,15 @@ class Provider {
   // Throws std::runtime_error on failure.
   virtual CompletionResult complete(const std::vector<Message>& messages,
                                     const std::string& model) = 0;
+
+  // Stream a completion, delivering tokens incrementally via callbacks.
+  // token_cb:     called for each content chunk (may be nullptr).
+  // reasoning_cb: called for each reasoning chunk, e.g. reasoning_content
+  //               field or <think> block content (may be nullptr).
+  // Throws std::runtime_error on failure.
+  virtual void stream(const std::vector<Message>& messages,
+                      const std::string& model, const TokenCallback& token_cb,
+                      const TokenCallback& reasoning_cb) = 0;
 };
 
 }  // namespace ur

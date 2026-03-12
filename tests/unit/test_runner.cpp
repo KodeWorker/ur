@@ -30,6 +30,13 @@ class MockProvider : public ur::Provider {
     return {response_, {}, 0, 0};
   }
 
+  void stream(const std::vector<ur::Message>& messages,
+              const std::string& /*model*/, const ur::TokenCallback& token_cb,
+              const ur::TokenCallback& /*reasoning_cb*/) override {
+    last_messages = messages;
+    if (token_cb) token_cb(response_);
+  }
+
   ur::ServerInfo server_info() override { return {}; }
 
   std::vector<ur::Message> last_messages;

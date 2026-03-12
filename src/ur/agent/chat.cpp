@@ -164,37 +164,54 @@ void Chat::run(const ChatOptions& opts, Provider& provider, Tui& tui) {
     db_.insert_message(generate_id(), session_id, "user", input, now);
     history.push_back({"user", input});
 
-    // ── d. Inference ─────────────────────────────────────────────────────────
+    // ── d. Inference (streaming)
+    // ──────────────────────────────────────────────
     tui.start_spinner();
-    CompletionResult cr;
+    std::string reasoning;
+    std::string content;
+    bool spinner_stopped = false;
     try {
-      cr = provider.complete(
+      provider.stream(
           build_window(history, tui.system_prompt(), opts.context_window),
-          opts.model);
+          opts.model,
+          // token_cb: stop spinner on first chunk, stream to TUI.
+          [&](const std::string& chunk) {
+            if (!spinner_stopped) {
+              tui.stop_spinner();
+              spinner_stopped = true;
+            }
+            content += chunk;
+            tui.print_response_chunk(chunk);
+          },
+          // reasoning_cb: stream to TUI in real-time, accumulate for DB.
+          [&](const std::string& chunk) {
+            if (!spinner_stopped) {
+              tui.stop_spinner();
+              spinner_stopped = true;
+            }
+            reasoning += chunk;
+            tui.print_reasoning_chunk(chunk);
+          });
     } catch (const std::exception& e) {
-      tui.stop_spinner();
+      if (!spinner_stopped) tui.stop_spinner();
       tui.print_error(e.what());
       logger_.error(std::string("provider error: ") + e.what());
       continue;
     }
-    tui.stop_spinner();
+    if (!spinner_stopped) tui.stop_spinner();
 
-    // ── e. Reasoning extraction
-    // ─────────────────────────────────────────────── Prefer dedicated
-    // reasoning_content field; fall back to <think> stripping for models that
-    // embed reasoning inline (DeepSeek-R1, QwQ).
-    std::string reasoning;
-    std::string content;
-    if (!cr.reasoning_content.empty()) {
-      reasoning = cr.reasoning_content;
-      content = cr.content;
-    } else {
-      content = strip_think(cr.content, reasoning);
+    // ── e. <think> fallback for models that embed reasoning in content
+    // ──────── reasoning_content delta chunks are already streamed via
+    // reasoning_cb. For models that embed <think>…</think> inline in content
+    // (no separate reasoning_content field), strip and display now as a full
+    // block.
+    if (reasoning.empty()) {
+      content = strip_think(content, reasoning);
+      if (!reasoning.empty()) tui.print_reasoning(reasoning);
     }
 
     if (!reasoning.empty()) {
       db_.insert_message(generate_id(), session_id, "reason", reasoning, now);
-      tui.print_reasoning(reasoning);
     }
 
     // ── f. Persist assistant turn
@@ -203,10 +220,11 @@ void Chat::run(const ChatOptions& opts, Provider& provider, Tui& tui) {
     db_.touch_session(session_id, now);
     history.push_back({"assistant", content});
 
-    // ── g. Render + status + persona ─────────────────────────────────────────
-    tui.print_response(content);
-    tui.set_status(cr.prompt_tokens, srv.context_length,
-                   "/compact to summarize");
+    // ── g. Status + persona
+    // ─────────────────────────────────────────────────── prompt_tokens is not
+    // available from stream(); set to 0 for now.
+    // TODO(phase5): parse the final usage chunk to get token counts.
+    tui.set_status(0, srv.context_length, "/compact to summarize");
 
     persona.maybe_update(history, input, content);
   }

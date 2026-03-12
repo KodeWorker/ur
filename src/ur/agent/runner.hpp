@@ -31,9 +31,14 @@ class Runner {
   // model:         model name passed to provider; resolved with precedence:
   //                  --model=<name>  >  UR_LLM_MODEL  >  empty
   // provider:      called to produce the assistant response
+  // token_cb:      if non-null, use provider.stream() and deliver content
+  //                chunks via this callback; otherwise use provider.complete()
+  // reasoning_cb:  if non-null, deliver reasoning chunks via this callback
   // Returns RunResult on success; throws std::runtime_error on failure.
   RunResult run(const std::string& prompt, const std::string& system_prompt,
-                const std::string& model, Provider& provider);
+                const std::string& model, Provider& provider,
+                const TokenCallback& token_cb = nullptr,
+                const TokenCallback& reasoning_cb = nullptr);
 
  private:
   // Generate a random 32-char hex ID using RAND_bytes() (OpenSSL).

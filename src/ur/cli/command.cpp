@@ -15,20 +15,21 @@
 
 namespace ur {
 
-int cmd_init(Context& ctx, int /*argc*/, char** /*argv*/) {
+int cmd_init(const Paths& paths, int /*argc*/, char** /*argv*/) {
   try {
-    init_workspace(ctx.paths);
-    ctx.db.init_schema();
-    const std::filesystem::path key_path = ctx.paths.key / "secret.key";
+    init_workspace(paths);
+    const std::filesystem::path key_path = paths.key / "secret.key";
     bool key_existed = std::filesystem::exists(key_path);
     generate_key(key_path);
-    std::cout << "Workspace initialized at " << ctx.paths.root << "\n";
+    const std::string enc_key = load_key(key_path);
+    Database(paths.database / "ur.db", enc_key).init_schema();
+    std::cout << "Workspace initialized at " << paths.root << "\n";
     if (!key_existed) {
       std::cout << "Encryption key generated.\n";
     }
     return 0;
   } catch (const std::exception& e) {
-    ctx.logger.error(e.what());
+    std::cerr << "[ERROR] " << e.what() << '\n';
   }
   return 1;
 }
@@ -117,8 +118,11 @@ int cmd_run(Context& ctx, int argc, char** argv) {
     ctx.db.init_schema();
     HttpProvider provider = make_http_provider();
     Runner runner(ctx.db, ctx.logger);
-    RunResult result = runner.run(prompt, system_prompt, model, provider);
-    std::cout << result.response << "\n";
+    RunResult result = runner.run(
+        prompt, system_prompt, model, provider,
+        [](const std::string& chunk) { std::cout << chunk << std::flush; },
+        nullptr);
+    std::cout << '\n';
     ctx.logger.info("Session ID: " + result.session_id);
     return 0;
   } catch (const std::exception& e) {

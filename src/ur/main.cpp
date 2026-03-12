@@ -4,6 +4,7 @@
 #include "cli/command.hpp"
 #include "cli/context.hpp"
 #include "env.hpp"
+#include "memory/workspace.hpp"
 
 static void print_usage() {
   std::cerr << "usage: ur <command> [options]\n"
@@ -35,6 +36,17 @@ int main(int argc, char** argv) {
   }
 
   ur::load_dotenv();
+
+  // init must run before make_context() — the key doesn't exist yet.
+  if (cmd == "init") {
+    try {
+      return ur::cmd_init(ur::resolve_paths(), argc, argv);
+    } catch (const std::exception& e) {
+      std::cerr << "[ERROR] " << e.what() << '\n';
+      return 1;
+    }
+  }
+
   ur::Context ctx = [&]() -> ur::Context {
     try {
       return ur::make_context();
@@ -43,8 +55,6 @@ int main(int argc, char** argv) {
       std::exit(1);
     }
   }();
-
-  if (cmd == "init") return ur::cmd_init(ctx, argc, argv);
   if (cmd == "clean") return ur::cmd_clean(ctx, argc, argv);
   if (cmd == "run") return ur::cmd_run(ctx, argc, argv);
   if (cmd == "chat") return ur::cmd_chat(ctx, argc, argv);

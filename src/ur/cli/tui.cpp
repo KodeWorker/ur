@@ -123,6 +123,25 @@ class ScrollerBase : public ftxui::ComponentBase {
 };
 
 // ---------------------------------------------------------------------------
+// NonFocusable — wraps a component so Tab skips it.
+// Mouse clicks and rendering still work normally.
+// ---------------------------------------------------------------------------
+
+class NonFocusableBase : public ftxui::ComponentBase {
+ public:
+  explicit NonFocusableBase(ftxui::Component child) { Add(std::move(child)); }
+  bool Focusable() const override { return false; }
+  ftxui::Element Render() override { return ChildAt(0)->Render(); }
+  bool OnEvent(ftxui::Event event) override {
+    return ChildAt(0)->OnEvent(event);
+  }
+};
+
+static ftxui::Component NonFocusable(ftxui::Component child) {
+  return ftxui::Make<NonFocusableBase>(std::move(child));
+}
+
+// ---------------------------------------------------------------------------
 // Impl
 // ---------------------------------------------------------------------------
 
@@ -159,6 +178,14 @@ struct FtxuiTui::Impl {
   std::string opt_model;
   std::string opt_conn_timeout;
   std::string opt_read_timeout;
+
+  // --- Streaming ---
+  // Non-null while a print_response_chunk() / print_reasoning_chunk()
+  // sequence is in progress. Renderer lambdas capture these shared_ptrs so
+  // they always render the latest text without rebuilding the component tree.
+  std::shared_ptr<std::string> streaming_content;
+  std::shared_ptr<std::string> streaming_reasoning;
+  std::shared_ptr<bool> streaming_reason_open;
 
   // --- Spinner ---
   std::atomic<bool> spinner_running{false};
@@ -470,6 +497,10 @@ std::string FtxuiTui::read_input() {
 
 void FtxuiTui::print_user(const std::string& content) {
   Impl* d = impl_.get();
+  // Finalize any prior stream before starting a new turn.
+  d->streaming_content = nullptr;
+  d->streaming_reasoning = nullptr;
+  d->streaming_reason_open = nullptr;
   std::string text = content;
   auto component = ftxui::Renderer([text] {
     return ftxui::vbox({
@@ -506,6 +537,36 @@ void FtxuiTui::print_response(const std::string& content) {
   });
 }
 
+void FtxuiTui::print_response_chunk(const std::string& chunk) {
+  Impl* d = impl_.get();
+  if (!d->streaming_content) {
+    // First chunk: create the shared buffer and add a live component.
+    d->streaming_content = std::make_shared<std::string>();
+    auto buf = d->streaming_content;
+    auto component = ftxui::Renderer([buf] {
+      return ftxui::vbox({
+                 ftxui::text("assistant: ") | ftxui::bold |
+                     ftxui::color(ftxui::Color::Green),
+                 render_text(*buf),
+             }) |
+             ftxui::xflex;
+    });
+    d->screen.Post([d, component]() {
+      d->history.push_back({"assistant", {}, nullptr, component});
+      d->history_container->Add(component);
+      d->scroller->ScrollToEnd();
+      d->screen.PostEvent(ftxui::Event::Custom);
+    });
+  }
+  // Append chunk to shared buffer and redraw.
+  auto buf = d->streaming_content;
+  d->screen.Post([d, buf, chunk]() {
+    *buf += chunk;
+    d->scroller->ScrollToEnd();
+    d->screen.PostEvent(ftxui::Event::Custom);
+  });
+}
+
 void FtxuiTui::print_reasoning(const std::string& reasoning) {
   if (reasoning.empty()) return;
   Impl* d = impl_.get();
@@ -517,10 +578,40 @@ void FtxuiTui::print_reasoning(const std::string& reasoning) {
     return render_text(text) | ftxui::color(ftxui::Color::GrayDark) |
            ftxui::xflex;
   });
-  auto collapsible = ftxui::Collapsible("thinking…", inner, open.get());
+  auto collapsible =
+      NonFocusable(ftxui::Collapsible("thinking…", inner, open.get()));
   d->screen.Post([d, collapsible, open]() {
     d->history.push_back({"reason", {}, open, collapsible});
     d->history_container->Add(collapsible);
+    d->scroller->ScrollToEnd();
+    d->screen.PostEvent(ftxui::Event::Custom);
+  });
+}
+
+void FtxuiTui::print_reasoning_chunk(const std::string& chunk) {
+  Impl* d = impl_.get();
+  if (!d->streaming_reasoning) {
+    // First chunk: create shared buffers and a live collapsible component.
+    d->streaming_reasoning = std::make_shared<std::string>();
+    d->streaming_reason_open = std::make_shared<bool>(false);
+    auto buf = d->streaming_reasoning;
+    auto open = d->streaming_reason_open;
+    auto inner = ftxui::Renderer([buf] {
+      return render_text(*buf) | ftxui::color(ftxui::Color::GrayDark) |
+             ftxui::xflex;
+    });
+    auto collapsible =
+        NonFocusable(ftxui::Collapsible("thinking…", inner, open.get()));
+    d->screen.Post([d, collapsible, open]() {
+      d->history.push_back({"reason", {}, open, collapsible});
+      d->history_container->Add(collapsible);
+      d->scroller->ScrollToEnd();
+      d->screen.PostEvent(ftxui::Event::Custom);
+    });
+  }
+  auto buf = d->streaming_reasoning;
+  d->screen.Post([d, buf, chunk]() {
+    *buf += chunk;
     d->scroller->ScrollToEnd();
     d->screen.PostEvent(ftxui::Event::Custom);
   });

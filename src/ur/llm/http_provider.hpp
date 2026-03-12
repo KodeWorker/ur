@@ -26,6 +26,12 @@ class HttpProvider : public Provider {
   CompletionResult complete(const std::vector<Message>& messages,
                             const std::string& model) override;
 
+  // POST /v1/chat/completions with stream:true; delivers tokens via callbacks.
+  // Throws std::runtime_error on network error or non-200 response.
+  void stream(const std::vector<Message>& messages, const std::string& model,
+              const TokenCallback& token_cb,
+              const TokenCallback& reasoning_cb) override;
+
  private:
   std::string base_url_;
   std::string api_key_;
