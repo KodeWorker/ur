@@ -422,8 +422,14 @@ FtxuiTui::FtxuiTui(std::string initial_system_prompt)
 
   // ── Tab bar + root ────────────────────────────────────────────────────────
 
-  auto tab_toggle = ftxui::Menu(&d->tab_labels, &d->tab_index,
-                                ftxui::MenuOption::HorizontalAnimated());
+  auto tab_opt = ftxui::MenuOption::HorizontalAnimated();
+  tab_opt.entries_option.transform = [](const ftxui::EntryState& s) {
+    auto e = ftxui::text(s.label) | ftxui::hcenter | ftxui::flex;
+    if (s.active) e = e | ftxui::bold;
+    if (s.focused) e = e | ftxui::inverted;
+    return e;
+  };
+  auto tab_toggle = ftxui::Menu(&d->tab_labels, &d->tab_index, tab_opt);
 
   auto tab_content = ftxui::Container::Tab(
       {session_tab, sysprompt_tab, tools_tab, options_tab}, &d->tab_index);
@@ -432,7 +438,7 @@ FtxuiTui::FtxuiTui(std::string initial_system_prompt)
 
   d->root = ftxui::Renderer(layout, [tab_toggle, tab_content] {
     return ftxui::vbox({
-        tab_toggle->Render() | ftxui::hcenter,
+        tab_toggle->Render() | ftxui::xflex,
         ftxui::separator(),
         tab_content->Render() | ftxui::flex,
     });
