@@ -103,18 +103,45 @@ TEST_F(PersonaUpdaterTest, ShallowContextSkipsUpdate) {
 
 // Meaningful turn (long message + deep context) calls the provider once.
 TEST_F(PersonaUpdaterTest, MeaningfulTurnCallsProvider) {
-  // TODO
-  GTEST_SKIP();
+  MockProvider mock("{}");
+  ur::PersonaUpdater updater(*db_, mock, *logger_, "");
+  auto ctx = make_context(4);  // 8 messages ≥ 6 threshold
+  std::string long_msg(60, 'x');
+  updater.maybe_update(ctx, long_msg, "response");
+  EXPECT_EQ(mock.call_count, 1);
 }
 
 // Extracted key-value pairs are upserted into the persona table.
 TEST_F(PersonaUpdaterTest, ExtractedFactUpsertedToDb) {
-  // TODO
-  GTEST_SKIP();
+  MockProvider mock("{\"name\": \"Alice\", \"timezone\": \"UTC\"}");
+  ur::PersonaUpdater updater(*db_, mock, *logger_, "");
+  auto ctx = make_context(4);
+  std::string long_msg(60, 'x');
+  updater.maybe_update(ctx, long_msg, "response");
+
+  auto rows = db_->select_persona();
+  ASSERT_EQ(rows.size(), 2u);
+  // select_persona returns rows ordered by key ASC: name, timezone.
+  EXPECT_EQ(rows[0].key, "name");
+  EXPECT_EQ(rows[0].value, "Alice");
+  EXPECT_EQ(rows[1].key, "timezone");
+  EXPECT_EQ(rows[1].value, "UTC");
 }
 
 // A second extraction for the same key overwrites the previous value.
 TEST_F(PersonaUpdaterTest, UpsertOverwritesExistingKey) {
-  // TODO
-  GTEST_SKIP();
+  auto ctx = make_context(4);
+  std::string long_msg(60, 'x');
+
+  MockProvider mock1("{\"name\": \"Alice\"}");
+  ur::PersonaUpdater updater1(*db_, mock1, *logger_, "");
+  updater1.maybe_update(ctx, long_msg, "response");
+
+  MockProvider mock2("{\"name\": \"Bob\"}");
+  ur::PersonaUpdater updater2(*db_, mock2, *logger_, "");
+  updater2.maybe_update(ctx, long_msg, "response");
+
+  auto rows = db_->select_persona();
+  ASSERT_EQ(rows.size(), 1u);
+  EXPECT_EQ(rows[0].value, "Bob");
 }

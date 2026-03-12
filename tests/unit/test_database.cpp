@@ -93,46 +93,147 @@ TEST_F(DatabaseTest, DropAllRemovesAllTables) {
 // ---------------------------------------------------------------------------
 
 TEST_F(DatabaseTest, SelectSessionsReturnsEmptyWhenNone) {
-  // TODO
-  GTEST_SKIP();
+  ur::Database db(db_path_, key_);
+  db.init_schema();
+  EXPECT_TRUE(db.select_sessions().empty());
 }
 
 TEST_F(DatabaseTest, SessionExistsReturnsFalseForUnknownId) {
-  // TODO
-  GTEST_SKIP();
+  ur::Database db(db_path_, key_);
+  db.init_schema();
+  EXPECT_FALSE(db.session_exists("nonexistent"));
 }
 
 TEST_F(DatabaseTest, SessionExistsReturnsTrueAfterInsert) {
-  // TODO
-  GTEST_SKIP();
+  ur::Database db(db_path_, key_);
+  db.init_schema();
+  db.insert_session("s1", "", "model", 1000, 1000);
+  EXPECT_TRUE(db.session_exists("s1"));
 }
 
 TEST_F(DatabaseTest, SelectMessagesReturnsRowsInOrder) {
-  // TODO
-  GTEST_SKIP();
+  ur::Database db(db_path_, key_);
+  db.init_schema();
+  db.insert_session("s1", "", "model", 1000, 1000);
+  db.insert_message("m1", "s1", "user", "first", 1001);
+  db.insert_message("m2", "s1", "assistant", "second", 1002);
+  db.insert_message("m3", "s1", "user", "third", 1003);
+
+  auto msgs = db.select_messages("s1");
+  ASSERT_EQ(msgs.size(), 3u);
+  EXPECT_EQ(msgs[0].content, "first");
+  EXPECT_EQ(msgs[1].content, "second");
+  EXPECT_EQ(msgs[2].content, "third");
 }
 
 TEST_F(DatabaseTest, SelectMessagesDecryptsContent) {
-  // TODO
-  GTEST_SKIP();
+  ur::Database db(db_path_, key_);
+  db.init_schema();
+  db.insert_session("s1", "", "model", 1000, 1000);
+  db.insert_message("m1", "s1", "user", "hello world", 1001);
+
+  auto msgs = db.select_messages("s1");
+  ASSERT_EQ(msgs.size(), 1u);
+  EXPECT_EQ(msgs[0].content, "hello world");
 }
 
 TEST_F(DatabaseTest, SelectPersonaReturnsEmptyWhenNone) {
-  // TODO
-  GTEST_SKIP();
+  ur::Database db(db_path_, key_);
+  db.init_schema();
+  EXPECT_TRUE(db.select_persona().empty());
 }
 
 TEST_F(DatabaseTest, UpsertPersonaInsertsNewEntry) {
-  // TODO
-  GTEST_SKIP();
+  ur::Database db(db_path_, key_);
+  db.init_schema();
+  db.upsert_persona("name", "Alice", 1000);
+
+  auto rows = db.select_persona();
+  ASSERT_EQ(rows.size(), 1u);
+  EXPECT_EQ(rows[0].key, "name");
+  EXPECT_EQ(rows[0].value, "Alice");
 }
 
 TEST_F(DatabaseTest, UpsertPersonaOverwritesExistingEntry) {
-  // TODO
-  GTEST_SKIP();
+  ur::Database db(db_path_, key_);
+  db.init_schema();
+  db.upsert_persona("name", "Alice", 1000);
+  db.upsert_persona("name", "Bob", 2000);
+
+  auto rows = db.select_persona();
+  ASSERT_EQ(rows.size(), 1u);
+  EXPECT_EQ(rows[0].value, "Bob");
+  EXPECT_EQ(rows[0].updated_at, 2000);
 }
 
 TEST_F(DatabaseTest, TouchSessionUpdatesTimestamp) {
-  // TODO
-  GTEST_SKIP();
+  ur::Database db(db_path_, key_);
+  db.init_schema();
+  db.insert_session("s1", "", "model", 1000, 1000);
+  db.touch_session("s1", 2000);
+
+  auto sessions = db.select_sessions();
+  ASSERT_EQ(sessions.size(), 1u);
+  EXPECT_EQ(sessions[0].updated_at, 2000);
+}
+
+TEST_F(DatabaseTest, UpdateSessionTitleSetsTitle) {
+  ur::Database db(db_path_, key_);
+  db.init_schema();
+  db.insert_session("s1", "", "model", 1000, 1000);
+  db.update_session_title("s1", "my chat");
+
+  auto sessions = db.select_sessions();
+  ASSERT_EQ(sessions.size(), 1u);
+  EXPECT_EQ(sessions[0].title, "my chat");
+}
+
+TEST_F(DatabaseTest, FindSessionByTitleReturnsId) {
+  ur::Database db(db_path_, key_);
+  db.init_schema();
+  db.insert_session("s1", "", "model", 1000, 1000);
+  db.update_session_title("s1", "my chat");
+
+  EXPECT_EQ(db.find_session_by_title("my chat"), "s1");
+}
+
+TEST_F(DatabaseTest, FindSessionByTitleThrowsWhenNotFound) {
+  ur::Database db(db_path_, key_);
+  db.init_schema();
+  EXPECT_THROW(db.find_session_by_title("ghost"), std::runtime_error);
+}
+
+TEST_F(DatabaseTest, FindSessionByIdPrefixReturnsFullId) {
+  ur::Database db(db_path_, key_);
+  db.init_schema();
+  db.insert_session("abcdef1234567890abcdef1234567890", "", "model", 1000,
+                    1000);
+
+  EXPECT_EQ(db.find_session_by_id_prefix("abcdef"),
+            "abcdef1234567890abcdef1234567890");
+}
+
+TEST_F(DatabaseTest, FindSessionByIdPrefixThrowsOnAmbiguous) {
+  ur::Database db(db_path_, key_);
+  db.init_schema();
+  db.insert_session("abcdef1111111111111111111111111a", "", "model", 1000,
+                    1000);
+  db.insert_session("abcdef2222222222222222222222222b", "", "model", 1001,
+                    1001);
+
+  EXPECT_THROW(db.find_session_by_id_prefix("abcdef"), std::runtime_error);
+}
+
+TEST_F(DatabaseTest, SelectSessionsOrderedByCreatedAtDesc) {
+  ur::Database db(db_path_, key_);
+  db.init_schema();
+  db.insert_session("s1", "", "model", 1000, 1000);
+  db.insert_session("s2", "", "model", 2000, 2000);
+  db.insert_session("s3", "", "model", 1500, 1500);
+
+  auto sessions = db.select_sessions();
+  ASSERT_EQ(sessions.size(), 3u);
+  EXPECT_EQ(sessions[0].id, "s2");
+  EXPECT_EQ(sessions[1].id, "s3");
+  EXPECT_EQ(sessions[2].id, "s1");
 }
