@@ -6,11 +6,11 @@
 
 ## Deliverables
 
-- Tool plugin loading from `$root/tools/`
+- Tool plugin loading from `$root/tools/`, configured via `$root/tools/tools.json`
 - Tool-calling loop integrated into `runner` and `chat`
 - Sandbox tier 1: workspace path constraint enforced
-- `--tools=<file>` flag for `ur run` and `ur chat`
 - `--allow-all` bypasses sandbox
+- `run_agent` built-in tool for sub-agent invocation
 
 ## Source Files to Create
 
@@ -86,16 +86,34 @@ All file paths in tool arguments are validated before execution:
 
 `--allow-all` disables path validation.
 
-## `--tools` Flag
+## Tool Manifest
 
-Accepts a JSON file listing which tools (by name) are enabled for this invocation. If omitted, all loaded tools are available.
+Tool configuration lives in `$root/tools/tools.json` — written once by the
+user, persistent across invocations:
+
+```json
+{
+  "tools": [
+    { "name": "shell",     "enabled": true, "timeout": 10 },
+    { "name": "web_search","enabled": true, "max_results": 5 },
+    { "name": "run_agent", "enabled": true, "max_depth": 4 }
+  ]
+}
+```
+
+The loader reads this at startup. Per-invocation filtering uses the
+`--allow`/`--deny`/`--no-tools` flags defined in Phase 3.1 — no `--tools`
+CLI flag is needed.
 
 ## Acceptance Criteria
 
 - [ ] Tools in `$root/tools/` are discovered and registered at startup
+- [ ] `$root/tools/tools.json` controls which tools are enabled and their settings
 - [ ] LLM tool calls are routed through the executor and results returned to LLM
 - [ ] Tier 1 sandbox blocks any path outside `$root/workspace/`
 - [ ] `--allow-all` allows arbitrary paths and bypasses human audit
 - [ ] Without `--allow-all`, tool calls are held for user approval before execution
 - [ ] Rejected tool calls return an error result to the LLM without executing
 - [ ] Invalid tool name in LLM response returns a clear error result (no crash)
+- [ ] `run_agent` tool spawns `ur run` as a subprocess and captures its output
+- [ ] Recursion depth limit enforced via `UR_AGENT_DEPTH` env var
