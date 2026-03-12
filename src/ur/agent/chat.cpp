@@ -121,7 +121,7 @@ void Chat::run(const ChatOptions& opts, Provider& provider, Tui& tui) {
     logger_.info("new session " + session_id);
   }
 
-  PersonaUpdater persona(db_, provider, opts.model);
+  PersonaUpdater persona(db_, provider, logger_, opts.model);
 
   // ── 2. Event loop ─────────────────────────────────────────────────────────
 

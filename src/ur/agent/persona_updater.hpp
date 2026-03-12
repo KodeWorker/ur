@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "llm/provider.hpp"
+#include "log/logger.hpp"
 #include "memory/database.hpp"
 
 namespace ur {
@@ -12,7 +13,8 @@ class PersonaUpdater {
  public:
   // provider is used for the secondary extraction LLM call.
   // model: same model as the active chat session.
-  PersonaUpdater(Database& db, Provider& provider, std::string model);
+  PersonaUpdater(Database& db, Provider& provider, Logger& logger,
+                 std::string model);
 
   // Apply the meaningful-turn filter; if it passes, call the provider to
   // extract persona facts and upsert them into the persona table.
@@ -36,6 +38,7 @@ class PersonaUpdater {
 
   Database& db_;
   Provider& provider_;
+  Logger& logger_;
   std::string model_;
 };
 

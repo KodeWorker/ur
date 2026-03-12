@@ -84,7 +84,7 @@ class PersonaUpdaterTest : public ::testing::Test {
 // Short user message (<= 50 chars) does not trigger extraction.
 TEST_F(PersonaUpdaterTest, ShortMessageSkipsUpdate) {
   MockProvider mock("{}");
-  ur::PersonaUpdater updater(*db_, mock, "");
+  ur::PersonaUpdater updater(*db_, mock, *logger_, "");
   auto ctx = make_context(3);
   updater.maybe_update(ctx, "hi", "response");
   EXPECT_EQ(mock.call_count, 0);
@@ -93,7 +93,7 @@ TEST_F(PersonaUpdaterTest, ShortMessageSkipsUpdate) {
 // Shallow context (< 6 user+assistant messages) does not trigger extraction.
 TEST_F(PersonaUpdaterTest, ShallowContextSkipsUpdate) {
   MockProvider mock("{}");
-  ur::PersonaUpdater updater(*db_, mock, "");
+  ur::PersonaUpdater updater(*db_, mock, *logger_, "");
   // Only 2 exchanges = 4 messages, below the threshold of 6.
   auto ctx = make_context(2);
   std::string long_msg(60, 'x');

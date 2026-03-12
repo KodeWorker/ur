@@ -11,41 +11,46 @@
 
 namespace ur {
 
-PersonaUpdater::PersonaUpdater(Database& db, Provider& provider,
+PersonaUpdater::PersonaUpdater(Database& db, Provider& provider, Logger& logger,
                                std::string model)
-    : db_(db), provider_(provider), model_(std::move(model)) {}
+    : db_(db), provider_(provider), logger_(logger), model_(std::move(model)) {}
 
 // static
 bool PersonaUpdater::is_meaningful(const std::vector<Message>& context,
                                    const std::string& user_msg) {
-  // TODO: count messages in context whose role is "user" or "assistant";
-  //       return true iff count >= 6 AND user_msg.size() > 50.
-  (void)context;
-  (void)user_msg;
-  return false;
+  if (user_msg.size() <= 50) return false;
+  return std::count_if(context.begin(), context.end(), [](const auto& m) {
+           return m.role == "user" || m.role == "assistant";
+         }) >= 6;
 }
 
 void PersonaUpdater::maybe_update(const std::vector<Message>& context,
                                   const std::string& user_msg,
                                   const std::string& assistant_msg) {
-  // cppcheck-suppress knownConditionTrueFalse
   if (!is_meaningful(context, user_msg)) return;
 
-  // TODO:
-  // 1. Build extraction prompt:
-  //      system: "Extract stable facts about the user from the exchange below.
-  //               Return a flat JSON object {\"key\": \"value\", ...} using
-  //               short lowercase keys (e.g. name, timezone, interests).
-  //               Return {} if nothing worth persisting."
-  //      user:   "[User]: <user_msg>\n[Assistant]: <assistant_msg>"
-  //
-  // 2. provider_.complete(extraction_messages, model_) → raw string.
-  //
-  // 3. nlohmann::json::parse(raw); for each string key/value:
-  //      db_.upsert_persona(key, value, now).
-  //
-  // 4. Catch and swallow all exceptions — persona extraction is best-effort.
-  (void)assistant_msg;
+  try {
+    std::vector<Message> msgs = {
+        {"system",
+         "Extract stable facts about the user from the exchange below. "
+         "Return a flat JSON object {\"key\": \"value\", ...} using short "
+         "lowercase keys (e.g. name, timezone, interests). "
+         "Return {} if nothing worth persisting."},
+        {"user", "[User]: " + user_msg + "\n[Assistant]: " + assistant_msg}};
+
+    const std::string raw = provider_.complete(msgs, model_).content;
+
+    auto j = nlohmann::json::parse(raw);
+    if (!j.is_object()) return;
+
+    const int64_t now = static_cast<int64_t>(std::time(nullptr));
+    for (auto it = j.begin(); it != j.end(); ++it) {
+      if (!it.key().empty() && it.value().is_string())
+        db_.upsert_persona(it.key(), it.value().get<std::string>(), now);
+    }
+  } catch (const std::exception& e) {
+    logger_.error(std::string("persona extraction failed: ") + e.what());
+  }
 }
 
 }  // namespace ur
