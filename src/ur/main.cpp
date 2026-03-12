@@ -55,6 +55,8 @@ int main(int argc, char** argv) {
       std::exit(1);
     }
   }();
+  std::filesystem::current_path(ctx.paths.workspace);
+
   if (cmd == "clean") return ur::cmd_clean(ctx, argc, argv);
   if (cmd == "run") return ur::cmd_run(ctx, argc, argv);
   if (cmd == "chat") return ur::cmd_chat(ctx, argc, argv);
