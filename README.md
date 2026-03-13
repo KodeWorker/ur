@@ -39,7 +39,7 @@ ur clean [--database|workspace]
 # run one-time request
 ur run <user_prompt> [--system-prompt=<text>|@<path>] [--model=<name>] [--allow=<tool,...>] [--deny=<tool,...>] [--no-tools] [--allow-all]
 # tui chat with agent with context manager
-ur chat [--continue=<id|prefix|title>] [--model=<name>] [--system-prompt=<file>]
+ur chat [--continue=<id|prefix|title>] [--model=<name>]
 # view session history
 ur history [<id>]
 # view user profile created by agent

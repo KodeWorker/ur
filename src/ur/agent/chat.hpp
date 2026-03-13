@@ -14,9 +14,7 @@ namespace ur {
 class Tui;
 
 struct ChatOptions {
-  std::string model;  // passed to provider; empty = server default
-  std::string
-      system_prompt;        // injected as first message each turn; empty = none
+  std::string model;        // passed to provider; empty = server default
   std::string continue_id;  // session ID to resume; empty = new session
   size_t context_window =
       20;  // max non-system messages in rolling context window

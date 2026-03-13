@@ -197,22 +197,10 @@ int cmd_chat(Context& ctx, int argc, char** argv) {
             opts.continue_id = ctx.db.find_session_by_title(val);
           }
         }
-      } else if (arg.rfind("--system-prompt=", 0) == 0) {
-        std::string path = arg.substr(16);
-        try {
-          std::ifstream f(path);
-          if (!f) throw std::runtime_error("cannot open: " + path);
-          opts.system_prompt = std::string(std::istreambuf_iterator<char>(f),
-                                           std::istreambuf_iterator<char>());
-        } catch (const std::exception& e) {
-          ctx.logger.error("Failed to read system prompt file: " +
-                           std::string(e.what()));
-          return 1;
-        }
       } else {
         ctx.logger.error("Unknown argument: " + arg +
-                         "\nUsage: ur chat [--continue=<id>] [--model=<name>]"
-                         " [--system-prompt=<file>]");
+                         "\nUsage: ur chat [--continue=<id|prefix|title>]"
+                         " [--model=<name>]");
         return 1;
       }
     }
