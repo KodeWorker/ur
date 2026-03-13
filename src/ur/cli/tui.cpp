@@ -223,10 +223,7 @@ struct FtxuiTui::Impl {
 // Constructor
 // ---------------------------------------------------------------------------
 
-FtxuiTui::FtxuiTui(std::string initial_system_prompt)
-    : impl_(std::make_unique<Impl>()) {
-  impl_->system_prompt = std::move(initial_system_prompt);
-
+FtxuiTui::FtxuiTui() : impl_(std::make_unique<Impl>()) {
   // Load Options from environment.
   impl_->opt_base_url = env_or("UR_LLM_BASE_URL", "http://localhost:8080");
   impl_->opt_api_key = env_or("UR_LLM_API_KEY", "");
@@ -686,8 +683,6 @@ void FtxuiTui::set_system_prompt(const std::string& prompt) {
   impl_->system_prompt = prompt;
 }
 
-std::unique_ptr<Tui> make_tui(std::string initial_system_prompt) {
-  return std::make_unique<FtxuiTui>(std::move(initial_system_prompt));
-}
+std::unique_ptr<Tui> make_tui() { return std::make_unique<FtxuiTui>(); }
 
 }  // namespace ur

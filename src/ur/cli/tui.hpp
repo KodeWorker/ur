@@ -73,8 +73,7 @@ class Tui {
 
 class FtxuiTui : public Tui {
  public:
-  // initial_system_prompt: pre-populates the System Prompt tab editor.
-  explicit FtxuiTui(std::string initial_system_prompt = {});
+  explicit FtxuiTui();
   ~FtxuiTui() override;
 
   // Non-copyable, non-movable (owns terminal state).
@@ -100,7 +99,7 @@ class FtxuiTui : public Tui {
   std::unique_ptr<Impl> impl_;
 };
 
-// Construct the production TUI, pre-populating the System Prompt tab.
-std::unique_ptr<Tui> make_tui(std::string initial_system_prompt = {});
+// Construct the production TUI.
+std::unique_ptr<Tui> make_tui();
 
 }  // namespace ur

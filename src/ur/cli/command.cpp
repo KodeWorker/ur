@@ -207,7 +207,7 @@ int cmd_chat(Context& ctx, int argc, char** argv) {
     ctx.db.init_schema();
     HttpProvider provider = make_http_provider();
     Chat chat(ctx.db, ctx.logger);
-    std::unique_ptr<Tui> tui = make_tui(opts.system_prompt);
+    std::unique_ptr<Tui> tui = make_tui();
     chat.run(opts, provider, *tui);
     return 0;
   } catch (const std::exception& e) {
