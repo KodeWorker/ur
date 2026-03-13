@@ -164,10 +164,13 @@ void Chat::run(const ChatOptions& opts, Provider& provider, Tui& tui) {
                           // remain in DB and session context
         tui.print_response("🧹context cleared");
       } else if (input == "/persona") {
-        // Force a persona update based on the current context
         persona.maybe_update(history, /*user_msg=*/"", /*assistant_msg=*/"",
                              /*force_update=*/true);
-        tui.print_response("🪞persona updated");
+        std::string out;
+        for (const auto& p : db_.select_persona())
+          out += p.key + ": " + p.value + "\n";
+        tui.print_response(out.empty() ? "🪞no persona facts yet"
+                                       : "🪞persona updated");
       } else if (input.rfind("/save-prompt ", 0) == 0) {
         const std::string path = input.substr(13);
         if (path.empty()) {
