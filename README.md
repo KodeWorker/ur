@@ -35,7 +35,7 @@ Configuration is provided via environment variables or a `.env` file in the work
 # init database and workspace
 ur init
 # clean up database and workspace
-ur clean [--database|workspace]
+ur clean [--database|--workspace|--persona]
 # run one-time request
 ur run <user_prompt> [--system-prompt=<text>|@<path>] [--model=<name>] [--allow=<tool,...>] [--deny=<tool,...>] [--no-tools] [--allow-all]
 # tui chat with agent with context manager

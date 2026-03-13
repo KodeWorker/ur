@@ -52,15 +52,19 @@ int cmd_clean(Context& ctx, int argc, char** argv) {
       } else if (flag == "--database") {
         ctx.db.drop_all();
         std::cout << "Database cleared.\n";
+      } else if (flag == "--persona") {
+        ctx.db.drop_persona();
+        std::cout << "Persona cleared.\n";
       } else {
-        ctx.logger.error("Unknown flag: " + flag +
-                         "\nUsage: ur clean [--workspace|--database]");
+        ctx.logger.error(
+            "Unknown flag: " + flag +
+            "\nUsage: ur clean [--workspace|--database|--persona]");
         return 1;
       }
     } else {
       ctx.logger.error(
           "Too many arguments for clean command.\nUsage: ur clean "
-          "[--workspace|--database]");
+          "[--workspace|--database|--persona]");
       return 1;
     }
     return 0;

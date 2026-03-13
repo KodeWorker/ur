@@ -58,6 +58,9 @@ class Database {
   // The database file itself is kept; only the schema is removed.
   void drop_all();
 
+  // Drop and recreate the persona table only. Sessions and messages are kept.
+  void drop_persona();
+
   // Insert a new session row. created_at and updated_at are Unix timestamps.
   // Throws std::runtime_error on failure.
   void insert_session(const std::string& id, const std::string& title,
@@ -87,9 +90,10 @@ class Database {
   // content fields are decrypted automatically.
   std::vector<MessageRow> select_messages(const std::string& session_id);
 
-  // Returns all persona key-value pairs ordered by key ASC.
+  // Returns persona key-value pairs ordered by updated_at DESC.
+  // limit=0 returns all rows; limit>0 returns the latest N rows.
   // value fields are decrypted automatically.
-  std::vector<PersonaRow> select_persona();
+  std::vector<PersonaRow> select_persona(size_t limit = 0);
 
   // Insert or update a persona entry. Uses SQLite UPSERT (ON CONFLICT).
   void upsert_persona(const std::string& key, const std::string& value,

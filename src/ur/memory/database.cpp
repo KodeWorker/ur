@@ -339,15 +339,13 @@ std::vector<MessageRow> Database::select_messages(
   return messages;
 }
 
-std::vector<PersonaRow> Database::select_persona() {
+std::vector<PersonaRow> Database::select_persona(size_t limit) {
   if (!is_open()) open();
-  const char* sql = R"(
-    SELECT key, value, updated_at
-    FROM persona
-    ORDER BY key ASC
-  )";
+  const std::string sql =
+      "SELECT key, value, updated_at FROM persona ORDER BY updated_at DESC" +
+      (limit > 0 ? " LIMIT " + std::to_string(limit) : "");
   sqlite3_stmt* stmt = nullptr;
-  int rc = sqlite3_prepare_v2(handle_.get(), sql, -1, &stmt, nullptr);
+  int rc = sqlite3_prepare_v2(handle_.get(), sql.c_str(), -1, &stmt, nullptr);
   if (rc != SQLITE_OK) {
     std::string err_msg = sqlite3_errmsg(handle_.get());
     throw std::runtime_error("Database::select_persona (prepare): " + err_msg);
@@ -552,6 +550,18 @@ void Database::drop_all() {
     std::string err_str = err_msg ? err_msg : "unknown error";
     sqlite3_free(err_msg);
     throw std::runtime_error("Database::drop_all: " + err_str);
+  }
+}
+
+void Database::drop_persona() {
+  if (!is_open()) open();
+  const char* sql = "DROP TABLE IF EXISTS persona;";
+  char* err_msg = nullptr;
+  int rc = sqlite3_exec(handle_.get(), sql, nullptr, nullptr, &err_msg);
+  if (rc != SQLITE_OK) {
+    std::string err_str = err_msg ? err_msg : "unknown error";
+    sqlite3_free(err_msg);
+    throw std::runtime_error("Database::drop_persona: " + err_str);
   }
 }
 

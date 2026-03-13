@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdlib>
 #include <ctime>
 #include <iomanip>
 #include <sstream>
@@ -238,8 +239,25 @@ void Chat::run(const ChatOptions& opts, Provider& provider, Tui& tui) {
     std::string content;
     bool spinner_stopped = false;
     try {
+      // Build effective system prompt: recent persona facts + user prompt.
+      std::string effective_system;
+      {
+        const char* env = std::getenv("UR_NUM_PERSONA");
+        const size_t limit = (env && env[0] && std::atoi(env) > 0)
+                                 ? static_cast<size_t>(std::atoi(env))
+                                 : 0;
+        const auto facts = db_.select_persona(limit);
+        if (!facts.empty()) {
+          effective_system = "Known facts about the user:\n";
+          for (const auto& p : facts)
+            effective_system += "- " + p.key + ": " + p.value + "\n";
+          if (!tui.system_prompt().empty()) effective_system += "\n";
+        }
+        effective_system += tui.system_prompt();
+      }
+
       provider.stream(
-          build_window(history, tui.system_prompt(), opts.context_window),
+          build_window(history, effective_system, opts.context_window),
           opts.model,
           // token_cb: stop spinner on first chunk, stream to TUI.
           [&](const std::string& chunk) {
