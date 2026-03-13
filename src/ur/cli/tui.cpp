@@ -65,7 +65,6 @@ class ScrollerBase : public ftxui::ComponentBase {
   ftxui::Element Render() override {
     if (ChildAt(0)->ChildCount() == 0)
       return ftxui::text("") | ftxui::yflex | ftxui::reflect(box_);
-    auto focused = Focused() ? ftxui::focus : ftxui::select;
     ftxui::Element background = ChildAt(0)->Render();
     background->ComputeRequirement();
     size_ = background->requirement().min_y;
@@ -79,7 +78,7 @@ class ScrollerBase : public ftxui::ComponentBase {
                ftxui::vbox({
                    ftxui::text("") |
                        ftxui::size(ftxui::HEIGHT, ftxui::EQUAL, selected_),
-                   ftxui::text("") | focused,
+                   ftxui::text("") | ftxui::focus,
                }),
            }) |
            ftxui::vscroll_indicator | ftxui::yframe | ftxui::yflex |
