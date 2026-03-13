@@ -15,6 +15,17 @@
 - Database handle now uses unique_ptr<sqlite3, decltype(&sqlite3_close)> (RAII improvement)
 - Code review #1: 9 issues filed under milestone "Phase 2 - Code Review #1" (#170-#178)
 
+### Phase 3 Status
+- Branch: `impl/phase-3-labor`
+- 58 tests passing (added: test_chat, test_persona_updater, expanded test_database)
+- New files: chat.cpp/hpp, persona_updater.cpp/hpp, tui.cpp/hpp (ftxui-based)
+- Dependencies added: ftxui via FetchContent
+- Features: ur chat (streaming, slash commands, tab autocomplete), ur history (id prefix), ur persona
+- TUI: pimpl pattern (FtxuiTui::Impl), ScrollerBase for mouse/keyboard scrolling
+- Streaming: shared_ptr<string> buffers for live-updating Renderer components
+- Phase 3.1: --system-prompt, --allow/--deny/--no-tools/--allow-all flags on ur run
+- Key issues found: data race on system_prompt (UI thread vs chat thread), LIKE wildcard injection, non-transactional chat DB writes
+
 ### Observed Patterns
 - Database uses unique_ptr with sqlite3_close deleter (improved from Phase 1 raw pointer)
 - Crypto uses raw `EVP_CIPHER_CTX*` with manual free (no RAII wrapper)
@@ -30,9 +41,12 @@
 ### Recurring Issue Types
 - Environment variable name inconsistencies (UR_LLM_MODEL_NAME vs UR_LLM_MODEL)
 - Missing input validation on external data (JSON parse, URL format, crypto key sizes)
+- std::stoi on env vars without error handling (recurring across phases)
 - No timeouts on HTTP clients
 - RAII not consistently used (sqlite3_stmt still manual finalize, OpenSSL contexts)
-- Thread safety in test fixtures
+- Thread safety: data races on shared std::string between UI and worker threads
+- Duplicate utility code (generate_id in runner.cpp and chat.cpp)
+- LIKE queries without escaping wildcards (%, _)
 
 ### Conventions
 - Namespace: `ur`
