@@ -31,13 +31,21 @@ void PersonaUpdater::maybe_update(const std::vector<Message>& context,
   if (!is_meaningful(context, user_msg) && !force_update) return;
 
   try {
+    std::string conversation;
+    for (const auto& m : context) {
+      if (m.role == "user")
+        conversation += "[User]: " + m.content + "\n";
+      else if (m.role == "assistant")
+        conversation += "[Assistant]: " + m.content + "\n";
+    }
+
     std::vector<Message> msgs = {
         {"system",
-         "Extract stable facts about the user from the exchange below. "
+         "Extract stable facts about the user from the conversation below. "
          "Return a flat JSON object {\"key\": \"value\", ...} using short "
          "lowercase keys (e.g. name, timezone, interests). "
          "Return {} if nothing worth persisting."},
-        {"user", "[User]: " + user_msg + "\n[Assistant]: " + assistant_msg}};
+        {"user", conversation}};
 
     const std::string raw = provider_.complete(msgs, model_).content;
 
