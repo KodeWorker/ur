@@ -142,7 +142,7 @@ void Chat::run(const ChatOptions& opts, Provider& provider, Tui& tui) {
 
       if (input == "/help") {
         tui.print_response(
-            "available commands:\n"
+            "ℹ️available commands:\n"
             "/help                - show this help message\n"
             "/exit                - exit the chat session\n"
             "/compact             - summarise and compress context\n"
