@@ -75,49 +75,90 @@ int cmd_run(Context& ctx, int argc, char** argv) {
     if (argc < 3) {
       ctx.logger.error(
           "Missing prompt argument.\nUsage: ur run <prompt> "
-          "[--model=<name>] [--system-prompt=<path>] [--allow-all]");
+          "[--model=<name>] [--system-prompt=<text>|@<path>] "
+          "[--allow=<tool,...>] [--deny=<tool,...>] [--no-tools] "
+          "[--allow-all]");
       return 1;
     }
+
+    // Recursion guard: UR_AGENT_DEPTH / UR_MAX_AGENT_DEPTH.
+    {
+      const char* depth_env = std::getenv("UR_AGENT_DEPTH");
+      const char* max_env = std::getenv("UR_MAX_AGENT_DEPTH");
+      int depth = depth_env ? std::stoi(depth_env) : 0;
+      int max_depth = max_env ? std::stoi(max_env) : 4;
+      if (depth > max_depth) {
+        ctx.logger.error("maximum agent recursion depth exceeded");
+        return 1;
+      }
+    }
+
     std::string prompt(argv[2]);
     std::string system_prompt;
     const char* env_model = std::getenv("UR_LLM_MODEL");
     std::string model = env_model ? env_model : "";
-    // Parse optional flags. For simplicity, we require --model and
-    // --system-prompt to come after the prompt and allow them in any order.
-    // Phase 4 will have more robust parsing.
+    bool allow_all = false;
+    bool no_tools = false;
+    std::string allow_list;
+    std::string deny_list;
+
     for (int i = 3; i < argc; ++i) {
       std::string arg(argv[i]);
       if (arg.rfind("--model=", 0) == 0) {
         model = arg.substr(8);
       } else if (arg.rfind("--system-prompt=", 0) == 0) {
-        std::string path = arg.substr(16);
-        try {
-          // Read the system prompt from the specified file path.
+        std::string val = arg.substr(16);
+        if (!val.empty() && val[0] == '@') {
+          // @<path> — read from file.
+          std::string path = val.substr(1);
+          if (path.empty()) {
+            ctx.logger.error("--system-prompt=@ requires a file path");
+            return 1;
+          }
           std::ifstream f(path);
-          if (!f) throw std::runtime_error("cannot open: " + path);
+          if (!f) {
+            ctx.logger.error("cannot open system prompt file: " + path);
+            return 1;
+          }
           system_prompt = std::string(std::istreambuf_iterator<char>(f),
                                       std::istreambuf_iterator<char>());
-        } catch (const std::exception& e) {
-          ctx.logger.error("Failed to read system prompt file: " +
-                           std::string(e.what()));
-          return 1;
+        } else {
+          // Inline string — use directly.
+          system_prompt = val;
         }
+      } else if (arg.rfind("--allow=", 0) == 0) {
+        // Phase 4: pass whitelist to tool loader.
+        allow_list = arg.substr(8);
+      } else if (arg.rfind("--deny=", 0) == 0) {
+        // Phase 4: pass blacklist to tool loader.
+        deny_list = arg.substr(7);
+      } else if (arg == "--no-tools") {
+        // Phase 4: disable tool loading entirely.
+        no_tools = true;
       } else if (arg == "--allow-all") {
-        // TODO: implement allow-all flag in Runner and pass it down to control
-        // encryption behavior. For now, just log a warning that messages will
-        // be stored unencrypted if the provider doesn't support encryption.
-        // allow_all = true; // Phase 4
-        ctx.logger.warn(
-            "--allow-all flag is not implemented yet. "
-            "Messages will be stored according to the provider's "
-            "capabilities.");
+        // Phase 4: bypass sandbox path enforcement.
+        allow_all = true;
       } else {
         ctx.logger.error("Unknown argument: " + arg +
                          "\nUsage: ur run <prompt> [--model=<name>] "
-                         "[--system-prompt=<path>] [--allow-all]");
+                         "[--system-prompt=<text>|@<path>] "
+                         "[--allow=<tool,...>] [--deny=<tool,...>] "
+                         "[--no-tools] [--allow-all]");
         return 1;
       }
     }
+
+    if (!allow_list.empty() && !deny_list.empty()) {
+      ctx.logger.error("--allow and --deny are mutually exclusive");
+      return 1;
+    }
+
+    // Phase 4: wire allow_all, no_tools, allow_list, deny_list into tool
+    // loader.
+    (void)allow_all;
+    (void)no_tools;
+    (void)allow_list;
+    (void)deny_list;
     ctx.db.init_schema();
     HttpProvider provider = make_http_provider();
     Runner runner(ctx.db, ctx.logger);
