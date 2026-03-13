@@ -10,7 +10,7 @@
 - Tool-calling loop integrated into `runner` and `chat`
 - Sandbox tier 1: workspace path constraint enforced
 - `--allow-all` bypasses sandbox
-- Built-in tools: `read_file`, `write_file`, `bash`, `run_agent`, `web_search`, `web_fetch`
+- Built-in tools: `read_file`, `write_file`, `bash`, `run_agent`, `web_search`, `web_fetch`, `read_image` (disabled by default — requires vision model)
 
 ## Source Files to Create
 
@@ -25,6 +25,7 @@ src/ur/tools/builtin/bash.cpp/.hpp          Execute a shell command (--allow-all
 src/ur/tools/builtin/run_agent.cpp/.hpp     Spawn ur run as subprocess (depth-limited)
 src/ur/tools/builtin/web_search.cpp/.hpp    Query a search engine (--allow-all only)
 src/ur/tools/builtin/web_fetch.cpp/.hpp     Fetch a URL's content (--allow-all only)
+src/ur/tools/builtin/read_image.cpp/.hpp    Validate and return an image path for vision models (workspace-constrained; disabled by default)
 tests/unit/test_loader.cpp
 tests/unit/test_sandbox.cpp
 tests/unit/test_executor.cpp
@@ -45,6 +46,7 @@ per-invocation with `--allow` / `--deny` / `--no-tools`.
 | `run_agent` | none | yes (unless `--allow-all`) | Spawn `ur run` as a subprocess; depth-limited via `UR_AGENT_DEPTH` |
 | `web_search` | none | yes (unless `--allow-all`) | Query a search engine and return ranked results |
 | `web_fetch` | none | yes (unless `--allow-all`) | Fetch the content of a URL |
+| `read_image` | workspace only | yes (unless `--allow-all`) | Validate and return an image path to vision-capable models; **disabled by default** — enable only when the active model supports vision |
 
 ## Tool Interface
 
@@ -121,7 +123,8 @@ user, persistent across invocations:
     { "name": "bash",       "enabled": true, "timeout": 10 },
     { "name": "run_agent",  "enabled": true, "max_depth": 1 },
     { "name": "web_search", "enabled": true, "max_results": 5 },
-    { "name": "web_fetch",  "enabled": true }
+    { "name": "web_fetch",  "enabled": true },
+    { "name": "read_image", "enabled": false }
   ]
 }
 ```
