@@ -199,11 +199,16 @@ int cmd_history(Context& ctx, int argc, char** argv) {
                   << session.model << " | " << oss.str() << '\n';
       }
     } else if (argc == 3) {
-      if (!ctx.db.session_exists(argv[2])) {
-        ctx.logger.error("Session ID not found: " + std::string(argv[2]));
-        return 1;
+      std::string id(argv[2]);
+      if (!ctx.db.session_exists(id)) {
+        try {
+          id = ctx.db.find_session_by_id_prefix(id);
+        } catch (const std::exception& e) {
+          ctx.logger.error(e.what());
+          return 1;
+        }
       }
-      for (const auto& message : ctx.db.select_messages(argv[2])) {
+      for (const auto& message : ctx.db.select_messages(id)) {
         std::cout << "[" << message.role << "] " << message.content << '\n';
       }
     } else {
