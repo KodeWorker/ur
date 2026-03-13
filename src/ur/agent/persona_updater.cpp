@@ -26,7 +26,6 @@ bool PersonaUpdater::is_meaningful(const std::vector<Message>& context,
 
 void PersonaUpdater::maybe_update(const std::vector<Message>& context,
                                   const std::string& user_msg,
-                                  const std::string& assistant_msg,
                                   const bool force_update) {
   if (!is_meaningful(context, user_msg) && !force_update) return;
 

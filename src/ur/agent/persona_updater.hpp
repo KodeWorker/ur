@@ -21,13 +21,11 @@ class PersonaUpdater {
   //
   // context:       full in-memory message history (all roles) at time of call.
   // user_msg:      latest user message (plaintext).
-  // assistant_msg: cleaned assistant response (no <think> block).
   //
   // This call is best-effort — any provider or parse error is swallowed so
   // it never crashes the chat loop.
   void maybe_update(const std::vector<Message>& context,
                     const std::string& user_msg,
-                    const std::string& assistant_msg,
                     const bool force_update = false);
 
  private:
