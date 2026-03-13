@@ -264,7 +264,8 @@ FtxuiTui::FtxuiTui() : impl_(std::make_unique<Impl>()) {
 
   // Tab key autocomplete for slash commands.
   static const std::vector<std::string> kSlashCommands{
-      "/compact", "/exit", "/load-prompt", "/save-prompt", "/title"};
+      "/help",  "/exit",    "/compact",     "/clear",
+      "/title", "/persona", "/load-prompt", "/save-prompt"};
   input_component = ftxui::CatchEvent(input_component, [d](ftxui::Event e) {
     if (e != ftxui::Event::Tab) return false;
     if (d->input_content.empty() || d->input_content[0] != '/') return false;

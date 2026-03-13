@@ -138,15 +138,36 @@ void Chat::run(const ChatOptions& opts, Provider& provider, Tui& tui) {
 
     // ── Slash commands ───────────────────────────────────────────────────────
     if (input[0] == '/') {
-      if (input == "/exit") {
-        tui.print_response("goodbye👋");
+      tui.print_user(input);
+
+      if (input == "/help") {
+        tui.print_response(
+            "available commands:\n"
+            "/help                - show this help message\n"
+            "/exit                - exit the chat session\n"
+            "/compact             - summarise and compress context\n"
+            "/clear               - clear in-memory context\n"
+            "/title <text>        - set session title\n"
+            "/persona             - generate persona\n"
+            "/save-prompt <file>  - save system prompt to file\n"
+            "/load-prompt <file>  - load system prompt from file");
+        continue;
+      } else if (input == "/exit") {
+        tui.print_response("👋goodbye");
         std::this_thread::sleep_for(std::chrono::milliseconds(800));
         break;
-      }
-      tui.print_user(input);
-      if (input == "/compact") {
+      } else if (input == "/compact") {
         // Stub: full summarisation deferred to Phase 5.
         tui.print_error("/compact is not yet implemented");
+      } else if (input == "/clear") {
+        history.clear();  // only clears in-memory history; prior messages
+                          // remain in DB and session context
+        tui.print_response("🧹context cleared");
+      } else if (input == "/persona") {
+        // Force a persona update based on the current context
+        persona.maybe_update(history, /*user_msg=*/"", /*assistant_msg=*/"",
+                             /*force_update=*/true);
+        tui.print_response("🪞persona updated");
       } else if (input.rfind("/save-prompt ", 0) == 0) {
         const std::string path = input.substr(13);
         if (path.empty()) {
@@ -156,7 +177,7 @@ void Chat::run(const ChatOptions& opts, Provider& provider, Tui& tui) {
             std::ofstream f(path);
             if (!f) throw std::runtime_error("cannot open: " + path);
             f << tui.system_prompt();
-            tui.print_response("system prompt saved to: " + path);
+            tui.print_response("💾system prompt saved to: " + path);
           } catch (const std::exception& e) {
             tui.print_error(std::string("failed to save system prompt: ") +
                             e.what());
@@ -173,7 +194,7 @@ void Chat::run(const ChatOptions& opts, Provider& provider, Tui& tui) {
             std::string new_prompt((std::istreambuf_iterator<char>(f)),
                                    std::istreambuf_iterator<char>());
             tui.set_system_prompt(new_prompt);
-            tui.print_response("system prompt loaded from: " + path);
+            tui.print_response("📁system prompt loaded from: " + path);
           } catch (const std::exception& e) {
             tui.print_error(std::string("failed to load system prompt: ") +
                             e.what());
@@ -186,7 +207,7 @@ void Chat::run(const ChatOptions& opts, Provider& provider, Tui& tui) {
         } else {
           try {
             db_.update_session_title(session_id, new_title);
-            tui.print_response("title set: " + new_title);
+            tui.print_response("🏷️title set: " + new_title);
           } catch (const std::exception& e) {
             tui.print_error(std::string("failed to set title: ") + e.what());
           }

@@ -27,7 +27,8 @@ class PersonaUpdater {
   // it never crashes the chat loop.
   void maybe_update(const std::vector<Message>& context,
                     const std::string& user_msg,
-                    const std::string& assistant_msg);
+                    const std::string& assistant_msg,
+                    const bool force_update = false);
 
  private:
   // Returns true when BOTH conditions hold:
