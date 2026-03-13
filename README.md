@@ -18,7 +18,7 @@ All other dependencies (SQLite, mbedTLS, cpp-httplib, nlohmann/json, ftxui, md4c
 ## Build from Source
 
 ```shell
-git clone <repo>
+git clone https://github.com/KodeWorker/ur.git
 cd ur
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j$(nproc)

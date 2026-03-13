@@ -10,19 +10,41 @@
 - Tool-calling loop integrated into `runner` and `chat`
 - Sandbox tier 1: workspace path constraint enforced
 - `--allow-all` bypasses sandbox
-- `run_agent` built-in tool for sub-agent invocation
+- Built-in tools: `read_file`, `write_file`, `bash`, `run_agent`, `web_search`, `web_fetch`
 
 ## Source Files to Create
 
 ```
-src/ur/tools/tool.hpp               Tool interface (name, description, input schema, execute)
-src/ur/tools/loader.cpp/.hpp        Discover and load plugins from $root/tools/
-src/ur/tools/sandbox.cpp/.hpp       Tier 1 path enforcement
-src/ur/tools/executor.cpp/.hpp      Route tool calls from LLM → plugin → sandbox → result
+src/ur/tools/tool.hpp                       Tool interface (name, description, input schema, execute)
+src/ur/tools/loader.cpp/.hpp                Discover and load plugins from $root/tools/
+src/ur/tools/sandbox.cpp/.hpp               Tier 1 path enforcement
+src/ur/tools/executor.cpp/.hpp              Route tool calls from LLM → plugin → sandbox → result
+src/ur/tools/builtin/read_file.cpp/.hpp     Read a file (workspace-constrained)
+src/ur/tools/builtin/write_file.cpp/.hpp    Create or overwrite a file (workspace-constrained)
+src/ur/tools/builtin/bash.cpp/.hpp          Execute a shell command (--allow-all only)
+src/ur/tools/builtin/run_agent.cpp/.hpp     Spawn ur run as subprocess (depth-limited)
+src/ur/tools/builtin/web_search.cpp/.hpp    Query a search engine (--allow-all only)
+src/ur/tools/builtin/web_fetch.cpp/.hpp     Fetch a URL's content (--allow-all only)
 tests/unit/test_loader.cpp
 tests/unit/test_sandbox.cpp
 tests/unit/test_executor.cpp
+tests/unit/test_builtin_tools.cpp
 ```
+
+## Built-in Tools
+
+Built-in tools are compiled into `ur_lib` and registered by `loader.cpp` before
+external plugins are scanned. Each can be disabled via `tools.json` or filtered
+per-invocation with `--allow` / `--deny` / `--no-tools`.
+
+| Tool | Path constraint | Human audit | Description |
+|------|----------------|-------------|-------------|
+| `read_file` | workspace only | yes (unless `--allow-all`) | Read a file inside `$root/workspace/` |
+| `write_file` | workspace only | yes (unless `--allow-all`) | Create or overwrite a file inside `$root/workspace/` |
+| `bash` | none | yes (unless `--allow-all`) | Execute a shell command; no path restriction |
+| `run_agent` | none | yes (unless `--allow-all`) | Spawn `ur run` as a subprocess; depth-limited via `UR_AGENT_DEPTH` |
+| `web_search` | none | yes (unless `--allow-all`) | Query a search engine and return ranked results |
+| `web_fetch` | none | yes (unless `--allow-all`) | Fetch the content of a URL |
 
 ## Tool Interface
 
@@ -94,9 +116,12 @@ user, persistent across invocations:
 ```json
 {
   "tools": [
-    { "name": "shell",     "enabled": true, "timeout": 10 },
-    { "name": "web_search","enabled": true, "max_results": 5 },
-    { "name": "run_agent", "enabled": true, "max_depth": 4 }
+    { "name": "read_file",  "enabled": true },
+    { "name": "write_file", "enabled": true },
+    { "name": "bash",       "enabled": true, "timeout": 10 },
+    { "name": "run_agent",  "enabled": true, "max_depth": 1 },
+    { "name": "web_search", "enabled": true, "max_results": 5 },
+    { "name": "web_fetch",  "enabled": true }
   ]
 }
 ```
