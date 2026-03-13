@@ -30,17 +30,24 @@ void PersonaUpdater::maybe_update(const std::vector<Message>& context,
   if (!is_meaningful(context, user_msg) && !force_update) return;
 
   try {
+    // Build extraction input: for each user turn, include only the single
+    // assistant message immediately before it (Q&A context), then the user
+    // reply. This avoids flooding the extractor with assistant prose while
+    // preserving context for responses to assistant questions.
     std::string conversation;
-    for (const auto& m : context) {
-      if (m.role == "user")
-        conversation += "[User]: " + m.content + "\n";
-      else if (m.role == "assistant")
-        conversation += "[Assistant]: " + m.content + "\n";
+    for (size_t i = 0; i < context.size(); ++i) {
+      if (context[i].role == "user") {
+        if (i > 0 && context[i - 1].role == "assistant")
+          conversation += "[Assistant]: " + context[i - 1].content + "\n";
+        conversation += "[User]: " + context[i].content + "\n";
+      }
     }
 
     std::vector<Message> msgs = {
         {"system",
-         "Extract stable facts about the user from the conversation below. "
+         "Extract stable facts about the user from the messages below. "
+         "Only extract facts the user has explicitly stated or clearly implied "
+         "about themselves — ignore anything the assistant said. "
          "Return a flat JSON object {\"key\": \"value\", ...} using short "
          "lowercase keys (e.g. name, timezone, interests). "
          "Return {} if nothing worth persisting."},
