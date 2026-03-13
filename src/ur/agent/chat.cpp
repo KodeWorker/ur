@@ -164,7 +164,7 @@ void Chat::run(const ChatOptions& opts, Provider& provider, Tui& tui) {
                           // remain in DB and session context
         tui.print_response("🧹context cleared");
       } else if (input == "/persona") {
-        persona.maybe_update(history, /*user_msg=*/"", /*assistant_msg=*/"",
+        persona.maybe_update(history, /*user_msg=*/"",
                              /*force_update=*/true);
         std::string out;
         for (const auto& p : db_.select_persona())
@@ -293,7 +293,7 @@ void Chat::run(const ChatOptions& opts, Provider& provider, Tui& tui) {
     // TODO(phase5): parse the final usage chunk to get token counts.
     tui.set_status(0, srv.context_length, "/compact to summarize");
 
-    persona.maybe_update(history, input, content);
+    persona.maybe_update(history, input);
   }
 
   logger_.info("session ended: " + session_id);
