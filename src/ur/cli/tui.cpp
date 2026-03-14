@@ -158,7 +158,6 @@ struct FtxuiTui::Impl {
 
   struct HistoryEntry {
     std::string role;  // "user" | "assistant" | "reason" | "error"
-    std::string content;
     std::shared_ptr<bool>
         open;  // non-null for "reason"; stable addr for Collapsible
     ftxui::Component component;  // added to history_container once
@@ -527,7 +526,7 @@ void FtxuiTui::print_user(const std::string& content) {
            ftxui::xflex;
   });
   d->post_or_direct([d, component]() {
-    d->history.push_back({"user", {}, nullptr, component});
+    d->history.push_back({"user", nullptr, component});
     d->history_container->Add(component);
     d->scroller->ScrollToEnd();
     d->screen.PostEvent(ftxui::Event::Custom);
@@ -546,7 +545,7 @@ void FtxuiTui::print_response(const std::string& content) {
            ftxui::xflex;
   });
   d->post_or_direct([d, component]() {
-    d->history.push_back({"assistant", {}, nullptr, component});
+    d->history.push_back({"assistant", nullptr, component});
     d->history_container->Add(component);
     d->scroller->ScrollToEnd();
     d->screen.PostEvent(ftxui::Event::Custom);
@@ -568,7 +567,7 @@ void FtxuiTui::print_response_chunk(const std::string& chunk) {
              ftxui::xflex;
     });
     d->screen.Post([d, component]() {
-      d->history.push_back({"assistant", {}, nullptr, component});
+      d->history.push_back({"assistant", nullptr, component});
       d->history_container->Add(component);
       d->scroller->ScrollToEnd();
       d->screen.PostEvent(ftxui::Event::Custom);
@@ -597,7 +596,7 @@ void FtxuiTui::print_reasoning(const std::string& reasoning) {
   auto collapsible =
       NonFocusable(ftxui::Collapsible("thinking…", inner, open.get()));
   d->post_or_direct([d, collapsible, open]() {
-    d->history.push_back({"reason", {}, open, collapsible});
+    d->history.push_back({"reason", open, collapsible});
     d->history_container->Add(collapsible);
     d->scroller->ScrollToEnd();
     d->screen.PostEvent(ftxui::Event::Custom);
@@ -619,7 +618,7 @@ void FtxuiTui::print_reasoning_chunk(const std::string& chunk) {
     auto collapsible =
         NonFocusable(ftxui::Collapsible("thinking…", inner, open.get()));
     d->screen.Post([d, collapsible, open]() {
-      d->history.push_back({"reason", {}, open, collapsible});
+      d->history.push_back({"reason", open, collapsible});
       d->history_container->Add(collapsible);
       d->scroller->ScrollToEnd();
       d->screen.PostEvent(ftxui::Event::Custom);
@@ -640,7 +639,7 @@ void FtxuiTui::print_error(const std::string& msg) {
     return ftxui::text("error: " + text) | ftxui::color(ftxui::Color::Red);
   });
   d->post_or_direct([d, component]() {
-    d->history.push_back({"error", {}, nullptr, component});
+    d->history.push_back({"error", nullptr, component});
     d->history_container->Add(component);
     d->scroller->ScrollToEnd();
     d->screen.PostEvent(ftxui::Event::Custom);
