@@ -98,7 +98,7 @@ class MockTui : public ur::Tui {
   std::string system_prompt() const override { return {}; }
   void set_system_prompt(const std::string& /*prompt*/) override {}
 
-  bool is_interactive() const override { return true; }
+  bool is_interactive() const override { return false; }
 
   std::vector<std::string> user_messages;
   std::vector<std::string> responses;
