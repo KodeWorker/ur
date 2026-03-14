@@ -84,6 +84,9 @@ void save_dotenv(const std::filesystem::path& path,
   std::ofstream out(path);
   for (const auto& l : lines) out << l << "\n";
 
+  if (!out.is_open() || out.fail()) {
+    throw std::runtime_error("failed to write .env file: " + path.string());
+  }
   std::filesystem::permissions(
       path,
       std::filesystem::perms::owner_read | std::filesystem::perms::owner_write,
@@ -96,8 +99,8 @@ int env_int(const char* name, int fallback) {
   try {
     return std::stoi(v);
   } catch (...) {
-    std::cerr << "ur: warning: " << name << "=\"" << v
-              << "\" is not a valid integer, using " << fallback << "\n";
+    std::cerr << "warning: invalid integer in env var " << name
+              << ", using fallback " << fallback << "\n";
     return fallback;
   }
 }
