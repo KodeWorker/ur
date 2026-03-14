@@ -442,18 +442,27 @@ void Database::touch_session(const std::string& id, int64_t updated_at) {
 std::string Database::find_session_by_id_prefix(const std::string& prefix) {
   if (!is_open()) open();
   const char* sql =
-      "SELECT id FROM session WHERE id LIKE ? || '%' ORDER BY created_at DESC";
+      "SELECT id FROM session WHERE SUBSTR(id, 1, ?) = ? ORDER BY created_at "
+      "DESC";
   sqlite3_stmt* stmt = nullptr;
   int rc = sqlite3_prepare_v2(handle_.get(), sql, -1, &stmt, nullptr);
   if (rc != SQLITE_OK) {
     throw std::runtime_error("Database::find_session_by_id_prefix (prepare): " +
                              std::string(sqlite3_errmsg(handle_.get())));
   }
-  if (sqlite3_bind_text(stmt, 1, prefix.c_str(), -1, SQLITE_TRANSIENT) !=
+  const int prefix_len = static_cast<int>(prefix.size());
+  if (sqlite3_bind_int(stmt, 1, prefix_len) != SQLITE_OK) {
+    sqlite3_finalize(stmt);
+    throw std::runtime_error(
+        "Database::find_session_by_id_prefix (bind len): " +
+        std::string(sqlite3_errmsg(handle_.get())));
+  }
+  if (sqlite3_bind_text(stmt, 2, prefix.c_str(), -1, SQLITE_TRANSIENT) !=
       SQLITE_OK) {
     sqlite3_finalize(stmt);
-    throw std::runtime_error("Database::find_session_by_id_prefix (bind): " +
-                             std::string(sqlite3_errmsg(handle_.get())));
+    throw std::runtime_error(
+        "Database::find_session_by_id_prefix (bind prefix): " +
+        std::string(sqlite3_errmsg(handle_.get())));
   }
   std::string found_id;
   int count = 0;
