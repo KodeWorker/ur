@@ -67,6 +67,16 @@ void generate_key(const std::filesystem::path& key_path) {
       std::filesystem::perm_options::replace);
 }
 
+std::string generate_id() {
+  std::string bytes = random_bytes(16);
+  std::ostringstream oss;
+  oss << std::hex << std::setfill('0');
+  for (unsigned char c : bytes) {
+    oss << std::setw(2) << static_cast<int>(c);
+  }
+  return oss.str();
+}
+
 std::string encrypt(const std::string& plaintext, const std::string& key) {
   if (key.size() != 32) {
     throw std::runtime_error("encrypt: key must be 32 bytes for AES-256-GCM");

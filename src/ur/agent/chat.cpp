@@ -17,17 +17,6 @@
 
 namespace ur {
 
-// Generate a 32-char hex ID from 16 random bytes (same pattern as Runner).
-static std::string generate_id() {
-  std::string bytes = random_bytes(16);
-  std::ostringstream oss;
-  oss << std::hex << std::setfill('0');
-  for (unsigned char c : bytes) {
-    oss << std::setw(2) << static_cast<int>(c);
-  }
-  return oss.str();
-}
-
 Chat::Chat(Database& db, Logger& logger) : db_(db), logger_(logger) {}
 
 // static

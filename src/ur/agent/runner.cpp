@@ -13,16 +13,6 @@ namespace ur {
 
 Runner::Runner(Database& db, Logger& logger) : db_(db), logger_(logger) {}
 
-std::string Runner::generate_id() {
-  std::string bytes = random_bytes(16);
-  std::ostringstream oss;
-  oss << std::hex << std::setfill('0');
-  for (unsigned char c : bytes) {
-    oss << std::setw(2) << static_cast<int>(c);
-  }
-  return oss.str();
-}
-
 RunResult Runner::run(const std::string& prompt,
                       const std::string& system_prompt,
                       const std::string& model, Provider& provider,

@@ -41,10 +41,6 @@ class Runner {
                 const TokenCallback& reasoning_cb = nullptr);
 
  private:
-  // Generate a random 32-char hex ID using RAND_bytes() (OpenSSL).
-  // Used for both session IDs and message IDs.
-  static std::string generate_id();
-
   Database& db_;
   Logger& logger_;
 };
