@@ -170,6 +170,7 @@ struct FtxuiTui::Impl {
   std::string status_hint;
 
   // --- System Prompt ---
+  mutable std::mutex system_prompt_mu;
   std::string system_prompt;
 
   // --- Options (pre-loaded from env at startup) ---
@@ -678,9 +679,13 @@ void FtxuiTui::stop_spinner() {
   d->screen.PostEvent(ftxui::Event::Custom);
 }
 
-std::string FtxuiTui::system_prompt() const { return impl_->system_prompt; }
+std::string FtxuiTui::system_prompt() const {
+  std::lock_guard<std::mutex> lock(impl_->system_prompt_mu);
+  return impl_->system_prompt;
+}
 
 void FtxuiTui::set_system_prompt(const std::string& prompt) {
+  std::lock_guard<std::mutex> lock(impl_->system_prompt_mu);
   impl_->system_prompt = prompt;
 }
 
