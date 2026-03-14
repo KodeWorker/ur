@@ -2,6 +2,7 @@
 
 #include <functional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace ur {
@@ -10,14 +11,36 @@ namespace ur {
 // Called once per chunk as it arrives from the server.
 using TokenCallback = std::function<void(const std::string&)>;
 
+// A tool call entry inside an assistant message's tool_calls array.
+// Populated when the LLM requests a tool invocation.
+struct ToolCallEntry {
+  std::string id;              // tool_call_id — echoed in the tool result turn
+  std::string name;            // tool name
+  std::string arguments_json;  // JSON string matching the tool's input schema
+};
+
 // A single message in a conversation turn.
 // role is passed through to the server as-is.
-// Common values: "system", "user", "assistant".
-// Phase 4+ tool calling adds: "tool" (tool result), and an "assistant" message
-// with a tool_calls field — extend this struct when that phase is reached.
+// Common values: "system", "user", "assistant", "tool".
+//
+// Tool calling (Phase 4):
+//   - Assistant turn with tool calls: role="assistant", content="",
+//     tool_calls non-empty.
+//   - Tool result turn: role="tool", content=result, tool_call_id non-empty.
 struct Message {
   std::string role;
   std::string content;
+
+  // Phase 4 extensions — zero-valued for ordinary turns.
+  std::vector<ToolCallEntry>
+      tool_calls;            // non-empty for assistant tool_calls turn
+  std::string tool_call_id;  // non-empty for role="tool" result turn
+
+  // Convenience constructors — preserve existing {"role", "content"} call
+  // sites.
+  Message() = default;
+  Message(std::string role, std::string content)
+      : role(std::move(role)), content(std::move(content)) {}
 };
 
 // Result returned by Provider::complete().
@@ -34,6 +57,11 @@ struct CompletionResult {
 struct ServerInfo {
   int context_length = 0;  // model's maximum context window in tokens;
                            // 0 if the server does not report it
+
+  // True if the active model supports vision (multimodal image input).
+  // Used by Loader to gate read_image tool registration.
+  // Derived from model metadata endpoint if available; defaults to false.
+  bool supports_vision = false;
 };
 
 // Abstract interface for an LLM provider.
