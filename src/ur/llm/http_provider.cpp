@@ -16,6 +16,8 @@
 // parsing.
 #include <nlohmann/json.hpp>
 
+#include "env.hpp"
+
 namespace ur {
 
 HttpProvider::HttpProvider(std::string base_url, std::string api_key)
@@ -68,15 +70,10 @@ CompletionResult HttpProvider::complete(const std::vector<Message>& messages,
   // Client setup.
   const std::string body = request_json.dump();
   httplib::Client client(base_url_);
-  const char* conn_timeout = std::getenv("UR_LLM_CONNECTION_TIMEOUT");
-  const char* read_timeout = std::getenv("UR_LLM_READ_TIMEOUT");
-  client.set_connection_timeout(conn_timeout ? std::stoi(conn_timeout) : 10, 0);
-  // 0 means "use default" (httplib default: 300 s). select({0,0}) polls
+  client.set_connection_timeout(env_int("UR_LLM_CONNECTION_TIMEOUT", 10), 0);
   // immediately — never pass 0 as an actual timeout value.
-  if (read_timeout) {
-    const int secs = std::stoi(read_timeout);
-    if (secs > 0) client.set_read_timeout(secs, 0);
-  }
+  client.set_read_timeout(env_int("UR_LLM_READ_TIMEOUT", 300), 0);
+
   if (!api_key_.empty()) {
     client.set_default_headers({{"Authorization", "Bearer " + api_key_}});
   }
@@ -129,13 +126,10 @@ void HttpProvider::stream(const std::vector<Message>& messages,
   }
   // Client setup (same timeout logic as complete()).
   httplib::Client client(base_url_);
-  const char* conn_timeout = std::getenv("UR_LLM_CONNECTION_TIMEOUT");
-  const char* read_timeout = std::getenv("UR_LLM_READ_TIMEOUT");
-  client.set_connection_timeout(conn_timeout ? std::stoi(conn_timeout) : 10, 0);
-  if (read_timeout) {
-    const int secs = std::stoi(read_timeout);
-    if (secs > 0) client.set_read_timeout(secs, 0);
-  }
+  client.set_connection_timeout(env_int("UR_LLM_CONNECTION_TIMEOUT", 10), 0);
+  // immediately — never pass 0 as an actual timeout value.
+  client.set_read_timeout(env_int("UR_LLM_READ_TIMEOUT", 300), 0);
+
   if (!api_key_.empty()) {
     client.set_default_headers({{"Authorization", "Bearer " + api_key_}});
   }

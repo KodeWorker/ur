@@ -19,4 +19,6 @@ void load_dotenv(const std::filesystem::path& path = ".env");
 void save_dotenv(const std::filesystem::path& path,
                  const std::map<std::string, std::string>& vars);
 
+int env_int(const char* name, int fallback);
+
 }  // namespace ur

@@ -85,18 +85,6 @@ int cmd_run(Context& ctx, int argc, char** argv) {
       return 1;
     }
 
-    // Recursion guard: UR_AGENT_DEPTH / UR_MAX_AGENT_DEPTH.
-    {
-      const char* depth_env = std::getenv("UR_AGENT_DEPTH");
-      const char* max_env = std::getenv("UR_MAX_AGENT_DEPTH");
-      int depth = depth_env ? std::stoi(depth_env) : 0;
-      int max_depth = max_env ? std::stoi(max_env) : 4;
-      if (depth > max_depth) {
-        ctx.logger.error("maximum agent recursion depth exceeded");
-        return 1;
-      }
-    }
-
     std::string prompt(argv[2]);
     std::string system_prompt;
     const char* env_model = std::getenv("UR_LLM_MODEL");

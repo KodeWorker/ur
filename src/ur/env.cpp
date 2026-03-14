@@ -2,6 +2,7 @@
 
 #include <cstdlib>
 #include <fstream>
+#include <iostream>
 #include <map>
 #include <string>
 #include <vector>
@@ -82,6 +83,18 @@ void save_dotenv(const std::filesystem::path& path,
 
   std::ofstream out(path);
   for (const auto& l : lines) out << l << "\n";
+}
+
+int env_int(const char* name, int fallback) {
+  const char* v = std::getenv(name);
+  if (!v || !v[0]) return fallback;
+  try {
+    return std::stoi(v);
+  } catch (...) {
+    std::cerr << "ur: warning: " << name << "=\"" << v
+              << "\" is not a valid integer, using " << fallback << "\n";
+    return fallback;
+  }
 }
 
 }  // namespace ur
