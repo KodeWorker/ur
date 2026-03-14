@@ -86,7 +86,7 @@ TEST_F(PersonaUpdaterTest, ShortMessageSkipsUpdate) {
   MockProvider mock("{}");
   ur::PersonaUpdater updater(*db_, mock, *logger_, "");
   auto ctx = make_context(3);
-  updater.maybe_update(ctx, "hi", "response");
+  updater.maybe_update(ctx, "hi");
   EXPECT_EQ(mock.call_count, 0);
 }
 
@@ -97,7 +97,7 @@ TEST_F(PersonaUpdaterTest, ShallowContextSkipsUpdate) {
   // Only 2 exchanges = 4 messages, below the threshold of 6.
   auto ctx = make_context(2);
   std::string long_msg(60, 'x');
-  updater.maybe_update(ctx, long_msg, "response");
+  updater.maybe_update(ctx, long_msg);
   EXPECT_EQ(mock.call_count, 0);
 }
 
@@ -107,7 +107,7 @@ TEST_F(PersonaUpdaterTest, MeaningfulTurnCallsProvider) {
   ur::PersonaUpdater updater(*db_, mock, *logger_, "");
   auto ctx = make_context(4);  // 8 messages ≥ 6 threshold
   std::string long_msg(60, 'x');
-  updater.maybe_update(ctx, long_msg, "response");
+  updater.maybe_update(ctx, long_msg);
   EXPECT_EQ(mock.call_count, 1);
 }
 
@@ -117,7 +117,7 @@ TEST_F(PersonaUpdaterTest, ExtractedFactUpsertedToDb) {
   ur::PersonaUpdater updater(*db_, mock, *logger_, "");
   auto ctx = make_context(4);
   std::string long_msg(60, 'x');
-  updater.maybe_update(ctx, long_msg, "response");
+  updater.maybe_update(ctx, long_msg);
 
   auto rows = db_->select_persona();
   ASSERT_EQ(rows.size(), 2u);
@@ -135,11 +135,11 @@ TEST_F(PersonaUpdaterTest, UpsertOverwritesExistingKey) {
 
   MockProvider mock1("{\"name\": \"Alice\"}");
   ur::PersonaUpdater updater1(*db_, mock1, *logger_, "");
-  updater1.maybe_update(ctx, long_msg, "response");
+  updater1.maybe_update(ctx, long_msg);
 
   MockProvider mock2("{\"name\": \"Bob\"}");
   ur::PersonaUpdater updater2(*db_, mock2, *logger_, "");
-  updater2.maybe_update(ctx, long_msg, "response");
+  updater2.maybe_update(ctx, long_msg);
 
   auto rows = db_->select_persona();
   ASSERT_EQ(rows.size(), 1u);

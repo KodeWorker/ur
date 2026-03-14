@@ -60,6 +60,9 @@ class Tui {
 
   // Replace the system prompt text (e.g. from /load-prompt command).
   virtual void set_system_prompt(const std::string& prompt) = 0;
+
+  // Return true if running in a real terminal, false if output is redirected.
+  virtual bool is_interactive() const = 0;
 };
 
 // ---------------------------------------------------------------------------
@@ -93,6 +96,8 @@ class FtxuiTui : public Tui {
   void stop_spinner() override;
   std::string system_prompt() const override;
   void set_system_prompt(const std::string& prompt) override;
+  bool is_interactive() const override;  // true if running in a real terminal,
+                                         // false if output is redirected
 
  private:
   struct Impl;

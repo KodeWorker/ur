@@ -144,7 +144,9 @@ void Chat::run(const ChatOptions& opts, Provider& provider, Tui& tui) {
         continue;
       } else if (input == "/exit") {
         tui.print_response("👋goodbye");
-        std::this_thread::sleep_for(std::chrono::milliseconds(800));
+        if (tui.is_interactive()) {
+          std::this_thread::sleep_for(std::chrono::milliseconds(800));
+        }
         break;
       } else if (input == "/compact") {
         // Stub: full summarisation deferred to Phase 5.

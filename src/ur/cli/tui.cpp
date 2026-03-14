@@ -691,6 +691,18 @@ void FtxuiTui::set_system_prompt(const std::string& prompt) {
   impl_->system_prompt = prompt;
 }
 
+#ifdef _WIN32
+#include <io.h>
+bool FtxuiTui::is_interactive() const {
+  return _isatty(_fileno(stdin)) && _isatty(_fileno(stdout));
+}
+#else
+#include <unistd.h>
+bool FtxuiTui::is_interactive() const {
+  return isatty(STDIN_FILENO) && isatty(STDOUT_FILENO);
+}
+#endif
+
 std::unique_ptr<Tui> make_tui() { return std::make_unique<FtxuiTui>(); }
 
 }  // namespace ur
