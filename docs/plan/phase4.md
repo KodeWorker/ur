@@ -10,7 +10,7 @@
 - Tool-calling loop integrated into `runner` and `chat`
 - Sandbox tier 1: workspace path constraint enforced
 - `--allow-all` bypasses sandbox
-- Built-in tools: `read_file`, `write_file`, `bash`, `run_agent`, `web_search`, `web_fetch`, `read_image` (disabled by default — requires vision model)
+- Built-in tools: `read_file`, `write_file`, `bash`, `web_search`, `web_fetch`, `read_image` (disabled by default — requires vision model)
 
 ## Source Files to Create
 
@@ -22,7 +22,6 @@ src/ur/tools/executor.cpp/.hpp              Route tool calls from LLM → plugin
 src/ur/tools/builtin/read_file.cpp/.hpp     Read a file (workspace-constrained)
 src/ur/tools/builtin/write_file.cpp/.hpp    Create or overwrite a file (workspace-constrained)
 src/ur/tools/builtin/bash.cpp/.hpp          Execute a shell command (--allow-all only)
-src/ur/tools/builtin/run_agent.cpp/.hpp     Spawn ur run as subprocess (depth-limited)
 src/ur/tools/builtin/web_search.cpp/.hpp    Query a search engine (--allow-all only)
 src/ur/tools/builtin/web_fetch.cpp/.hpp     Fetch a URL's content (--allow-all only)
 src/ur/tools/builtin/read_image.cpp/.hpp    Validate and return an image path for vision models (workspace-constrained; disabled by default)
@@ -43,7 +42,6 @@ per-invocation with `--allow` / `--deny` / `--no-tools`.
 | `read_file` | workspace only | yes (unless `--allow-all`) | Read a file inside `$root/workspace/` |
 | `write_file` | workspace only | yes (unless `--allow-all`) | Create or overwrite a file inside `$root/workspace/` |
 | `bash` | none | yes (unless `--allow-all`) | Execute a shell command; no path restriction |
-| `run_agent` | none | yes (unless `--allow-all`) | Spawn `ur run` as a subprocess; depth-limited via `UR_AGENT_DEPTH` |
 | `web_search` | none | yes (unless `--allow-all`) | Query a search engine and return ranked results |
 | `web_fetch` | none | yes (unless `--allow-all`) | Fetch the content of a URL |
 | `read_image` | workspace only | yes (unless `--allow-all`) | Validate and return an image path to vision-capable models; **disabled by default** — enable only when the active model supports vision |
@@ -121,7 +119,6 @@ user, persistent across invocations:
     { "name": "read_file",  "enabled": true },
     { "name": "write_file", "enabled": true },
     { "name": "bash",       "enabled": true, "timeout": 10 },
-    { "name": "run_agent",  "enabled": true, "max_depth": 1 },
     { "name": "web_search", "enabled": true, "max_results": 5 },
     { "name": "web_fetch",  "enabled": true },
     { "name": "read_image", "enabled": false }
@@ -143,5 +140,3 @@ CLI flag is needed.
 - [ ] Without `--allow-all`, tool calls are held for user approval before execution
 - [ ] Rejected tool calls return an error result to the LLM without executing
 - [ ] Invalid tool name in LLM response returns a clear error result (no crash)
-- [ ] `run_agent` tool spawns `ur run` as a subprocess and captures its output
-- [ ] Recursion depth limit enforced via `UR_AGENT_DEPTH` env var
