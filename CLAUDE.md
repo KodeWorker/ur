@@ -105,3 +105,4 @@ Commits are managed via `uv run pre-commit`. Hooks run automatically on `git com
 | 4 | Tool plugins, sandbox tier 1 | Not started |
 | 5 | Context compression, long-term memory, context usage display | Not started |
 | 6 | Docker sandbox tier 2, streaming TUI | Not started |
+| 7 | Code agent — LLM generates Python to orchestrate tools | Not started |
