@@ -101,8 +101,8 @@ Commits are managed via `uv run pre-commit`. Hooks run automatically on `git com
 |-------|-------|--------|
 | 1 | CLI scaffolding, workspace init, SQLite | Complete |
 | 2 | `ur run`, OpenAI-compatible HTTP provider | Complete |
-| 3 | `ur chat`, `ur history`, `ur persona` | Not started |
-| 4 | Tool plugins, sandbox tier 1 | Not started |
+| 3 | `ur chat`, `ur history`, `ur persona` | Complete |
+| 4 | Tool plugins, sandbox tier 1 | In progress |
 | 5 | Context compression, long-term memory, context usage display | Not started |
 | 6 | Docker sandbox tier 2, streaming TUI | Not started |
 | 7 | Code agent — LLM generates Python to orchestrate tools | Not started |
