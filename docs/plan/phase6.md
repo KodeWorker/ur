@@ -14,7 +14,9 @@
 ```
 src/ur/tools/docker_runner.cpp/.hpp     Tier 2 sandbox: spawn container, execute tool, collect output
 src/ur/cli/tui_stream.cpp/.hpp          Streaming token output to terminal
+src/ur/cli/md_render.cpp/.hpp           md4c AST → ftxui Element renderer
 tests/unit/test_docker_runner.cpp
+tests/unit/test_md_render.cpp
 ```
 
 ## Sandbox Tier 2: Docker Runner
@@ -36,6 +38,11 @@ Sandbox tier is selected automatically: if Docker is available and `--allow-all`
 - Stream tokens to terminal as they arrive (provider must support streaming)
 - Status line showing: current model, session ID, turn count
 - Graceful Ctrl-C handling (finish current turn before exiting)
+- Markdown rendering via **md4c** (CommonMark parser, C library, ~50 KB,
+  fetched via FetchContent). The renderer walks the md4c AST and emits ftxui
+  elements: bold, italic, inline code, fenced code blocks, headers, bullet and
+  ordered lists, blockquotes. Applied to assistant message content in
+  `print_response()`.
 
 ## Acceptance Criteria
 
@@ -43,3 +50,6 @@ Sandbox tier is selected automatically: if Docker is available and `--allow-all`
 - [ ] Container is removed after each tool call (`--rm`)
 - [ ] Tokens stream to terminal in real time during chat
 - [ ] `ur chat` handles Ctrl-C cleanly without data loss
+- [ ] Assistant responses render CommonMark markdown (bold, italic, inline code,
+      code blocks, headers, lists, blockquotes)
+- [ ] Plain-text fallback when md4c parsing fails

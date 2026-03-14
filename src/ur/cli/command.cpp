@@ -1,10 +1,13 @@
 #include "command.hpp"
 
 #include <cstdlib>
+#include <ctime>
 #include <filesystem>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <memory>
+#include <sstream>
 #include <string>
 
 #include "agent/chat.hpp"
@@ -15,20 +18,21 @@
 
 namespace ur {
 
-int cmd_init(Context& ctx, int /*argc*/, char** /*argv*/) {
+int cmd_init(const Paths& paths, int /*argc*/, char** /*argv*/) {
   try {
-    init_workspace(ctx.paths);
-    ctx.db.init_schema();
-    const std::filesystem::path key_path = ctx.paths.key / "secret.key";
+    init_workspace(paths);
+    const std::filesystem::path key_path = paths.key / "secret.key";
     bool key_existed = std::filesystem::exists(key_path);
     generate_key(key_path);
-    std::cout << "Workspace initialized at " << ctx.paths.root << "\n";
+    const std::string enc_key = load_key(key_path);
+    Database(paths.database / "ur.db", enc_key).init_schema();
+    std::cout << "Workspace initialized at " << paths.root << "\n";
     if (!key_existed) {
       std::cout << "Encryption key generated.\n";
     }
     return 0;
   } catch (const std::exception& e) {
-    ctx.logger.error(e.what());
+    std::cerr << "[ERROR] " << e.what() << '\n';
   }
   return 1;
 }
@@ -48,15 +52,19 @@ int cmd_clean(Context& ctx, int argc, char** argv) {
       } else if (flag == "--database") {
         ctx.db.drop_all();
         std::cout << "Database cleared.\n";
+      } else if (flag == "--persona") {
+        ctx.db.drop_persona();
+        std::cout << "Persona cleared.\n";
       } else {
-        ctx.logger.error("Unknown flag: " + flag +
-                         "\nUsage: ur clean [--workspace|--database]");
+        ctx.logger.error(
+            "Unknown flag: " + flag +
+            "\nUsage: ur clean [--workspace|--database|--persona]");
         return 1;
       }
     } else {
       ctx.logger.error(
           "Too many arguments for clean command.\nUsage: ur clean "
-          "[--workspace|--database]");
+          "[--workspace|--database|--persona]");
       return 1;
     }
     return 0;
@@ -71,54 +79,86 @@ int cmd_run(Context& ctx, int argc, char** argv) {
     if (argc < 3) {
       ctx.logger.error(
           "Missing prompt argument.\nUsage: ur run <prompt> "
-          "[--model=<name>] [--system-prompt=<path>] [--allow-all]");
+          "[--model=<name>] [--system-prompt=<text>|@<path>] "
+          "[--allow=<tool,...>] [--deny=<tool,...>] [--no-tools] "
+          "[--allow-all]");
       return 1;
     }
+
     std::string prompt(argv[2]);
     std::string system_prompt;
     const char* env_model = std::getenv("UR_LLM_MODEL");
     std::string model = env_model ? env_model : "";
-    // Parse optional flags. For simplicity, we require --model and
-    // --system-prompt to come after the prompt and allow them in any order.
-    // Phase 4 will have more robust parsing.
+    bool allow_all = false;
+    bool no_tools = false;
+    std::string allow_list;
+    std::string deny_list;
+
     for (int i = 3; i < argc; ++i) {
       std::string arg(argv[i]);
       if (arg.rfind("--model=", 0) == 0) {
         model = arg.substr(8);
       } else if (arg.rfind("--system-prompt=", 0) == 0) {
-        std::string path = arg.substr(16);
-        try {
-          // Read the system prompt from the specified file path.
+        std::string val = arg.substr(16);
+        if (!val.empty() && val[0] == '@') {
+          // @<path> — read from file.
+          std::string path = val.substr(1);
+          if (path.empty()) {
+            ctx.logger.error("--system-prompt=@ requires a file path");
+            return 1;
+          }
           std::ifstream f(path);
-          if (!f) throw std::runtime_error("cannot open: " + path);
+          if (!f) {
+            ctx.logger.error("cannot open system prompt file: " + path);
+            return 1;
+          }
           system_prompt = std::string(std::istreambuf_iterator<char>(f),
                                       std::istreambuf_iterator<char>());
-        } catch (const std::exception& e) {
-          ctx.logger.error("Failed to read system prompt file: " +
-                           std::string(e.what()));
-          return 1;
+        } else {
+          // Inline string — use directly.
+          system_prompt = val;
         }
+      } else if (arg.rfind("--allow=", 0) == 0) {
+        // Phase 4: pass whitelist to tool loader.
+        allow_list = arg.substr(8);
+      } else if (arg.rfind("--deny=", 0) == 0) {
+        // Phase 4: pass blacklist to tool loader.
+        deny_list = arg.substr(7);
+      } else if (arg == "--no-tools") {
+        // Phase 4: disable tool loading entirely.
+        no_tools = true;
       } else if (arg == "--allow-all") {
-        // TODO: implement allow-all flag in Runner and pass it down to control
-        // encryption behavior. For now, just log a warning that messages will
-        // be stored unencrypted if the provider doesn't support encryption.
-        // allow_all = true; // Phase 4
-        ctx.logger.warn(
-            "--allow-all flag is not implemented yet. "
-            "Messages will be stored according to the provider's "
-            "capabilities.");
+        // Phase 4: bypass sandbox path enforcement.
+        allow_all = true;
       } else {
         ctx.logger.error("Unknown argument: " + arg +
                          "\nUsage: ur run <prompt> [--model=<name>] "
-                         "[--system-prompt=<path>] [--allow-all]");
+                         "[--system-prompt=<text>|@<path>] "
+                         "[--allow=<tool,...>] [--deny=<tool,...>] "
+                         "[--no-tools] [--allow-all]");
         return 1;
       }
     }
+
+    if (!allow_list.empty() && !deny_list.empty()) {
+      ctx.logger.error("--allow and --deny are mutually exclusive");
+      return 1;
+    }
+
+    // Phase 4: wire allow_all, no_tools, allow_list, deny_list into tool
+    // loader.
+    (void)allow_all;
+    (void)no_tools;
+    (void)allow_list;
+    (void)deny_list;
     ctx.db.init_schema();
     HttpProvider provider = make_http_provider();
     Runner runner(ctx.db, ctx.logger);
-    RunResult result = runner.run(prompt, system_prompt, model, provider);
-    std::cout << result.response << "\n";
+    RunResult result = runner.run(
+        prompt, system_prompt, model, provider,
+        [](const std::string& chunk) { std::cout << chunk << std::flush; },
+        nullptr);
+    std::cout << '\n';
     ctx.logger.info("Session ID: " + result.session_id);
     return 0;
   } catch (const std::exception& e) {
@@ -137,23 +177,22 @@ int cmd_chat(Context& ctx, int argc, char** argv) {
       if (arg.rfind("--model=", 0) == 0) {
         opts.model = arg.substr(8);
       } else if (arg.rfind("--continue=", 0) == 0) {
-        opts.continue_id = arg.substr(11);
-      } else if (arg.rfind("--system-prompt=", 0) == 0) {
-        std::string path = arg.substr(16);
-        try {
-          std::ifstream f(path);
-          if (!f) throw std::runtime_error("cannot open: " + path);
-          opts.system_prompt = std::string(std::istreambuf_iterator<char>(f),
-                                           std::istreambuf_iterator<char>());
-        } catch (const std::exception& e) {
-          ctx.logger.error("Failed to read system prompt file: " +
-                           std::string(e.what()));
-          return 1;
+        const std::string val = arg.substr(11);
+        // Resolve: exact ID → ID prefix → title.
+        ctx.db.init_schema();
+        if (ctx.db.session_exists(val)) {
+          opts.continue_id = val;
+        } else {
+          try {
+            opts.continue_id = ctx.db.find_session_by_id_prefix(val);
+          } catch (const std::exception&) {
+            opts.continue_id = ctx.db.find_session_by_title(val);
+          }
         }
       } else {
         ctx.logger.error("Unknown argument: " + arg +
-                         "\nUsage: ur chat [--continue=<id>] [--model=<name>]"
-                         " [--system-prompt=<file>]");
+                         "\nUsage: ur chat [--continue=<id|prefix|title>]"
+                         " [--model=<name>]");
         return 1;
       }
     }
@@ -173,13 +212,38 @@ int cmd_history(Context& ctx, int argc, char** argv) {
   try {
     ctx.db.init_schema();
     if (argc == 2) {
-      // TODO: ctx.db.select_sessions() → print id, title, created_at, model
-      //       for each row.
+      for (const auto& session : ctx.db.select_sessions()) {
+#if defined(__unix__) || defined(__APPLE__)
+        // On Unix, print created_at as local time for better readability.
+        std::tm tm;
+        localtime_r(&session.created_at, &tm);
+#else
+        // On Windows, localtime_s is used instead of localtime_r.
+        std::tm tm;
+        localtime_s(&tm, &session.created_at);
+#endif
+        std::ostringstream oss;
+        oss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S");
+        std::cout << session.id << " | " << session.title << " | "
+                  << session.model << " | " << oss.str() << '\n';
+      }
     } else if (argc == 3) {
-      // TODO: ctx.db.select_messages(argv[2]) → print [role] content for each.
-      (void)argv;
+      std::string id(argv[2]);
+      if (!ctx.db.session_exists(id)) {
+        try {
+          id = ctx.db.find_session_by_id_prefix(id);
+        } catch (const std::exception& e) {
+          ctx.logger.error(e.what());
+          return 1;
+        }
+      }
+      for (const auto& message : ctx.db.select_messages(id)) {
+        std::cout << "[" << message.role << "] " << message.content << '\n';
+      }
     } else {
-      ctx.logger.error("Usage: ur history [<id>]");
+      ctx.logger.error(
+          "Too many arguments for history command.\nUsage: ur history "
+          "[<session_id>]");
       return 1;
     }
     return 0;
@@ -192,7 +256,9 @@ int cmd_history(Context& ctx, int argc, char** argv) {
 int cmd_persona(Context& ctx, int /*argc*/, char** /*argv*/) {
   try {
     ctx.db.init_schema();
-    // TODO: ctx.db.select_persona() → print "key:  value" for each row.
+    for (const auto& persona : ctx.db.select_persona()) {
+      std::cout << persona.key << ": " << persona.value << '\n';
+    }
     return 0;
   } catch (const std::exception& e) {
     ctx.logger.error(e.what());

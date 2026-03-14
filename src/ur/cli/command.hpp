@@ -5,8 +5,9 @@
 namespace ur {
 
 // ur init
-// Creates workspace directories and initialises the SQLite schema.
-int cmd_init(Context& ctx, int argc, char** argv);
+// Creates workspace directories, generates the encryption key, and initialises
+// the SQLite schema. Takes Paths directly — must not require a pre-loaded key.
+int cmd_init(const Paths& paths, int argc, char** argv);
 
 // ur clean [--database|--workspace]
 // No flag: removes both workspace contents and drops all database tables.

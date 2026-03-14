@@ -16,10 +16,21 @@ class HttpProvider : public Provider {
   //           servers that do not require authentication.
   explicit HttpProvider(std::string base_url, std::string api_key = {});
 
-  // POST /v1/chat/completions and return choices[0].message.content.
+  // GET /props (llama.cpp) to retrieve n_ctx; falls back to zeroed ServerInfo
+  // if the endpoint is absent or returns an unexpected format.
+  // Never throws.
+  ServerInfo server_info() override;
+
+  // POST /v1/chat/completions; returns content + usage token counts.
   // Throws std::runtime_error on network error or non-200 response.
-  std::string complete(const std::vector<Message>& messages,
-                       const std::string& model) override;
+  CompletionResult complete(const std::vector<Message>& messages,
+                            const std::string& model) override;
+
+  // POST /v1/chat/completions with stream:true; delivers tokens via callbacks.
+  // Throws std::runtime_error on network error or non-200 response.
+  void stream(const std::vector<Message>& messages, const std::string& model,
+              const TokenCallback& token_cb,
+              const TokenCallback& reasoning_cb) override;
 
  private:
   std::string base_url_;

@@ -18,6 +18,11 @@ void generate_key(const std::filesystem::path& key_path);
 // Throws std::runtime_error on failure.
 std::string random_bytes(size_t n);
 
+// Generate a random 32-char hex ID (16 random bytes).
+// This is used for session IDs and message IDs, so that they are not guessable
+// or
+std::string generate_id();
+
 // AES-256-GCM encrypt plaintext with key.
 // Output format: [ 12-byte random IV ][ ciphertext ][ 16-byte auth tag ]
 // Throws std::runtime_error on failure.

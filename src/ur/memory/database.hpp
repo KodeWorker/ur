@@ -58,6 +58,9 @@ class Database {
   // The database file itself is kept; only the schema is removed.
   void drop_all();
 
+  // Drop and recreate the persona table only. Sessions and messages are kept.
+  void drop_persona();
+
   // Insert a new session row. created_at and updated_at are Unix timestamps.
   // Throws std::runtime_error on failure.
   void insert_session(const std::string& id, const std::string& title,
@@ -87,9 +90,10 @@ class Database {
   // content fields are decrypted automatically.
   std::vector<MessageRow> select_messages(const std::string& session_id);
 
-  // Returns all persona key-value pairs ordered by key ASC.
+  // Returns persona key-value pairs ordered by updated_at DESC.
+  // limit=0 returns all rows; limit>0 returns the latest N rows.
   // value fields are decrypted automatically.
-  std::vector<PersonaRow> select_persona();
+  std::vector<PersonaRow> select_persona(size_t limit = 0);
 
   // Insert or update a persona entry. Uses SQLite UPSERT (ON CONFLICT).
   void upsert_persona(const std::string& key, const std::string& value,
@@ -98,6 +102,17 @@ class Database {
   // Update the updated_at timestamp of an existing session.
   // Called after each new message turn in the chat loop.
   void touch_session(const std::string& id, int64_t updated_at);
+
+  // Update the title of an existing session.
+  void update_session_title(const std::string& id, const std::string& title);
+
+  // Return the session ID whose title matches exactly.
+  // Throws std::runtime_error if no match or more than one match found.
+  std::string find_session_by_title(const std::string& title);
+
+  // Return the session ID whose id starts with prefix.
+  // Throws std::runtime_error if no match or more than one match found.
+  std::string find_session_by_id_prefix(const std::string& prefix);
 
   bool is_open() const;
 

@@ -20,30 +20,72 @@ a rewrite:
 
 | Phase | UI additions |
 |-------|-------------|
-| 3 | Input box, scrollable chat history, spinner, collapsible reasoning block |
-| 4 | Inline tool-call / tool-result display |
-| 5 | Status bar: token count, context usage, compression indicator |
+| 3 | 4-tab layout, chat history, input, slash autocomplete, spinner, collapsible reasoning |
+| 4 | Tools tab wired to tool registry; inline tool-call / tool-result display in Session tab |
+| 5 | Session tab status footer: message count, window size, last compact turn |
 | 6 | Streaming token output |
-
-Key design points:
-- `Chat::run()` drives ftxui's `ScreenInteractive` event loop rather than a
-  plain `while(getline)`. The provider call runs on a background thread and
-  posts an event back to the UI thread on completion.
-- Reasoning block rendered via ftxui `Collapsible` component — collapsed by
-  default, user can expand with a keypress.
-- Spinner is an ftxui `Spinner` or animated `Text` component on the UI thread,
-  driven by a periodic `PostEvent` from the background thread.
 
 CMake targets used: `ftxui::component`, `ftxui::dom`, `ftxui::screen`.
 
-## Source Files to Create
+### Tab layout
+
+```
+┌─ Session ──┬─ System Prompt ──┬─ Tools ──┬─ Options ─┐
+```
+
+**Tab 1 — Session** (default focus)
+- Scrollable chat history block: `[user]`, `[assistant]`, collapsible
+  `[thinking…]` reasoning blocks (collapsed by default).
+- Input box at bottom; slash commands (`/exit`, `/compact`, …) are
+  autocompleted inline — not sent to the agent.
+- One-line status footer: `context: N/ctx_len tokens  |  /compact to summarize`
+  where N = `usage.prompt_tokens` from the last response, ctx_len = `n_ctx`
+  fetched from the server via `Provider::server_info()` at session start.
+  If the server does not report context length, the denominator is omitted.
+
+**Tab 2 — System Prompt**
+- Multi-line `Input` component bound to the active system prompt string.
+- Changes take effect on the **next provider call** within the current session
+  (mid-session).
+- Save / load buttons write to / read from a user-specified file path
+  (ties to `--system-prompt=@<path>` from Phase 3.1).
+
+**Tab 3 — Tools** (placeholder in Phase 3)
+- Shows "no tools loaded" until Phase 4.
+- In Phase 4: checkbox list of registered tools; toggling adds/removes from
+  the active set for the next turn (maps to `--allow`/`--deny` logic).
+
+**Tab 4 — Options**
+- Editable fields for ENV-controlled settings (`UR_LLM_BASE_URL`,
+  `UR_LLM_MODEL`, `UR_LLM_CONNECTION_TIMEOUT`, `UR_LLM_READ_TIMEOUT`, …).
+- Changes are persisted to `.env` in the working directory on save.
+
+### Key design points
+- `Chat::run()` drives ftxui's `ScreenInteractive` event loop. The provider
+  call runs on a background thread and posts an event back to the UI thread
+  on completion.
+- Reasoning block rendered via ftxui `Collapsible` — collapsed by default.
+- Spinner driven by a background thread posting `Event::Custom` at ~100 ms
+  intervals; cleared when the provider returns.
+- `/compact` is a slash command (not a tab button): triggers context
+  summarisation and inserts a `[summary]` message into the DB (Phase 5).
+
+## Source Files to Create / Modify
 
 ```
 src/ur/agent/chat.cpp/.hpp          Multi-turn loop, context window management
 src/ur/agent/persona_updater.cpp    Extracts persona facts from conversation and upserts
-src/ur/cli/tui.cpp/.hpp             ftxui-based TUI wrapper (input, chat view, spinner)
+src/ur/cli/tui.cpp/.hpp             ftxui 4-tab TUI (session, system prompt, tools, options)
 tests/unit/test_chat.cpp
 tests/unit/test_persona_updater.cpp
+
+# Modified (Provider interface extended)
+src/ur/llm/provider.hpp             Add CompletionResult, ServerInfo, server_info()
+src/ur/llm/http_provider.hpp/.cpp   Implement server_info() via GET /props;
+                                    complete() returns CompletionResult with usage
+src/ur/agent/runner.cpp             Update to use CompletionResult (content field only)
+tests/unit/test_runner.cpp          MockProvider returns CompletionResult
+tests/unit/test_http_provider.cpp   Add ServerInfo parsing tests
 ```
 
 ## Chat Loop
@@ -62,7 +104,11 @@ tests/unit/test_persona_updater.cpp
    f. Run persona_updater on latest exchange
    g. Repeat until user exits (Ctrl-C or `/exit` slash command)
       - Input starting with `/` is a TUI slash command, not sent to the agent
-      - `/exit` — quit the session
+      - `/exit`    — quit the session
+      - `/compact` — summarise history and insert a `[summary]` DB record
+                     (summarisation is a no-op stub in Phase 3; full
+                     implementation deferred to Phase 5)
+      - Unknown slash command → show inline error, do not call provider
 ```
 
 ## Reasoning Display (Thinking Models)
