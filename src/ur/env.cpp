@@ -83,6 +83,11 @@ void save_dotenv(const std::filesystem::path& path,
 
   std::ofstream out(path);
   for (const auto& l : lines) out << l << "\n";
+
+  std::filesystem::permissions(
+      path,
+      std::filesystem::perms::owner_read | std::filesystem::perms::owner_write,
+      std::filesystem::perm_options::replace);
 }
 
 int env_int(const char* name, int fallback) {
