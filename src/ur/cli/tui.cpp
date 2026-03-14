@@ -660,6 +660,8 @@ void FtxuiTui::set_status(int prompt_tokens, int ctx_len,
 
 void FtxuiTui::start_spinner() {
   Impl* d = impl_.get();
+  d->spinner_running = false;
+  if (d->spinner_thread.joinable()) d->spinner_thread.join();
   d->spinner_running = true;
   d->spinner_frame = 0;
   d->spinner_thread = std::thread([d] {
