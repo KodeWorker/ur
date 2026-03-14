@@ -213,9 +213,17 @@ int cmd_history(Context& ctx, int argc, char** argv) {
     ctx.db.init_schema();
     if (argc == 2) {
       for (const auto& session : ctx.db.select_sessions()) {
-        auto tm = std::localtime(&session.created_at);
+#if defined(__unix__) || defined(__APPLE__)
+        // On Unix, print created_at as local time for better readability.
+        std::tm tm;
+        localtime_r(&session.created_at, &tm);
+#else
+        // On Windows, localtime_s is used instead of localtime_r.
+        std::tm tm;
+        localtime_s(&tm, &session.created_at);
+#endif
         std::ostringstream oss;
-        oss << std::put_time(tm, "%Y-%m-%d %H:%M:%S");
+        oss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S");
         std::cout << session.id << " | " << session.title << " | "
                   << session.model << " | " << oss.str() << '\n';
       }
