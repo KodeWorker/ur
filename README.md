@@ -100,6 +100,8 @@ Configure the endpoint via environment variables:
 |----------|-------------|---------|
 | `UR_LLM_BASE_URL` | Base URL of the OpenAI-compatible server | `http://localhost:8080` |
 | `UR_LLM_API_KEY` | API key (leave empty for local servers) | _(empty)_ |
+| `UR_SEARCH_BASE_URL` | Base URL of a SearXNG instance for `web_search` tool | _(empty — tool disabled if unset)_ |
+| `UR_NUM_PERSONA` | Max persona facts injected into system prompt (`0` = all) | `0` |
 
 Specify the model name with `--model=<name>`, which is passed directly to the server.
 
@@ -160,9 +162,39 @@ Tool execution is restricted based on the active sandbox tier:
 
 The `--allow-all` flag bypasses sandbox restrictions entirely.
 
+### Built-in tools
+
+Built-in tools are compiled into `ur` and registered automatically. Each can be enabled or disabled via `$root/tools/tools.json`.
+
+| Tool | Requires | Description |
+|------|----------|-------------|
+| `read_file` | — | Read a file inside `$root/workspace/` |
+| `write_file` | — | Create or overwrite a file inside `$root/workspace/` |
+| `bash` | `--allow-all` | Execute a shell command |
+| `web_search` | `--allow-all`, `UR_SEARCH_BASE_URL` | Query a SearXNG instance and return results |
+| `web_fetch` | `--allow-all` | Fetch the content of a URL |
+| `read_image` | `--allow-all`, vision model | Pass an image path to a vision-capable model |
+
+`web_search` requires a running [SearXNG](https://searxng.github.io/searxng/) instance. The simplest setup:
+
+```shell
+docker run --rm -p 8888:8080 searxng/searxng
+export UR_SEARCH_BASE_URL=http://localhost:8888
+```
+
+`read_image` is disabled by default and activates only when `tools.json` enables it and the active model reports vision support.
+
 ### Custom tool plugins
 
-Drop shared libraries or scripts into `$root/tools/`. They are loaded at agent startup and exposed to the agent as callable tools.
+Drop shared libraries (`.so`/`.dll`) or executable scripts into `$root/tools/`. They are loaded at agent startup and exposed to the agent as callable tools. A plugin with the same name as a built-in overrides it.
+
+**Shared library** — export two symbols:
+```c
+ur::Tool* ur_create_tool();
+void ur_destroy_tool(ur::Tool*);
+```
+
+**Script** — respond to `--describe` with a JSON descriptor, accept `args_json` on stdin, write `{"content": "...", "is_error": false}` to stdout.
 
 ## Development
 
@@ -206,10 +238,13 @@ Implement `ur run` for one-shot requests via an OpenAI-compatible HTTP provider,
 Implement `ur chat` with context manager and `--continue`, `ur history`, and `ur persona`; persona key-value pairs persisted in SQLite; flat-file vector store established for future long-term memory.
 
 **Phase 4** — Tool system and sandbox tier 1:
-Tool plugin loading from `$root/tools/`, workspace-constrained sandbox, tool-calling loop in the agent.
+Built-in tools (`read_file`, `write_file`, `bash`, `web_search`, `web_fetch`, `read_image`), plugin loading from `$root/tools/`, workspace-constrained sandbox, tool-calling loop in the agent, human audit before execution.
 
 **Phase 5** — Memory and context:
 Context compression (LLM-summarised rolling window), long-term semantic memory via flat-file vector store, context usage display in the TUI status line.
 
 **Phase 6** — Docker sandbox and streaming TUI:
 Sandbox tier 2 (Docker runner), streaming token output, TUI polish (markdown rendering via md4c).
+
+**Phase 7** — Code agent:
+LLM generates Python scripts to orchestrate multi-step tool calls in a single turn, executed inside the Docker sandbox. Replaces the one-call-at-a-time JSON tool loop for complex workflows.
