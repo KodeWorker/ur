@@ -295,14 +295,20 @@ void Chat::run(const ChatOptions& opts, Provider& provider, Tui& tui) {
       if (!reasoning.empty()) tui.print_reasoning(reasoning);
     }
 
-    if (!reasoning.empty()) {
-      db_.insert_message(generate_id(), session_id, "reason", reasoning, now);
+    try {
+      db_.begin();
+      if (!reasoning.empty()) {
+        db_.insert_message(generate_id(), session_id, "reason", reasoning, now);
+      }
+      db_.insert_message(generate_id(), session_id, "assistant", content, now);
+      db_.touch_session(session_id, now);
+      db_.commit();
+    } catch (const std::exception& e) {
+      db_.rollback();
+      tui.print_error(std::string("database error: ") + e.what());
+      logger_.error(std::string("database error: ") + e.what());
+      continue;
     }
-
-    // ── f. Persist assistant turn
-    // ─────────────────────────────────────────────
-    db_.insert_message(generate_id(), session_id, "assistant", content, now);
-    db_.touch_session(session_id, now);
     history.push_back({"assistant", content});
 
     // ── g. Status + persona
