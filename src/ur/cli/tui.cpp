@@ -178,6 +178,8 @@ struct FtxuiTui::Impl {
   std::string opt_model;
   std::string opt_conn_timeout;
   std::string opt_read_timeout;
+  std::string opt_num_persona;
+  std::string opt_search_base_url;
 
   // --- Streaming ---
   // Non-null while a print_response_chunk() / print_reasoning_chunk()
@@ -230,6 +232,9 @@ FtxuiTui::FtxuiTui() : impl_(std::make_unique<Impl>()) {
   impl_->opt_model = env_or("UR_LLM_MODEL", "");
   impl_->opt_conn_timeout = env_or("UR_LLM_CONNECTION_TIMEOUT", "10");
   impl_->opt_read_timeout = env_or("UR_LLM_READ_TIMEOUT", "0");
+  impl_->opt_num_persona = env_or("UR_NUM_PERSONA", "0");
+  impl_->opt_search_base_url =
+      env_or("UR_SEARCH_BASE_URL", "http://localhost:8888");
 
   // Stable raw pointer for lambdas — safe because Impl is owned by this object.
   Impl* d = impl_.get();
@@ -377,7 +382,9 @@ FtxuiTui::FtxuiTui() : impl_(std::make_unique<Impl>()) {
                          {"UR_LLM_API_KEY", d->opt_api_key},
                          {"UR_LLM_MODEL", d->opt_model},
                          {"UR_LLM_CONNECTION_TIMEOUT", d->opt_conn_timeout},
-                         {"UR_LLM_READ_TIMEOUT", d->opt_read_timeout}});
+                         {"UR_LLM_READ_TIMEOUT", d->opt_read_timeout},
+                         {"UR_NUM_PERSONA", d->opt_num_persona},
+                         {"UR_SEARCH_BASE_URL", d->opt_search_base_url}});
   };
 
   auto make_opt = [&](std::string* val, const char* placeholder) {
@@ -393,6 +400,9 @@ FtxuiTui::FtxuiTui() : impl_(std::make_unique<Impl>()) {
   auto opt_model_input = make_opt(&d->opt_model, "(server default)");
   auto opt_conn_input = make_opt(&d->opt_conn_timeout, "10");
   auto opt_read_input = make_opt(&d->opt_read_timeout, "0");
+  auto opt_num_persona_input = make_opt(&d->opt_num_persona, "0");
+  auto opt_search_base_url_input =
+      make_opt(&d->opt_search_base_url, "http://localhost:8888");
 
   auto options_container = ftxui::Container::Vertical({
       opt_url_input,
@@ -400,11 +410,14 @@ FtxuiTui::FtxuiTui() : impl_(std::make_unique<Impl>()) {
       opt_model_input,
       opt_conn_input,
       opt_read_input,
+      opt_num_persona_input,
+      opt_search_base_url_input,
   });
 
   auto options_tab = ftxui::Renderer(
-      options_container, [opt_url_input, opt_key_input, opt_model_input,
-                          opt_conn_input, opt_read_input] {
+      options_container,
+      [opt_url_input, opt_key_input, opt_model_input, opt_conn_input,
+       opt_read_input, opt_num_persona_input, opt_search_base_url_input] {
         // Fixed-width label helper.
         constexpr int kLabelWidth = 28;
         auto row = [kLabelWidth](const char* label, ftxui::Component c) {
@@ -422,6 +435,8 @@ FtxuiTui::FtxuiTui() : impl_(std::make_unique<Impl>()) {
             row("UR_LLM_MODEL", opt_model_input),
             row("UR_LLM_CONNECTION_TIMEOUT", opt_conn_input),
             row("UR_LLM_READ_TIMEOUT", opt_read_input),
+            row("UR_NUM_PERSONA", opt_num_persona_input),
+            row("UR_SEARCH_BASE_URL", opt_search_base_url_input),
             ftxui::separator(),
             ftxui::text(
                 "Press Enter on any field to save all options to .env.") |
