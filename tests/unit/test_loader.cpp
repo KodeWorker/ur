@@ -17,8 +17,8 @@ ur::Paths make_paths(const fs::path& root) {
   p.workspace = root / "workspace";
   p.tools = root / "tools";
   p.database = root / "database";
-  p.log = root / "log";
-  p.keys = root / "keys";
+  p.logs = root / "logs";
+  p.key = root / "key";
   return p;
 }
 
